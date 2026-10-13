@@ -1,0 +1,13 @@
+/.bundle/
+/.yardoc
+/_yardoc/
+/coverage/
+/doc/
+/pkg/
+/spec/reports/
+/tmp/
+/build/
+/node_modules/
+/.wrangler/
+/Gemfile.lock
+/mise.local.toml

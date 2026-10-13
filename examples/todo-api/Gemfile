@@ -1,0 +1,5 @@
+source "https://rubygems.org"
+
+# The example runs against the checkout, not a released gem.
+gem "edgeway", path: "../.."
+gem "spinel_test-unit", path: "../../../spinel_test-unit", group: :test

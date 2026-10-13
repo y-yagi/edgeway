@@ -1,0 +1,112 @@
+-- the verifier's answers
+ok {"sub":"u1","iss":"https://idp.example/","aud":"api","exp":1800000060}
+invalid: signature is not valid
+invalid: algorithm is not allowed
+unavailable: jwt: JWT_SECRET is not set
+{"error":"no JWT verifier is set","unavailable":true}
+-- exp, nbf, iat
+ok {"sub":"u1","iss":"https://idp.example/","aud":"api","exp":1800000001}
+invalid: token expired
+invalid: token expired
+ok {"sub":"u1","iss":"https://idp.example/","aud":"api","exp":1799999995}
+invalid: token expired
+invalid: exp is missing
+invalid: exp is not a number
+ok {"sub":"u1","iss":"https://idp.example/","aud":"api","exp":4102444800}
+ok {"sub":"u1","iss":"https://idp.example/","aud":"api","exp":1800000060.5}
+ok {"sub":"u1","iss":"https://idp.example/","aud":"api","exp":1800000060,"nbf":1800000000}
+invalid: token is not valid yet
+ok {"sub":"u1","iss":"https://idp.example/","aud":"api","exp":1800000060,"nbf":1800000005}
+invalid: nbf is not a number
+ok {"sub":"u1","iss":"https://idp.example/","aud":"api","exp":1800000060,"iat":1800000000}
+invalid: token is issued in the future
+ok {"sub":"u1","iss":"https://idp.example/","aud":"api","exp":1800000060,"iat":1800000001}
+-- iss, aud
+ok {"sub":"u1","exp":1800000060,"iss":"https://idp.example/","aud":"api"}
+invalid: issuer is not accepted
+invalid: iss is missing
+invalid: issuer is not accepted
+ok {"sub":"u1","exp":1800000060,"iss":"https://idp.example/","aud":["web","api"]}
+invalid: audience is not accepted
+invalid: audience is not accepted
+invalid: aud is missing
+invalid: audience is not accepted
+-- sub
+ok {"sub":"u1","exp":1800000060,"iss":"https://idp.example/","aud":"api"}
+invalid: sub is missing
+invalid: sub is not a non-empty string
+invalid: sub is not a non-empty string
+invalid: sub is not a non-empty string
+invalid: sub is not a non-empty string
+ok {"sub":"abc@clients","exp":1800000060,"iss":"https://idp.example/","aud":"api"}
+-- auth_time
+ok {"sub":"u1","exp":1800000060,"iss":"https://idp.example/","aud":"api","auth_time":1799999900}
+ok {"sub":"u1","exp":1800000060,"iss":"https://idp.example/","aud":"api","auth_time":1800000000}
+invalid: authenticated in the future
+ok {"sub":"u1","exp":1800000060,"iss":"https://idp.example/","aud":"api","auth_time":1800000001}
+invalid: authenticated in the future
+invalid: auth_time is not a number
+invalid: auth_time is not a number
+-- unset issuer or audience is a misconfiguration
+unavailable: jwt: JWT_ISSUER is not set
+unavailable: jwt: JWT_AUDIENCE is not set
+unavailable: jwt: JWT_ISSUER is not set
+unavailable: jwt: JWT_ISSUER is not set
+unavailable: jwt: JWT_AUDIENCE is not set
+-- the clock
+true
+invalid: token expired
+-- the default leeway is 5 seconds
+ok {"sub":"u1","iss":"https://idp.example/","aud":"api","exp":1799999996}
+invalid: token expired
+5
+https://idp.example/
+invalid: token expired
+-- settings from the environment
+api
+invalid: audience is not accepted
+-- JWT_LEEWAY is validated
+300: ok
+0: invalid: token expired
+301: unavailable: jwt: JWT_LEEWAY must be a whole number of seconds, 0 to 300
+-1: unavailable: jwt: JWT_LEEWAY must be a whole number of seconds, 0 to 300
+abc: unavailable: jwt: JWT_LEEWAY must be a whole number of seconds, 0 to 300
+5.5: unavailable: jwt: JWT_LEEWAY must be a whole number of seconds, 0 to 300
+1e2: unavailable: jwt: JWT_LEEWAY must be a whole number of seconds, 0 to 300
+99999999999: unavailable: jwt: JWT_LEEWAY must be a whole number of seconds, 0 to 300
+unavailable: jwt: JWT_LEEWAY must be a whole number of seconds, 0 to 300
+unavailable: jwt: JWT_LEEWAY must be a whole number of seconds, 0 to 300
+unavailable: jwt: JWT_LEEWAY must be a whole number of seconds, 0 to 300
+unavailable: jwt: JWT_AUDIENCE is not set
+unavailable: jwt: JWT_ISSUER is not set
+-- the error classes
+Edgeway::InvalidToken < Edgeway::Unauthorized < Edgeway::Error < StandardError
+-- requests
+/me [] -> 401 {"error":"authentication required"}  (Bearer)
+/me [Bearer good] -> 200 {"sub":"u1","authenticated":true}
+/me [bearer good] -> 200 {"sub":"u1","authenticated":true}
+/me [Bearer   good  ] -> 200 {"sub":"u1","authenticated":true}
+/me [Bearer] -> 401 {"error":"authentication required"}  (Bearer)
+/me [Bearer ] -> 401 {"error":"authentication required"}  (Bearer)
+/me [Basic Zm9vOmJhcg==] -> 401 {"error":"authentication required"}  (Bearer)
+/me [Bearer old] -> 401 {"error":"invalid token"}  (Bearer error="invalid_token")
+/me [Bearer nope] -> 401 {"error":"invalid token"}  (Bearer error="invalid_token")
+/open [] -> 200 {"authenticated":false,"claims":{}}
+/open [Bearer good] -> 200 {"authenticated":false,"claims":{}}
+/soft [] -> 403 {"denied":"authentication required"}
+/soft [Bearer nope] -> 403 {"denied":"signature is not valid"}
+/soft [Bearer good] -> 200 {"ok":true}
+-- the verifier can't check
+/me [Bearer down] -> 500 {"error":"internal error"}
+-- the log has the reasons, never the token
+/me [] -> 401 {"error":"authentication required"}  (Bearer)
+/me [Bearer old] -> 401 {"error":"invalid token"}  (Bearer error="invalid_token")
+/me [Bearer secret-token-value] -> 401 {"error":"invalid token"}  (Bearer error="invalid_token")
+/me [Bearer down] -> 500 {"error":"internal error"}
+info 401 authentication required
+info 401 token expired
+info 401 signature is not valid
+error Edgeway::ConfigurationError: jwt: cannot fetch the JWKS: down
+-- the app has no issuer or audience
+/me [Bearer good] -> 500 {"error":"internal error"}
+/me [] -> 401 {"error":"authentication required"}  (Bearer)

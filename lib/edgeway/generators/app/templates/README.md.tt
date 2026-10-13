@@ -1,0 +1,20 @@
+# <%= @name %>
+
+An Edgeway app.
+
+```sh
+bin/setup                                     # mise, bundle, <%= PackageManager.name %> and the local D1 migrations, in one go
+
+# or step by step:
+mise install                                  # Spinel and the WASI SDK (mise.toml)
+bundle install
+<%= PackageManager.install %>
+bundle exec edgeway build                     # build/app.wasm (or bin/build)
+<%= PackageManager.exec %> wrangler d1 migrations apply <%= @name %>-db --local
+<%= PackageManager.exec %> wrangler dev                              # http://localhost:8787/health
+bundle exec edgeway routes
+```
+
+Without mise, set `SPINEL` to the Spinel compiler and `WASI_SDK` to the WASI SDK.
+
+Tests (`test/`) run with `bundle exec edgeway test [ARGS]`. Always use it rather than `spinel_test-unit` directly: it rewrites `tmp/test_app.rb` (git-ignored) from `app/` on every run, so new files are picked up. Each test gets a fresh in-memory SQLite database with `db/migrations/*.sql` applied, which needs the SQLite library to link (`apt install libsqlite3-dev` on Debian/Ubuntu).

@@ -1,0 +1,6 @@
+/build/
+/node_modules/
+/.wrangler/
+/tmp/
+/.dev.vars
+/.env*

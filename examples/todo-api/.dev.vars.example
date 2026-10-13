@@ -1,0 +1,2 @@
+# Copy to .dev.vars (git-ignored), which `wrangler dev` reads as secrets.
+JWT_SECRET=change-me-to-a-long-random-string

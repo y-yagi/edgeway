@@ -1,0 +1,34 @@
+GET /todos TodosController#index
+POST /todos TodosController#create
+GET /todos/:id TodosController#show
+PATCH /todos/:id TodosController#update
+PUT /todos/:id TodosController#update
+DELETE /todos/:id TodosController#destroy
+GET /todos/:todo_id/comments CommentsController#index
+POST /todos/:todo_id/comments CommentsController#create
+DELETE /todos/:todo_id/comments/:id CommentsController#destroy
+GET /admin/todos Admin::TodosController#index
+GET /admin/stats Admin::StatsController#show
+GET /health HealthController#show
+GET / HealthController#show
+CommentsController index 5
+destroy 5 9
+Admin::StatsController
+/
+no route for DELETE /health
+GET /admin/todos Admin::TodosController#index
+GET /admin/todos/:id Admin::TodosController#show
+GET /admin/todos/:todo_id/comments Admin::CommentsController#index
+GET /admin/todos/:todo_id/comments/:comment_id/replies/:id Admin::RepliesController#show
+GET /posts PostsController#index
+POST /posts PostsController#create
+GET /posts/:id PostsController#show
+GET /posts/:post_id/tags TagsController#index
+GET /categories CategoriesController#index
+GET /categories/:category_id/items ItemsController#index
+Admin::RepliesController 5 6 7
+ItemsController 2
+unknown action for resources :pages: new
+unknown action for resources :pages: edit
+HEAD GET show
+no route for HEAD /todos/5/comments/9

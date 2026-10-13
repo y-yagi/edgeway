@@ -1,0 +1,9 @@
+source "https://rubygems.org"
+
+# Edgeway (<%= @version %>) is not published on RubyGems yet, so it comes from
+# GitHub. Once it is, use: gem "edgeway", "<%= @version %>"
+gem "edgeway", github: "y-yagi/edgeway"
+
+# spinel_test-unit (what `edgeway test` runs) is not published on RubyGems yet
+# either. Once it is, use: gem "spinel_test-unit", group: :test
+gem "spinel_test-unit", github: "y-yagi/spinel_test-unit", group: :test

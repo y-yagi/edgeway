@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Compiles the app to build/app.wasm, like `bundle exec edgeway build`.
+# Arguments go to it (--env ENV).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+exec bundle exec edgeway build "$@"

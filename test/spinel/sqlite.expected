@@ -1,0 +1,40 @@
+returning: true
+{"changes" => 1, "last_insert_id" => 1}
+[{"id" => 1, "name" => "a'b", "score" => 1.5, "active" => 0, "rank" => 9000000000}]
+Integer
+Float
+{"changes" => 1, "last_insert_id" => 2}
+[{"score" => nil, "rank" => nil}]
+[{"one" => 1, "two" => 2.5, "three" => "x", "four" => nil}]
+[]
+{"changes" => 1, "last_insert_id" => 3}
+[{"active" => 1}]
+{"id" => 4, "name" => "g1", "score" => 2.25, "active" => true, "rank" => 3}
+{"id" => 4, "name" => "g1", "score" => 2.25, "active" => true, "rank" => 3}
+{"id" => 4, "name" => "g1b", "score" => 2.25, "active" => true, "rank" => nil}
+1
+3
+["bools", "g1b"]
+false
+["a'b", "nil-score", "bools"]
+---
+unique: UNIQUE constraint failed: labels.name
+db error: no such table: nowhere false
+not null: NOT NULL constraint failed: labels.name
+1
+2
+["x", "b1", "b2"]
+rolled back: UNIQUE constraint failed: labels.name
+["x", "b1", "b2"]
+4
+["x", "c1", "c2", "b4"]
+model batch rolled back
+["x", "c1", "c2", "b4"]
+2
+0
+fk: FOREIGN KEY constraint failed
+{"id" => 5, "name" => "ret"}
+1
+0
+SELECT id, name FROM labels WHERE name = ? LIMIT ? | ["ret2",1]
+[{"n" => 0}]

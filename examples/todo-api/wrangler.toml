@@ -1,0 +1,54 @@
+name = "edgeway-todo-api"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+
+# JWT authentication (MeController). HS256 with a shared secret keeps the
+# example self-contained; with an IdP such as Auth0 it would be
+# JWT_ALGORITHMS = "RS256" and JWT_JWKS_URL = "https://<tenant>/.well-known/jwks.json".
+# JWT_ISSUER and JWT_AUDIENCE are required (an empty one makes /me answer 500).
+# JWT_JWKS_URL must be https (http only for localhost). An HS* JWT_SECRET must
+# be at least 32 bytes (HS256), 48 (HS384) or 64 (HS512). JWT_LEEWAY defaults
+# to 5 seconds when unset.
+# The secret is not here: locally it is in .dev.vars (git-ignored, see
+# .dev.vars.example), and for a deploy `npx wrangler secret put JWT_SECRET`.
+[vars]
+JWT_ALGORITHMS = "HS256"
+JWT_ISSUER = "https://idp.example/"
+JWT_AUDIENCE = "todo-api"
+JWT_LEEWAY = "5"
+
+# CORS: the origins a browser app may call from (comma-separated, exact match;
+# "*" for any). Unset means no CORS. Others: CORS_HEADERS, CORS_MAX_AGE,
+# CORS_EXPOSE_HEADERS (see the README).
+CORS_ORIGINS = "http://localhost:3000"
+
+# Simulated locally by `wrangler dev`. Create the tables with
+# `npx wrangler d1 migrations apply edgeway-todos --local`.
+[[d1_databases]]
+binding = "DB"
+database_name = "edgeway-todos"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "db/migrations"
+
+# For a deploy: `npx wrangler d1 create edgeway-todos`, put its id here, then
+# `edgeway build --env production`,
+# `npx wrangler d1 migrations apply edgeway-todos --remote --env prod` and
+# `npx wrangler deploy --env prod`. Bindings are not inherited by an
+# environment, so the D1 binding is written again.
+[env.prod]
+name = "edgeway-todo-api"
+
+# Variables are not inherited either. (The app sees only JWT_ISSUER,
+# JWT_AUDIENCE, JWT_LEEWAY, JWT_ALGORITHMS, JWT_JWKS_URL and APP_* ones.)
+[env.prod.vars]
+JWT_ALGORITHMS = "HS256"
+JWT_ISSUER = "https://idp.example/"
+JWT_AUDIENCE = "todo-api"
+JWT_LEEWAY = "5"
+CORS_ORIGINS = "http://localhost:3000"
+
+[[env.prod.d1_databases]]
+binding = "DB"
+database_name = "edgeway-todos"
+database_id = "<D1 database id>"
+migrations_dir = "db/migrations"

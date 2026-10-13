@@ -1,0 +1,13 @@
+CC=true:
+ok
+CC=false:
+libsqlite3 cannot be linked (`CC -lsqlite3` failed); `edgeway test` needs the SQLite development library.
+  Debian/Ubuntu: sudo apt install libsqlite3-dev
+  Fedora:        sudo dnf install sqlite-devel
+  macOS:         brew install sqlite
+If it is installed somewhere else, set LIBRARY_PATH to a directory holding libsqlite3.so.
+Set EDGEWAY_SKIP_PRECHECK=1 to skip this check.
+skipped:
+ok
+no compiler:
+ok

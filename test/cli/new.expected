@@ -1,0 +1,33 @@
+.gitignore
+Gemfile
+README.md
+app/controllers/application_controller.rb
+app/controllers/health_controller.rb
+app/models/application_model.rb
+bin/build
+bin/deploy
+bin/setup
+config/database.yml
+config/routes.rb
+db/migrations/.keep
+mise.toml
+package.json
+src/worker.js
+test/controllers/health_test.rb
+test/test_helper.rb
+wrangler.toml
+--
+require "edgeway/test"
+require "edgeway/test"
+require "test_helper"
+class HealthTest < Edgeway::IntegrationTest
+gem "spinel_test-unit", github: "y-yagi/spinel_test-unit", group: :test
+bin/setup executable: true
+bin/build executable: true
+bin/deploy executable: true
+package.json: nil
+mise.toml: node = "lts"; pnpm = "latest"; 
+pnpm exec wrangler d1 migrations apply my_app-db --remote
+pnpm exec wrangler deploy "$@"
+mentions npm/npx: []
+Next: cd APP && bin/setup && bundle exec edgeway test && bin/build

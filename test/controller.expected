@@ -1,0 +1,51 @@
+GET /todos -> 200 {"X-Log" => "in", "Content-Type" => "application/json"} [{"id":1,"title":"a","done":false},{"id":1,"title":"a","done":false}]
+GET /todos/1 -> 200 {"X-Log" => "in", "Content-Type" => "application/json"} {"id":1,"title":"a","done":false}
+GET /todos/2 -> 404 {"X-Log" => "in", "Content-Type" => "application/json"} {"error":"gone: todos 2 not found"}
+GET /todos/1 -> 200 {"X-Log" => "in", "Content-Type" => "application/json"} {"id":1,"title":"a","done":false}
+DELETE /todos/1 -> 204 {"X-Log" => "in"} 
+DELETE /todos/1 -> 403 {"X-Log" => "in", "Content-Type" => "application/json"} {"error":"denied"}
+POST /todos -> 201 {"X-Log" => "in", "Content-Type" => "application/json"} {"id":7,"title":"n","done":false}
+POST /todos -> 201 {"X-Log" => "in", "Content-Type" => "application/json"} {"id":8,"title":"w","done":false}
+POST /todos -> 400 {"X-Log" => "in", "Content-Type" => "application/json"} {"error":"bad: param is missing or the value is empty: todo"}
+POST /todos -> 422 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"errors":["title can't be blank"]}
+POST /todos -> 400 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"bad JSON body"}
+GET /echo/5 -> 200 {"X-Log" => "in", "Content-Type" => "application/json"} {"title":null,"id":"5"}
+POST /echo/5 -> 200 {"X-Log" => "in", "Content-Type" => "application/json"} {"title":"t","id":"5"}
+GET /boom -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
+GET /nope -> 404 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"not found"}
+DELETE /health -> 404 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"not found"}
+GET /admin/todos -> 200 {"X-Log" => "in", "Content-Type" => "application/json"} [{"admin":"yes"}]
+GET /ghost -> 404 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"not found"}
+GET /decoy -> 404 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"not found"}
+GET /things/child -> 422 {"X-Log" => "in", "Content-Type" => "application/json"} {"error":"app: child failed"}
+GET /things/plain_child -> 409 {"X-Log" => "in", "Content-Type" => "application/json"} {"error":"plain: SubPlainError: plain failed"}
+GET /things/quiet -> 204 {"X-Log" => "in"} 
+GET /things/typo -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
+GET /things/nested -> 200 {"X-Log" => "in", "Content-Type" => "application/json"} {"todo":{"id":null,"title":"n","done":false},"list":[{"id":null,"title":"a","done":false},[{"id":null,"title":"b","done":false}]],"n":1}
+GET /things/header -> 200 {"X-Log" => "in", "Content-Type" => "application/json"} {"x":"abc","none":""}
+GET /things/inject -> 200 {"X-Log" => "in", "X-Name" => "ok", "Content-Type" => "application/json"} {}
+GET /things/inject -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
+GET /things/bad_header_name -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
+POST /things/form -> 200 {"X-Log" => "in", "Content-Type" => "application/json"} {"title":"a b","plain":"f"}
+HEAD /todos/1 -> 200 {"X-Log" => "in", "Content-Type" => "application/json"} {"id":1,"title":"a","done":false}
+GET /things/missing -> 404 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"not found"}
+GET /things/private -> 404 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"not found"}
+GET /things/render -> 404 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"not found"}
+GET /echo/1 -> 400 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"query string is not valid UTF-8"}
+GET /echo/1 -> 200 {"X-Log" => "in", "Content-Type" => "application/json"} {"title":null,"id":"1"}
+POST /echo/1 -> 400 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"form body is not valid UTF-8"}
+POST /echo/1 -> 400 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"body is not valid UTF-8"}
+GET /todos/4294967297 -> 404 {"X-Log" => "in", "Content-Type" => "application/json"} {"error":"gone: todos 4294967297 not found"}
+GET /todos -> 400 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"bad limit: 99999999999"}
+POST /todos -> 409 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"record not unique"}
+info 409 D1_ERROR: UNIQUE constraint failed: todos.title: SQLITE_CONSTRAINT
+POST /todos -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
+error Edgeway::DatabaseError: D1_ERROR: no such table: todos: SQLITE_ERROR
+POST /taken -> 422 {"X-Log" => "in", "Content-Type" => "application/json"} {"error":"name taken"}
+POST /mass/raw -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
+error Edgeway::ForbiddenAttributes: Todo: params must go through permit
+POST /mass/required -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
+error Edgeway::ForbiddenAttributes: Todo: params must go through permit
+POST /mass/raw_update/1 -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
+error Edgeway::ForbiddenAttributes: Todo: params must go through permit
+POST /mass/permitted -> 201 {"X-Log" => "in", "Content-Type" => "application/json"} {"id":9,"title":"p","done":false}
