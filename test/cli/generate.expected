@@ -1,0 +1,78 @@
+  create  app/models/todo.rb
+  create  db/migrations/0001_create_todos.sql
+  create  test/models/todo_test.rb
+
+Apply the migration locally: pnpm exec wrangler d1 migrations apply DB_NAME --local
+-- app/models/todo.rb
+class Todo < ApplicationModel
+  attribute :title, :string
+  attribute :done, :boolean, default: false
+  attribute :priority, :integer
+  attribute :due, :datetime
+  timestamps
+end
+-- db/migrations/0001_create_todos.sql
+CREATE TABLE todos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT,
+  done INTEGER NOT NULL DEFAULT 0,
+  priority INTEGER,
+  due TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+-- test/models/todo_test.rb
+require "edgeway/test"
+require "test_helper"
+
+class TodoTest < Edgeway::UnitTest
+  def test_starts_empty
+    assert_equal 0, Todo.count
+  end
+end
+  create  app/models/blog_post.rb
+  create  db/migrations/0002_create_blog_posts.sql
+  create  test/models/blog_post_test.rb
+
+Apply the migration locally: pnpm exec wrangler d1 migrations apply DB_NAME --local
+0001_create_todos.sql
+0002_create_blog_posts.sql
+  create  app/controllers/todos_controller.rb
+  create  test/controllers/todos_test.rb
+
+Add to config/routes.rb:
+  r.get "/todos/archive", to: "todos#archive"
+  r.resources :todos, only: [:index, :show]
+-- app/controllers/todos_controller.rb
+class TodosController < ApplicationController
+  def index = render json: {}
+
+  def show = render json: {}
+
+  def archive = render json: {}
+end
+-- test/controllers/todos_test.rb
+require "edgeway/test"
+require "test_helper"
+
+class TodosTest < Edgeway::IntegrationTest
+  # def test_index
+  #   get "/todos"
+  #   assert_response 200
+  # end
+end
+  create  app/controllers/tags_controller.rb
+  create  test/controllers/tags_test.rb
+
+Add to config/routes.rb:
+  r.resources :tags
+-- app/controllers/tags_controller.rb
+class TagsController < ApplicationController
+end
+--
+no config/routes.rb in DIR; run this inside an app made by `edgeway new`
+Usage: edgeway generate model NAME [field:type ...]
+Usage: edgeway generate model NAME [field:type ...]
+app/models/todo.rb already exists
+unknown field type blob (string, text, integer, float, boolean, datetime)
+invalid action name: Bad-Action

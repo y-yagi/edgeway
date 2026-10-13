@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Builds the app, applies pending D1 migrations to the remote database, and
+# deploys it to Cloudflare. Needs a Cloudflare login and the D1 database's id
+# in wrangler.toml (see bin/setup). Arguments go to `wrangler deploy`.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+bin/build
+<%= PackageManager.exec %> wrangler d1 migrations apply <%= @name %>-db --remote
+<%= PackageManager.exec %> wrangler deploy "$@"

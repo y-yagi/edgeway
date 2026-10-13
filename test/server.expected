@@ -1,0 +1,37 @@
+Status: 200
+Content-Type: application/json
+
+{"status":"ok","q":"a b"}
+--
+Status: 404
+Content-Type: application/json
+X-Content-Type-Options: nosniff
+
+{"error":"not found"}
+--
+Status: 200
+X-Name: ok
+Content-Type: application/json
+
+{}
+--
+Status: 500
+Content-Type: application/json
+X-Content-Type-Options: nosniff
+
+{"error":"internal error"}
+--
+Status: 201
+Content-Type: application/json
+X-Count: 3
+
+{}
+--
+bad header name: "X Name"
+bad header name: "X:Name"
+bad header name: "X-Name\n"
+bad header name: ""
+bad header name: "Näme"
+bad value for header X-Name
+bad value for header X-Name
+bad value for header X-Name

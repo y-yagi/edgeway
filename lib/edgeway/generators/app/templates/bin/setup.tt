@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Sets up the app for development. Safe to run again.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+# Spinel and the WASI SDK, from mise.toml. `edgeway test` also links libsqlite3
+# (libsqlite3-dev on Debian/Ubuntu; part of macOS).
+if command -v mise >/dev/null 2>&1; then
+  mise trust --quiet
+  mise install
+else
+  echo "bin/setup: mise is not installed (https://mise.jdx.dev/)." >&2
+  echo "Install Spinel and the WASI SDK yourself, and set SPINEL and WASI_SDK." >&2
+fi
+
+bundle install
+
+# wrangler, from package.json.
+if ! command -v <%= PackageManager.name %> >/dev/null 2>&1; then
+  echo "bin/setup: <%= PackageManager.name %> is not installed; install it to get wrangler." >&2
+  exit 1
+fi
+<%= PackageManager.install %>
+
+# The local D1 database `wrangler dev` uses.
+<%= PackageManager.exec %> wrangler d1 migrations apply <%= @name %>-db --local
+
+# Deploying needs a Cloudflare login and a D1 database; neither is required
+# for development, so only say what is missing.
+if ! <%= PackageManager.exec %> wrangler whoami 2>/dev/null | grep -qi "associated with the email"; then
+  echo
+  echo "To deploy, log in to Cloudflare: <%= PackageManager.exec %> wrangler login"
+  echo "Then create the database:        <%= PackageManager.exec %> wrangler d1 create <%= @name %>-db"
+  echo "and put its database_id in wrangler.toml."
+fi
+
+echo
+echo "Done. Next: bin/build && <%= PackageManager.exec %> wrangler dev"

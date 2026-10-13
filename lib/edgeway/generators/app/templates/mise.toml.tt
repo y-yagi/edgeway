@@ -1,0 +1,24 @@
+# The tools `edgeway build` needs, and Node.js and <%= PackageManager.name %> for wrangler: `mise install`.
+
+[plugins]
+spinel = "https://github.com/y-yagi/mise-spinel"
+
+[tools]
+# Its bin/ (clang, ar, ...) must not shadow the system's compilers, so
+# bin_path points at a directory that doesn't exist and only WASI_SDK below
+# says where it is.
+"github:WebAssembly/wasi-sdk" = { version = "wasi-sdk-34", bin_path = "no-bin" }
+
+# A commit of matz/spinel (mise-spinel builds any git ref from source):
+# Edgeway needs fixes newer than the 2026.09.12 release. A commit rather than
+# master, so an install (and CI's cache of it) is the Spinel that was tested.
+# depends: the wasi-sdk is installed first, so the build also makes Spinel's
+# wasm32-wasi runtime (mise-spinel does when WASI_SDK, set below, is there).
+spinel = { version = "530ba2b17", depends = ["github:WebAssembly/wasi-sdk"] }
+
+# wrangler (package.json) runs on Node.js.
+node = "lts"
+<%= PackageManager.name %> = "latest"
+
+[env]
+WASI_SDK = { value = "{{ tools['github:WebAssembly/wasi-sdk'].path | default(value='') }}", tools = true }

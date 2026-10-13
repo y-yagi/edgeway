@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+set -vx
+
+# Spinel and the WASI SDK, from mise.toml.
+if command -v mise >/dev/null 2>&1; then
+  mise trust --quiet
+  mise install
+else
+  echo "bin/setup: mise is not installed (https://mise.jdx.dev/)." >&2
+  echo "Install Spinel and the WASI SDK yourself, and set SPINEL and WASI_SDK." >&2
+fi
+
+if [ "$(uname)" = "Linux" ] && [ ! -e /usr/include/sqlite3.h ]; then
+  echo "bin/setup: libsqlite3-dev is missing (apt install libsqlite3-dev); SQLiteAdapter tests cannot link." >&2
+fi
+
+bundle install
