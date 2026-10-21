@@ -14,7 +14,7 @@ spinel = "https://github.com/y-yagi/mise-spinel"
 # master, so an install (and CI's cache of it) is the Spinel that was tested.
 # depends: the wasi-sdk is installed first, so the build also makes Spinel's
 # wasm32-wasi runtime (mise-spinel does when WASI_SDK, set below, is there).
-spinel = { version = "530ba2b17", depends = ["github:WebAssembly/wasi-sdk"] }
+spinel = { version = "76d07464f", depends = ["github:WebAssembly/wasi-sdk"] }
 
 # wrangler (package.json) runs on Node.js.
 node = "lts"
