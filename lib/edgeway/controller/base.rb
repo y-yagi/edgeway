@@ -63,7 +63,7 @@ module Edgeway
       def headers = @headers
 
       def action?(name)
-        self.respond_to?(name.to_sym) && !NON_ACTIONS.include?(name)
+        respond_to?(name.to_sym) && !NON_ACTIONS.include?(name)
       end
 
       def params

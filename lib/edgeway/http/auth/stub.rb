@@ -12,9 +12,7 @@ module Edgeway
       end
 
       def reject(token, message)
-        # .dup: since matz/spinel 44119ab30 (Strings shared by reference),
-        # Spinel refuses this String as it is, or emits C that doesn't compile.
-        @answers[token] = JSON.generate({ "error" => message.dup })
+        @answers[token] = JSON.generate({ "error" => message })
       end
 
       def unavailable(token, message)

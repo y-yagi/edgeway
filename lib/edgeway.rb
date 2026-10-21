@@ -1,5 +1,6 @@
 require "json"
 require "time"
+require "uri"
 require_relative "edgeway/version"
 require_relative "edgeway/errors"
 require_relative "edgeway/inflector"

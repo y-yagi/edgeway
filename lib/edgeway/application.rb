@@ -58,9 +58,7 @@ module Edgeway
     end
 
     def message(status, text)
-      # .dup: since matz/spinel 44119ab30 (Strings shared by reference),
-      # Spinel refuses this String as it is, or emits C that doesn't compile.
-      Controller::Rendering.json_response(status, JSON.generate({ "error" => text.dup }))
+      Controller::Rendering.json_response(status, JSON.generate({ "error" => text }))
     end
   end
 

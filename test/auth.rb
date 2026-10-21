@@ -6,11 +6,9 @@ NOW = 1_800_000_000
 stub = Edgeway::Auth::StubVerifier.new
 Edgeway::Auth.verifier = stub
 
-# A method, not a constant: since matz/spinel 44119ab30 a String constant put
-# into Hashes beside a const_get with a computed name emits C that does not compile.
-def iss = "https://idp.example/"
+ISS = "https://idp.example/"
 
-def decode(stub, token, payload, issuer: iss, audience: "api", leeway: 0)
+def decode(stub, token, payload, issuer: ISS, audience: "api", leeway: 0)
   stub.allow(token, payload) unless payload.nil?
   jwt = Edgeway::Auth::JWT.new(stub, issuer: issuer, audience: audience, leeway: leeway, now: NOW)
   claims = jwt.decode(token)
@@ -22,7 +20,7 @@ rescue Edgeway::ConfigurationError => e
 end
 
 puts "-- the verifier's answers"
-decode(stub, "t1", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => NOW + 60 })
+decode(stub, "t1", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => NOW + 60 })
 decode(stub, "unknown", nil)
 stub.reject("t2", "algorithm is not allowed")
 decode(stub, "t2", nil)
@@ -31,79 +29,79 @@ decode(stub, "t3", nil)
 puts Edgeway::Auth::Verifier.new.verify("x")
 
 puts "-- exp, nbf, iat"
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => NOW + 1 })
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => NOW })
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => NOW - 1 })
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => NOW - 5 }, leeway: 10)
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => NOW - 10 }, leeway: 10)
-decode(stub, "a", { "sub" => "no exp", "iss" => iss, "aud" => "api" })
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => "soon" })
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => 4_102_444_800 })
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => NOW + 60.5 })
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => NOW + 60, "nbf" => NOW })
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => NOW + 60, "nbf" => NOW + 1 })
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => NOW + 60, "nbf" => NOW + 5 }, leeway: 5)
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => NOW + 60, "nbf" => "x" })
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => NOW + 60, "iat" => NOW })
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => NOW + 60, "iat" => NOW + 1 })
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => NOW + 60, "iat" => NOW + 1 }, leeway: 1)
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => NOW + 1 })
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => NOW })
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => NOW - 1 })
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => NOW - 5 }, leeway: 10)
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => NOW - 10 }, leeway: 10)
+decode(stub, "a", { "sub" => "no exp", "iss" => ISS, "aud" => "api" })
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => "soon" })
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => 4_102_444_800 })
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => NOW + 60.5 })
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => NOW + 60, "nbf" => NOW })
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => NOW + 60, "nbf" => NOW + 1 })
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => NOW + 60, "nbf" => NOW + 5 }, leeway: 5)
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => NOW + 60, "nbf" => "x" })
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => NOW + 60, "iat" => NOW })
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => NOW + 60, "iat" => NOW + 1 })
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => NOW + 60, "iat" => NOW + 1 }, leeway: 1)
 
 puts "-- iss, aud"
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss, "aud" => "api" })
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS, "aud" => "api" })
 decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => "https://evil.example/", "aud" => "api" })
 decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "aud" => "api" })
 decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => 7, "aud" => "api" })
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss, "aud" => ["web", "api"] })
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss, "aud" => ["web"] })
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss, "aud" => "web" })
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss })
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss, "aud" => 7 })
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS, "aud" => ["web", "api"] })
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS, "aud" => ["web"] })
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS, "aud" => "web" })
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS })
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS, "aud" => 7 })
 
 puts "-- sub"
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss, "aud" => "api" })
-decode(stub, "a", { "exp" => NOW + 60, "iss" => iss, "aud" => "api" })
-decode(stub, "a", { "sub" => "", "exp" => NOW + 60, "iss" => iss, "aud" => "api" })
-decode(stub, "a", { "sub" => 123, "exp" => NOW + 60, "iss" => iss, "aud" => "api" })
-decode(stub, "a", { "sub" => nil, "exp" => NOW + 60, "iss" => iss, "aud" => "api" })
-decode(stub, "a", { "sub" => ["u1"], "exp" => NOW + 60, "iss" => iss, "aud" => "api" })
-decode(stub, "a", { "sub" => "abc@clients", "exp" => NOW + 60, "iss" => iss, "aud" => "api" })
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS, "aud" => "api" })
+decode(stub, "a", { "exp" => NOW + 60, "iss" => ISS, "aud" => "api" })
+decode(stub, "a", { "sub" => "", "exp" => NOW + 60, "iss" => ISS, "aud" => "api" })
+decode(stub, "a", { "sub" => 123, "exp" => NOW + 60, "iss" => ISS, "aud" => "api" })
+decode(stub, "a", { "sub" => nil, "exp" => NOW + 60, "iss" => ISS, "aud" => "api" })
+decode(stub, "a", { "sub" => ["u1"], "exp" => NOW + 60, "iss" => ISS, "aud" => "api" })
+decode(stub, "a", { "sub" => "abc@clients", "exp" => NOW + 60, "iss" => ISS, "aud" => "api" })
 
 puts "-- auth_time"
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss, "aud" => "api", "auth_time" => NOW - 100 })
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss, "aud" => "api", "auth_time" => NOW })
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss, "aud" => "api", "auth_time" => NOW + 1 })
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss, "aud" => "api", "auth_time" => NOW + 1 }, leeway: 1)
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss, "aud" => "api", "auth_time" => NOW + 2 }, leeway: 1)
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss, "aud" => "api", "auth_time" => "yesterday" })
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss, "aud" => "api", "auth_time" => nil })
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS, "aud" => "api", "auth_time" => NOW - 100 })
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS, "aud" => "api", "auth_time" => NOW })
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS, "aud" => "api", "auth_time" => NOW + 1 })
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS, "aud" => "api", "auth_time" => NOW + 1 }, leeway: 1)
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS, "aud" => "api", "auth_time" => NOW + 2 }, leeway: 1)
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS, "aud" => "api", "auth_time" => "yesterday" })
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS, "aud" => "api", "auth_time" => nil })
 
 puts "-- unset issuer or audience is a misconfiguration"
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss, "aud" => "api" }, issuer: "")
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss, "aud" => "api" }, audience: "")
-decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => iss, "aud" => "api" }, issuer: "", audience: "")
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS, "aud" => "api" }, issuer: "")
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS, "aud" => "api" }, audience: "")
+decode(stub, "a", { "sub" => "u1", "exp" => NOW + 60, "iss" => ISS, "aud" => "api" }, issuer: "", audience: "")
 decode(stub, "nope", nil, issuer: "")
 decode(stub, "t3", nil, audience: "")
 
 puts "-- the clock"
-stub.allow("c", { "sub" => "u1", "exp" => Time.now.to_i + 3600, "iat" => Time.now.to_i - 5, "iss" => iss, "aud" => "api" })
-puts Edgeway::Auth::JWT.new(stub, issuer: iss, audience: "api").decode("c").key?("exp")
-stub.allow("old", { "sub" => "u1", "exp" => Time.now.to_i - 3600, "iss" => iss, "aud" => "api" })
+stub.allow("c", { "sub" => "u1", "exp" => Time.now.to_i + 3600, "iat" => Time.now.to_i - 5, "iss" => ISS, "aud" => "api" })
+puts Edgeway::Auth::JWT.new(stub, issuer: ISS, audience: "api").decode("c").key?("exp")
+stub.allow("old", { "sub" => "u1", "exp" => Time.now.to_i - 3600, "iss" => ISS, "aud" => "api" })
 begin
-  Edgeway::Auth::JWT.new(stub, issuer: iss, audience: "api").decode("old")
+  Edgeway::Auth::JWT.new(stub, issuer: ISS, audience: "api").decode("old")
 rescue Edgeway::InvalidToken => e
   puts "invalid: #{e.message}"
 end
 
 puts "-- the default leeway is 5 seconds"
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => NOW - 4 }, leeway: Edgeway::Auth::JWT::DEFAULT_LEEWAY)
-decode(stub, "a", { "sub" => "u1", "iss" => iss, "aud" => "api", "exp" => NOW - 5 }, leeway: Edgeway::Auth::JWT::DEFAULT_LEEWAY)
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => NOW - 4 }, leeway: Edgeway::Auth::JWT::DEFAULT_LEEWAY)
+decode(stub, "a", { "sub" => "u1", "iss" => ISS, "aud" => "api", "exp" => NOW - 5 }, leeway: Edgeway::Auth::JWT::DEFAULT_LEEWAY)
 puts Edgeway::Auth::JWT::DEFAULT_LEEWAY
 ENV["JWT_ISSUER"] = "https://idp.example/"
 ENV["JWT_AUDIENCE"] = "api"
 # JWT_LEEWAY is not set yet: from_config (Auth.decode) uses the default.
-stub.allow("d1", { "sub" => "u1", "exp" => Time.now.to_i - 3, "iss" => iss, "aud" => "api" })
+stub.allow("d1", { "sub" => "u1", "exp" => Time.now.to_i - 3, "iss" => ISS, "aud" => "api" })
 puts Edgeway::Auth.decode("d1")["iss"]
-stub.allow("d2", { "sub" => "u1", "exp" => Time.now.to_i - 30, "iss" => iss, "aud" => "api" })
+stub.allow("d2", { "sub" => "u1", "exp" => Time.now.to_i - 30, "iss" => ISS, "aud" => "api" })
 begin
   Edgeway::Auth.decode("d2")
 rescue Edgeway::InvalidToken => e
@@ -182,10 +180,10 @@ app.routes.draw do |r|
   r.get "/soft", to: "soft#show"
 end
 
-ENV["JWT_ISSUER"] = iss
+ENV["JWT_ISSUER"] = ISS
 ENV["JWT_AUDIENCE"] = "api"
-stub.allow("good", { "sub" => "u1", "exp" => Time.now.to_i + 600, "iss" => iss, "aud" => "api" })
-stub.allow("old", { "sub" => "u1", "exp" => Time.now.to_i - 600, "iss" => iss, "aud" => "api" })
+stub.allow("good", { "sub" => "u1", "exp" => Time.now.to_i + 600, "iss" => ISS, "aud" => "api" })
+stub.allow("old", { "sub" => "u1", "exp" => Time.now.to_i - 600, "iss" => ISS, "aud" => "api" })
 
 def get(app, path, authorization)
   ENV["HTTP_AUTHORIZATION"] = authorization

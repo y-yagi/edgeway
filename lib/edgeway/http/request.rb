@@ -63,12 +63,12 @@ module Edgeway
         add_body_params(decode_pairs(@body, "form body"))
       end
 
-      # decode_www_form never raises on bad bytes: it turns those that aren't
+      # URI.decode_www_form never raises on bad bytes: it turns those that aren't
       # UTF-8 (%ff) into U+FFFD. That is only right when the client sent a
       # U+FFFD itself, so otherwise one in the result is a BadRequest.
       def decode_pairs(text, what)
         raise BadRequest, "#{what} is not valid UTF-8" unless text.valid_encoding?
-        pairs = decode_www_form(text)
+        pairs = URI.decode_www_form(text)
         sent = text.include?(REPLACEMENT) || text.downcase.include?("%ef%bf%bd")
         unless sent
           pairs.each do |k, v|
@@ -76,26 +76,6 @@ module Edgeway
           end
         end
         pairs
-      end
-
-      # URI.decode_www_form, written out so that Edgeway doesn't require
-      # "uri": a send with a computed name (Dispatcher) reaches uri's
-      # find_proxy(env = ENV), which Spinel refuses since its Strings are
-      # shared by reference (matz/spinel 44119ab30). Same answers as uri's,
-      # ArgumentError for a non-ASCII input included.
-      def decode_www_form(text)
-        raise ArgumentError, "the input of URI.decode_www_form must be ASCII only string" unless text.ascii_only?
-        return [] if text.empty?
-        pieces = text.split("&", -1)
-        pieces.pop if pieces.last.empty?
-        pieces.map do |piece|
-          key, _sep, val = piece.partition("=")
-          [unescape_www(key), unescape_www(val)]
-        end
-      end
-
-      def unescape_www(s)
-        s.b.gsub(/\+|%\h\h/) { |m| m == "+" ? " " : m[1, 2].hex.chr }.force_encoding(Encoding::UTF_8).scrub
       end
 
       def read_json
