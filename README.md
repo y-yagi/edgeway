@@ -213,6 +213,7 @@ Before `bin/deploy`:
 `bin/setup` prints these steps when they are missing.
 
 - A generated app's Gemfile takes `edgeway` and `spinel_test-unit` from RubyGems.
+- A generated app's `.github/workflows/ci.yml` installs libsqlite3-dev, Ruby (from `.ruby-version`, which `edgeway new` writes with the Ruby that ran it), and mise's tools, then runs `bin/test` and `bin/build`.
 - An app uses [pnpm](https://pnpm.io/) for wrangler (`package.json`, `bin/setup`, `mise.toml`);
   `edgeway new` names it in one place (`Edgeway::CLI::PackageManager`).
 - `SPINEL=/path/to/spinel bin/build` uses a Spinel other than the one on `PATH`.

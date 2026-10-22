@@ -26,5 +26,7 @@ Dir.mktmpdir do |dir|
   puts File.read(File.join(app, "bin/deploy")).lines.last(2)
   npm = files.select { |f| File.read(File.join(app, f)).match?(/\bnpm\b|\bnpx\b/) }
   puts "mentions npm/npx: #{npm.inspect}"
+  puts File.read(File.join(app, ".github/workflows/ci.yml")).lines.grep(/run:/)
+  puts ".ruby-version: #{File.read(File.join(app, ".ruby-version")) == RUBY_VERSION + "\n"}"
   puts out.string.lines.last.sub(app, "APP")
 end
