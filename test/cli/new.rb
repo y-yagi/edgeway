@@ -19,7 +19,7 @@ Dir.mktmpdir do |dir|
   puts File.read(File.join(app, "test/test_helper.rb"))
   puts File.read(File.join(app, "test/controllers/health_test.rb")).lines.grep(/class|require/)
   puts File.read(File.join(app, "Gemfile")).lines.grep(/spinel_test-unit/).last
-  %w[setup build deploy].each { |b| puts "bin/#{b} executable: #{File.executable?(File.join(app, "bin/#{b}"))}" }
+  %w[setup build deploy test].each { |b| puts "bin/#{b} executable: #{File.executable?(File.join(app, "bin/#{b}"))}" }
   # pnpm everywhere, npm/npx nowhere
   puts "package.json: #{File.read(File.join(app, "package.json"))[/"packageManager"/].inspect}"
   puts "mise.toml: #{File.read(File.join(app, "mise.toml")).lines.grep(/^(node|pnpm) =/).join.gsub("\n", "; ")}"

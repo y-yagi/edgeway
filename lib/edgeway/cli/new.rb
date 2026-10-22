@@ -36,7 +36,7 @@ module Edgeway
           FileUtils.chmod(0o755, dest) if File.executable?(src)
           puts "  create  #{dest}"
         end
-        puts "\nNext: cd #{@dir} && bin/setup && bundle exec edgeway test && bin/build"
+        puts "\nNext: cd #{@dir} && bin/setup && bin/test && bin/build"
       end
     end
   end

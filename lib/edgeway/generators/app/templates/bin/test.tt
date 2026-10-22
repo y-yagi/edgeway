@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Runs the tests, like `bundle exec edgeway test`.
+# Arguments go to it: test files to run (all of test/ when none are given).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+exec bundle exec edgeway test "$@"

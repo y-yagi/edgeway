@@ -190,7 +190,7 @@ edgeway new myapp
 cd myapp && bin/setup
 
 # the app's tests, natively (needs libsqlite3-dev, see "Testing an app")
-bundle exec edgeway test
+bundle exec edgeway test        # or bin/test [FILE...] in a generated app
 
 # edgeway build: writes build/app.wasm and build/edgeway/ (the JS)
 bin/build
@@ -380,6 +380,7 @@ Serving the frontend from the same origin as the API avoids CORS altogether.
 
 ```sh
 bundle exec edgeway test [ARGS]   # ARGS go to spinel_test-unit
+bin/test [FILE...]                # in a generated app: the same, all of test/ without FILE
 ```
 
 `edgeway test` is the only supported way to run an app's tests.

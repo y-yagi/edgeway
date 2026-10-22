@@ -7,6 +7,7 @@ app/models/application_model.rb
 bin/build
 bin/deploy
 bin/setup
+bin/test
 config/database.yml
 config/routes.rb
 db/migrations/.keep
@@ -25,9 +26,10 @@ gem "spinel_test-unit", "~> 0.1", group: :test
 bin/setup executable: true
 bin/build executable: true
 bin/deploy executable: true
+bin/test executable: true
 package.json: nil
 mise.toml: node = "lts"; pnpm = "latest"; 
 pnpm exec wrangler d1 migrations apply my_app-db --remote
 pnpm exec wrangler deploy "$@"
 mentions npm/npx: []
-Next: cd APP && bin/setup && bundle exec edgeway test && bin/build
+Next: cd APP && bin/setup && bin/test && bin/build
