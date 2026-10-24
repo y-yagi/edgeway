@@ -223,9 +223,7 @@ module Edgeway
         if many.nil?
           one = nil
           @model.belongs_to_list.each { |b| one = b if b.name == name }
-          # .dup: since matz/spinel 44119ab30 (Strings shared by reference),
-          # Spinel refuses this String as it is, or emits C that doesn't compile.
-          return "#{theirs}.#{other.column(one.primary_key.dup)} = #{mine}.#{@model.column(one.foreign_key.dup)}"
+          return "#{theirs}.#{other.column(one.primary_key)} = #{mine}.#{@model.column(one.foreign_key)}"
         end
         fk = many.foreign_key.nil? ? "#{Model.underscore(@model.name.split("::").last)}_id" : many.foreign_key
         pk = many.primary_key.nil? ? "id" : many.primary_key

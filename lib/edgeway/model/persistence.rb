@@ -86,10 +86,8 @@ module Edgeway
         cfg = nil
         self.class.has_manys.each { |h| cfg = h if h.name == name }
         raise ArgumentError, "no has_many #{name}" if cfg.nil?
-        # .dup: since matz/spinel 44119ab30 (Strings shared by reference),
-        # Spinel refuses this String as it is, or emits C that doesn't compile.
-        fk = cfg.foreign_key.nil? ? "#{Edgeway::Model.underscore(self.class.name.split("::").last)}_id" : cfg.foreign_key.dup
-        pk = self.class.column(cfg.primary_key.nil? ? "id" : cfg.primary_key.dup)
+        fk = cfg.foreign_key.nil? ? "#{Edgeway::Model.underscore(self.class.name.split("::").last)}_id" : cfg.foreign_key
+        pk = self.class.column(cfg.primary_key.nil? ? "id" : cfg.primary_key)
         Edgeway::Model::Base.model_named(name, self.class.name).where(fk => @attributes[pk])
       end
 

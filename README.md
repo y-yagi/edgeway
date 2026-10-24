@@ -255,7 +255,7 @@ Edgeway needs a Spinel newer than the 2026.09.12 release
 (that release refuses `send` with a computed name, which `Callbacks#run_before_actions` uses).
 
 - `mise.toml` (Edgeway's own and the one `edgeway new` writes) pins a commit of [matz/spinel](https://github.com/matz/spinel),
-  `76d07464f`, which mise-spinel builds from source.
+  `d4a4587fe`, which mise-spinel builds from source.
   A commit rather than `master`, so that an install is the Spinel that was tested.
 - The WASI SDK (`wasi-sdk-34`) is installed first,
   because mise-spinel builds Spinel's wasm32-wasi runtime only when it finds one.
