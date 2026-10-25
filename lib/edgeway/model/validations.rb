@@ -10,7 +10,7 @@ module Edgeway
         end
 
         self.class.rules.each do |rule|
-          col = rule.attribute
+          col = rule.column
           value = rule.kind == "numericality" && @raw.key?(col) ? @raw[col] : @attributes[col]
           msg = rule.message(value)
           @errors << msg unless msg.nil?
@@ -26,7 +26,7 @@ module Edgeway
         if @errors.empty?
           self.class.rules.each do |rule|
             next unless rule.kind == "uniqueness"
-            @errors << "#{rule.attribute} has already been taken" if taken?(rule)
+            @errors << "#{rule.column} has already been taken" if taken?(rule)
           end
         end
         @errors.empty?
@@ -35,9 +35,9 @@ module Edgeway
       private
 
       def taken?(rule)
-        value = @attributes[rule.attribute]
+        value = @attributes[rule.column]
         return false if value.nil?
-        found = self.class.where(rule.attribute => value)
+        found = self.class.where(rule.column => value)
         rule.scope.each { |c| found = found.where(c => @attributes[self.class.column(c)]) }
         other = found.limit(1).to_a.first
         !other.nil? && (new_record? || other.id != id)
@@ -45,7 +45,7 @@ module Edgeway
     end
 
     class Rule
-      attr_reader :attribute, :kind
+      attr_reader :column, :kind
 
       def self.scope_columns(options)
         return [] if options == true
@@ -70,7 +70,7 @@ module Edgeway
       end
 
       def initialize(attribute, kind, bounds, list, pattern)
-        @attribute = attribute
+        @column = attribute
         @kind = kind
         @bounds = bounds
         @list = list
@@ -81,14 +81,14 @@ module Edgeway
         # Uniqueness needs a query: Validations#taken? does it.
         return nil if @kind == "uniqueness"
         if @kind == "presence"
-          return "#{@attribute} can't be blank" if v.nil? || v.to_s.strip.empty?
+          return "#{@column} can't be blank" if v.nil? || v.to_s.strip.empty?
           return nil
         end
         return nil if v.nil?
         case @kind
         when "length" then length_message(v.to_s.length)
-        when "inclusion" then @list.include?(v.to_s) ? nil : "#{@attribute} is not included in the list"
-        when "format" then @pattern.match?(v.to_s) ? nil : "#{@attribute} is invalid"
+        when "inclusion" then @list.include?(v.to_s) ? nil : "#{@column} is not included in the list"
+        when "format" then @pattern.match?(v.to_s) ? nil : "#{@column} is invalid"
         when "numericality" then numericality_message(v)
         end
       end
@@ -99,13 +99,13 @@ module Edgeway
 
       def length_message(n)
         if @bounds.key?("minimum") && n < @bounds["minimum"]
-          return "#{@attribute} is too short (minimum is #{@bounds["minimum"]} characters)"
+          return "#{@column} is too short (minimum is #{@bounds["minimum"]} characters)"
         end
         if @bounds.key?("maximum") && n > @bounds["maximum"]
-          return "#{@attribute} is too long (maximum is #{@bounds["maximum"]} characters)"
+          return "#{@column} is too long (maximum is #{@bounds["maximum"]} characters)"
         end
         if @bounds.key?("is") && n != @bounds["is"]
-          return "#{@attribute} is the wrong length (should be #{@bounds["is"]} characters)"
+          return "#{@column} is the wrong length (should be #{@bounds["is"]} characters)"
         end
         nil
       end
@@ -114,20 +114,20 @@ module Edgeway
         text = v.to_s
         integer = text.match?(/\A[+-]?\d+\z/)
         # Decimals and exponents too: Float#to_s writes 1.0e+20 and 1.0e-05.
-        return "#{@attribute} is not a number" unless integer || text.match?(/\A[+-]?\d+(\.\d+)?([eE][+-]?\d+)?\z/)
-        return "#{@attribute} must be an integer" if @bounds.key?("only_integer") && !integer
+        return "#{@column} is not a number" unless integer || text.match?(/\A[+-]?\d+(\.\d+)?([eE][+-]?\d+)?\z/)
+        return "#{@column} must be an integer" if @bounds.key?("only_integer") && !integer
         n = text.to_f
         if @bounds.key?("greater_than") && !(n > @bounds["greater_than"])
-          return "#{@attribute} must be greater than #{@bounds["greater_than"]}"
+          return "#{@column} must be greater than #{@bounds["greater_than"]}"
         end
         if @bounds.key?("greater_than_or_equal_to") && !(n >= @bounds["greater_than_or_equal_to"])
-          return "#{@attribute} must be greater than or equal to #{@bounds["greater_than_or_equal_to"]}"
+          return "#{@column} must be greater than or equal to #{@bounds["greater_than_or_equal_to"]}"
         end
         if @bounds.key?("less_than") && !(n < @bounds["less_than"])
-          return "#{@attribute} must be less than #{@bounds["less_than"]}"
+          return "#{@column} must be less than #{@bounds["less_than"]}"
         end
         if @bounds.key?("less_than_or_equal_to") && !(n <= @bounds["less_than_or_equal_to"])
-          return "#{@attribute} must be less than or equal to #{@bounds["less_than_or_equal_to"]}"
+          return "#{@column} must be less than or equal to #{@bounds["less_than_or_equal_to"]}"
         end
         nil
       end
