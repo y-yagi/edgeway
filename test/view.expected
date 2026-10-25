@@ -1,0 +1,22 @@
+&lt;a href=&quot;x&quot;&gt;Tom &amp; &#39;Jerry&#39;&lt;/a&gt;
+""
+42
+plain
+&amp;&amp;&lt;&lt;&gt;&gt;&quot;&quot;&#39;&#39;
+GET /posts -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<main><ul>\n<li>a&lt;b</li>\n<li>c&amp;d</li>\n</ul>\n</main>"
+GET /posts/show -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<main><h1>T</h1></main>"
+GET /posts/named -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<main><ul>\n<li>n</li>\n</ul>\n</main>"
+GET /posts/bare -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<ul>\n<li>b</li>\n</ul>\n"
+GET /posts/plain -> 201 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<main><p>hi</p></main>"
+GET /posts/raw -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<p>raw</p>"
+GET /posts/bad -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} "{\"error\":\"internal error\"}\n"
+GET /posts/gone -> 204 {} ""
+GET /posts/_view_posts_index -> 404 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} "{\"error\":\"not found\"}\n"
+GET /posts/_render_view -> 404 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} "{\"error\":\"not found\"}\n"
+GET /notes/shared -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<i>shared</i>"
+GET /notes/mine -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<b>mine</b>"
+GET /notes/nope -> 404 {} ""
+GET /plain -> 200 {"Content-Type" => "application/json"} "{\"a\":1}\n"
+GET /plain/null -> 200 {"Content-Type" => "application/json"} "null\n"
+GET /plain/empty -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} ""
+GET /plain/nothing -> 204 {} ""

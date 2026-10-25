@@ -10,6 +10,8 @@ module Edgeway
         "service_unavailable" => 503
       }
 
+      UNSET = Object.new
+
       def self.json_response(status, json_text)
         HTTP::Response.json(status, json_text)
       end
@@ -39,10 +41,24 @@ module Edgeway
         end
       end
 
-      def render(json:, status: 200)
-        @status = Rendering.status_code(status)
-        @headers["Content-Type"] = "application/json"
-        @response_body = JSON.generate(Rendering.json_value(json)) + "\n"
+      def render(template = nil, json: UNSET, html: UNSET, status: 200, layout: true)
+        code = Rendering.status_code(status)
+        if !json.equal?(UNSET)
+          body = JSON.generate(Rendering.json_value(json)) + "\n"
+          @headers["Content-Type"] = "application/json"
+        else
+          content = html.equal?(UNSET) ? nil : html.to_s
+          if content.nil?
+            name = template.nil? ? @action_name : template.to_s
+            content = _render_view(name)
+            raise MissingTemplate, "no template #{name.inspect} for #{self.class.name}" if content.nil?
+          end
+          body = layout ? _render_layout(content) : content
+          @headers["Content-Type"] = "text/html; charset=utf-8"
+          @headers["X-Content-Type-Options"] = "nosniff"
+        end
+        @status = code
+        @response_body = body
         @performed = true
       end
 

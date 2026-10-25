@@ -13,12 +13,7 @@ module Edgeway
 
       def self.split(path) = path.split("/").reject(&:empty?)
 
-      def controller_class_name
-        parts = @controller_path.split("/").map do |part|
-          part.split("_").map(&:capitalize).join
-        end
-        parts.join("::") + "Controller"
-      end
+      def controller_class_name = Inflector.controller_class_name(@controller_path)
 
       def match(verb, path)
         return nil unless verb == @verb || (verb == "HEAD" && @verb == "GET")

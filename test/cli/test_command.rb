@@ -21,6 +21,17 @@ Dir.mktmpdir do |root|
   puts File.read(File.join(root, "tmp/test_app.rb")).lines.grep(/services/)
 end
 
+puts "--"
+# app/views: tmp/views.rb, required after the controllers
+Dir.mktmpdir do |root|
+  %w[app/controllers/todos_controller config/routes].each { |f| write(root, f + ".rb") }
+  FileUtils.mkdir_p(File.join(root, "app/views/todos"))
+  File.write(File.join(root, "app/views/todos/index.html.erb"), "hi")
+  Edgeway::CLI::Test.new(root).write_test_app
+  puts File.read(File.join(root, "tmp/test_app.rb")).lines.grep(/require_relative/)
+  puts File.read(File.join(root, "tmp/views.rb")).lines.grep(/def |class /)
+end
+
 begin
   Dir.mktmpdir { |root| Edgeway::CLI::Test.new(root).write_test_app }
 rescue Edgeway::CLI::Error => e

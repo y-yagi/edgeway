@@ -6,6 +6,7 @@ README.md
 app/controllers/application_controller.rb
 app/controllers/health_controller.rb
 app/models/application_model.rb
+app/views/layouts/application.html.erb
 bin/build
 bin/deploy
 bin/setup

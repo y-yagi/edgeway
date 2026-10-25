@@ -41,6 +41,10 @@ module Edgeway
   # details only in the log.
   class InvalidHeader < Error; end
 
+  # render named a template that was not compiled from app/views: 500, with
+  # the name only in the log, since it is a bug in the app.
+  class MissingTemplate < Error; end
+
   # A failure in the database adapter: 500.
   class DatabaseError < Error; end
 

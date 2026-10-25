@@ -8,7 +8,8 @@ module Edgeway
 
       NON_ACTIONS = ["render", "head", "headers", "params", "request", "performed?", "to_response",
                      "action?", "run_before_actions", "rescue_with_handler",
-                     "authenticate!", "current_claims", "authenticated?"]
+                     "authenticate!", "current_claims", "authenticated?",
+                     "action_name", "action_name="]
 
       def self.before_action(name, only: [], except: [])
         @own_before_actions ||= []
@@ -48,9 +49,11 @@ module Edgeway
       end
 
       attr_reader :request
+      attr_accessor :action_name
 
       def initialize(request)
         @request = request
+        @action_name = ""
         @status = 200
         @headers = {}
         @response_body = ""
@@ -63,8 +66,13 @@ module Edgeway
       def headers = @headers
 
       def action?(name)
+        return false if name.start_with?("_view_") || name.start_with?("_render_")
         respond_to?(name.to_sym) && !NON_ACTIONS.include?(name)
       end
+
+      def _render_view(action) = nil
+
+      def _render_layout(content) = content
 
       def params
         @params ||= wrapped_params

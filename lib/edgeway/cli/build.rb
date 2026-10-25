@@ -2,6 +2,9 @@
 
 require "optparse"
 require "json"
+require_relative "build/app_config"
+require_relative "build/app_files"
+require_relative "build/view_compiler"
 
 module Edgeway
   module CLI
@@ -16,7 +19,8 @@ module Edgeway
     #   2. app/*/ other than models/ and controllers/ (services, ...)
     #   3. app/models/
     #   4. app/controllers/
-    #   5. config/routes.rb
+    #   5. build/views.rb, the Ruby compiled from app/views (when there is one)
+    #   6. config/routes.rb
     # Within each, application_*.rb come first (the base classes), then the
     # rest by path (byte order).
     class Build
@@ -57,7 +61,9 @@ module Edgeway
         lines << connection_line(config)
         lines << "Edgeway::Auth.verifier = Edgeway::Cloudflare::JWTVerifier.new"
         lines << ""
-        lines.concat(AppFiles.new(@root).require_lines)
+        views = ViewCompiler.new(@root).compile
+        File.write(File.join(@root, "build/views.rb"), views) if views
+        lines.concat(AppFiles.new(@root).require_lines(views: views && "views"))
         lines << ""
         lines << "Edgeway::Server.run"
         File.write(File.join(@root, "build/main.rb"), lines.join("\n") + "\n")
