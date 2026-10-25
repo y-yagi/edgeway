@@ -12,7 +12,7 @@ end
 
 def main_for(root, env, database_yml)
   write(root, "config/database.yml", database_yml)
-  config = Edgeway::CLI::AppConfig.load(root, env)
+  config = Edgeway::CLI::Build::AppConfig.load(root, env)
   FileUtils.mkdir_p(File.join(root, "build"))
   Edgeway::CLI::Build.new(root, env).send(:write_main, config)
   File.read(File.join(root, "build/main.rb"))
@@ -39,6 +39,29 @@ Dir.mktmpdir do |root|
   puts out.lines.grep(/weird|we/)
   line = out.lines.find { |l| l.include?("ird") }
   puts eval(line.sub("require_relative ", "")) # the string it holds
+end
+
+puts "--"
+# app/views: build/views.rb is written and required after the controllers,
+# before the routes
+Dir.mktmpdir do |root|
+  write(root, "app/controllers/todos_controller.rb")
+  write(root, "app/views/todos/index.html.erb", "<%= 1 %>")
+  write(root, "config/routes.rb")
+  out = main_for(root, "test", "test:\n  adapter: memory\n")
+  puts out.lines.grep(/require_relative/)
+  puts File.exist?(File.join(root, "build/views.rb"))
+end
+
+# a views directory with no controller fails the build
+Dir.mktmpdir do |root|
+  write(root, "app/views/ghosts/index.html.erb", "x")
+  write(root, "config/routes.rb")
+  begin
+    main_for(root, "test", "test:\n  adapter: memory\n")
+  rescue Edgeway::CLI::Error => e
+    puts e.message
+  end
 end
 
 begin

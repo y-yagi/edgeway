@@ -45,6 +45,7 @@ end
   - [Batch](#batch)
   - [Associations](#associations)
   - [Eager loading](#eager-loading)
+- [Views](#views)
 - [Usage](#usage)
   - [Generators](#generators)
   - [Building](#building)
@@ -178,6 +179,45 @@ Todo.eager_load(:comments, :tags)   # several at once, still one query
 - An unknown name raises `ArgumentError`.
 - Only `to_a` and what is built on it (`each`, `map`, `size`) read the loaded records;
   `comments.where(...)`, `count` and `first` query as usual.
+
+## Views
+
+```ruby
+# app/controllers/todos_controller.rb
+class TodosController < ApplicationController
+  def index
+    @todos = Todo.order(:id).limit(50)
+    # renders app/views/todos/index.html.erb
+  end
+end
+```
+
+```erb
+<%# app/views/todos/index.html.erb %>
+<ul>
+<% @todos.each do |t| -%>
+  <li><%= t.title %></li>
+<% end -%>
+</ul>
+```
+
+Spinel has no `eval`, so `edgeway build` (and `edgeway test`) compile `app/views/**/*.html.erb` into Ruby
+(`build/views.rb`, `tmp/views.rb`): each template becomes a method of its controller,
+so it sees the action's `@variables`, `params` and the controller's methods.
+
+- `<%= expr %>` is HTML-escaped (`Edgeway::View.escape`), `<%== expr %>` is not.
+  `<% code %>`, `<%# comment %>`, `<%%` (a literal `<%`) and `-%>` (drops the newline after the tag) work as in ERB.
+- An action that renders nothing renders its template, or answers 204 when it has none.
+- `render :name` / `render "name"` renders another template of the controller, `render html: text` a string;
+  both take `status:` and `layout: false`.
+  A name with no template raises `Edgeway::MissingTemplate` (a 500).
+- `app/views/layouts/application.html.erb` wraps every HTML response, at `<%= yield %>`. `edgeway new` writes one.
+- HTML responses are `Content-Type: text/html; charset=utf-8` with `X-Content-Type-Options: nosniff`.
+- A template's directory names its controller (`app/views/admin/posts/` is `Admin::PostsController`);
+  one without a controller is a build error, and so is a syntax error in a template,
+  which Spinel reports in the generated file (its `# app/views/...:LINE` comments point back).
+
+Not supported yet: partials (`render partial:`), layouts other than `application`, and templates other than `.html.erb`.
 
 ## Usage
 

@@ -71,7 +71,7 @@ module Edgeway
         name.gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2').gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
       end
 
-      def camelize(name) = name.split("_").map(&:capitalize).join
+      def camelize(name) = Inflector.camelize(name)
 
       # "title:string" => ["title", "TEXT", ":string"]
       def parse_field(spec)

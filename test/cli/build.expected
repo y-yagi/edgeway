@@ -42,4 +42,10 @@ Edgeway::Server.run
 --
 require_relative "../app/models/we\"ird \#{x}"
 ../app/models/we"ird #{x}
+--
+require_relative "../app/controllers/todos_controller"
+require_relative "views"
+require_relative "../config/routes"
+true
+app/views/ghosts/ has no controller: app/controllers/ghosts_controller.rb does not exist
 no config/routes.rb

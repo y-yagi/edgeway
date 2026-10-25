@@ -11,4 +11,11 @@ require_relative "../config/routes"
 build/ untouched: true
 --
 require_relative "../app/services/zip"
+--
+require_relative "../app/controllers/todos_controller"
+require_relative "views"
+require_relative "../config/routes"
+class TodosController
+  def _view_todos_index
+  def _render_view(action)
 no config/routes.rb

@@ -25,7 +25,9 @@ module Edgeway
         # from another directory); Edgeway::UnitTest#setup applies them.
         lines << "module Edgeway; TEST_APP_ROOT = #{@root.dump}; end"
         lines << ""
-        lines.concat(AppFiles.new(@root).require_lines)
+        views = Build::ViewCompiler.new(@root).compile
+        File.write(File.join(@root, "tmp/views.rb"), views) if views
+        lines.concat(Build::AppFiles.new(@root).require_lines(views: views && "views"))
         File.write(File.join(@root, "tmp/test_app.rb"), lines.join("\n") + "\n")
       end
     end
