@@ -269,13 +269,19 @@ edgeway generate model Todo title:string done:boolean
 
 # app/controllers/todos_controller.rb, test/controllers/todos_test.rb
 edgeway generate controller Todos index show
+
+# the model's files, a JSON API controller (index, show, create, update, destroy) and its test
+edgeway generate scaffold Todo title:string done:boolean
 ```
 
 - Field types are `string` (the default), `text`, `integer`, `float`, `boolean` and `datetime`.
 - A model gets `timestamps` and an `id`, `created_at` and `updated_at` column.
 - The migration is numbered one above the highest in `db/migrations`.
 - Each action of a controller is a stub that renders `{}`.
-- `config/routes.rb` is not changed: the command prints the route to add (`r.resources :todos`).
+- `config/routes.rb` is not changed by `model` and `controller`: the command prints the route to add (`r.resources :todos`).
+- `model` and `scaffold` stop if a `db/migrations/*_create_todos.sql` already exists (a rerun would add a second table).
+- `scaffold` singularizes its name (`scaffold Todos` is `Todo`), checks that none of its files exist before it writes one, and adds `r.resources :todos` as the last line of the `routes.draw` block, so that it does not shadow an earlier `/todos/search`. It leaves a route that is already there alone, and prints the route and the reason instead if there is no `routes.draw do |r|` block with a closing `end`.
+- The scaffold's controller permits the given fields (`params.require(:todo).permit(...)`), and with no fields it takes no params.
 
 ### Building
 

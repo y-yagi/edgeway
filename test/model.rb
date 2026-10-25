@@ -304,6 +304,14 @@ puts Edgeway::Inflector.pluralize("day")
 puts Edgeway::Inflector.pluralize("category")
 puts Edgeway::Inflector.singularize("categories")
 puts Edgeway::Inflector.singularize("todos")
+%w[status class box wish match address bus post category day case base database type house todo comment].each do |w|
+  pl = Edgeway::Inflector.pluralize(w)
+  puts "#{w} #{pl} #{Edgeway::Inflector.singularize(pl)} #{Edgeway::Inflector.singularize(w)}"
+end
+%w[statuses classes addresses boxes wishes matches cases bases databases types houses todos comments].each do |pl|
+  sg = Edgeway::Inflector.singularize(pl)
+  puts "#{pl} #{sg} #{Edgeway::Inflector.pluralize(sg) == pl}"
+end
 basket = Basket.instantiate({ "id" => 4, "name" => "n" })
 basket.categories.to_a
 show(db)

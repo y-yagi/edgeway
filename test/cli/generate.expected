@@ -69,10 +69,335 @@ Add to config/routes.rb:
 -- app/controllers/tags_controller.rb
 class TagsController < ApplicationController
 end
+  create  app/models/todo.rb
+  create  db/migrations/0001_create_todos.sql
+  create  test/models/todo_test.rb
+  create  app/controllers/todos_controller.rb
+  create  test/controllers/todos_test.rb
+  route  r.resources :todos
+
+Apply the migration locally: pnpm exec wrangler d1 migrations apply DB_NAME --local
+-- app/models/todo.rb
+class Todo < ApplicationModel
+  attribute :title, :string
+  attribute :done, :boolean, default: false
+  attribute :priority, :integer
+  attribute :score, :float
+  attribute :due, :datetime
+  timestamps
+end
+-- db/migrations/0001_create_todos.sql
+CREATE TABLE todos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT,
+  done INTEGER NOT NULL DEFAULT 0,
+  priority INTEGER,
+  score REAL,
+  due TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+-- test/models/todo_test.rb
+require "edgeway/test"
+require "test_helper"
+
+class TodoTest < Edgeway::UnitTest
+  def test_starts_empty
+    assert_equal 0, Todo.count
+  end
+end
+-- app/controllers/todos_controller.rb
+class TodosController < ApplicationController
+  def index = render json: Todo.order(:id).limit(50)
+
+  def show = render json: Todo.find(params[:id])
+
+  def create
+    todo = Todo.create!(todo_params)
+    render json: todo, status: :created
+  end
+
+  def update
+    todo = Todo.find(params[:id])
+    todo.update!(todo_params)
+    render json: todo
+  end
+
+  def destroy
+    Todo.find(params[:id]).destroy
+    head :no_content
+  end
+
+  private
+
+  def todo_params = params.require(:todo).permit(:title, :done, :priority, :score, :due)
+end
+-- test/controllers/todos_test.rb
+require "edgeway/test"
+require "test_helper"
+
+class TodosTest < Edgeway::IntegrationTest
+  def test_index
+    todo = Todo.create!(title: "MyString", done: true, priority: 1, score: 1.5, due: "2026-01-01T00:00:00Z")
+    get "/todos"
+    assert_response 200
+    assert_equal 1, json.size
+    assert_equal todo.id, json[0]["id"]
+  end
+
+  def test_show
+    todo = Todo.create!(title: "MyString", done: true, priority: 1, score: 1.5, due: "2026-01-01T00:00:00Z")
+    get "/todos/#{todo.id}"
+    assert_response 200
+    assert_equal todo.id, json["id"]
+  end
+
+  def test_show_not_found
+    get "/todos/0"
+    assert_response 404
+  end
+
+  def test_create
+    post "/todos", json: { "todo" => { "title" => "MyString", "done" => true, "priority" => 1, "score" => 1.5, "due" => "2026-01-01T00:00:00Z" } }
+    assert_response 201
+    assert_equal 1, Todo.count
+    assert_equal "MyString", json["title"]
+    assert_equal true, json["done"]
+    assert_equal 1, json["priority"]
+    assert_equal 1.5, json["score"]
+    assert_equal "2026-01-01T00:00:00Z", json["due"]
+  end
+
+  def test_update
+    todo = Todo.create!(title: "MyString", done: true, priority: 1, score: 1.5, due: "2026-01-01T00:00:00Z")
+    patch "/todos/#{todo.id}", json: { "todo" => { "title" => "Updated", "done" => false, "priority" => 2, "score" => 2.5, "due" => "2026-02-01T00:00:00Z" } }
+    assert_response 200
+    assert_equal "Updated", json["title"]
+    assert_equal false, json["done"]
+    assert_equal 2, json["priority"]
+    assert_equal 2.5, json["score"]
+    assert_equal "2026-02-01T00:00:00Z", json["due"]
+  end
+
+  def test_destroy
+    todo = Todo.create!(title: "MyString", done: true, priority: 1, score: 1.5, due: "2026-01-01T00:00:00Z")
+    delete "/todos/#{todo.id}"
+    assert_response 204
+    assert_equal 0, Todo.count
+  end
+end
+-- config/routes.rb
+Edgeway.application.routes.draw do |r|
+  r.get "/health", to: "health#show"
+  r.root to: "health#show"
+  r.resources :todos
+end
+  create  app/models/tag.rb
+  create  db/migrations/0002_create_tags.sql
+  create  test/models/tag_test.rb
+  create  app/controllers/tags_controller.rb
+  create  test/controllers/tags_test.rb
+  route  r.resources :tags
+
+Apply the migration locally: pnpm exec wrangler d1 migrations apply DB_NAME --local
+-- app/controllers/tags_controller.rb
+class TagsController < ApplicationController
+  def index = render json: Tag.order(:id).limit(50)
+
+  def show = render json: Tag.find(params[:id])
+
+  def create
+    tag = Tag.create!
+    render json: tag, status: :created
+  end
+
+  def update
+    tag = Tag.find(params[:id])
+    render json: tag
+  end
+
+  def destroy
+    Tag.find(params[:id]).destroy
+    head :no_content
+  end
+end
+-- test/controllers/tags_test.rb
+require "edgeway/test"
+require "test_helper"
+
+class TagsTest < Edgeway::IntegrationTest
+  def test_index
+    tag = Tag.create!
+    get "/tags"
+    assert_response 200
+    assert_equal 1, json.size
+    assert_equal tag.id, json[0]["id"]
+  end
+
+  def test_show
+    tag = Tag.create!
+    get "/tags/#{tag.id}"
+    assert_response 200
+    assert_equal tag.id, json["id"]
+  end
+
+  def test_show_not_found
+    get "/tags/0"
+    assert_response 404
+  end
+
+  def test_create
+    post "/tags", json: { "tag" => {} }
+    assert_response 201
+    assert_equal 1, Tag.count
+
+  end
+
+  def test_update
+    tag = Tag.create!
+    patch "/tags/#{tag.id}", json: { "tag" => {} }
+    assert_response 200
+
+  end
+
+  def test_destroy
+    tag = Tag.create!
+    delete "/tags/#{tag.id}"
+    assert_response 204
+    assert_equal 0, Tag.count
+  end
+end
+-- config/routes.rb
+Edgeway.application.routes.draw do |r|
+  r.get "/health", to: "health#show"
+  r.root to: "health#show"
+  r.resources :todos
+  r.resources :tags
+end
+db/migrations/0002_create_tags.sql already exists
+db/migrations/0002_create_tags.sql already exists
+0001_create_todos.sql
+0002_create_tags.sql
+  create  app/models/post.rb
+  create  db/migrations/0003_create_posts.sql
+  create  test/models/post_test.rb
+  create  app/controllers/posts_controller.rb
+  create  test/controllers/posts_test.rb
+  route  r.resources :posts
+
+Apply the migration locally: pnpm exec wrangler d1 migrations apply DB_NAME --local
+-- app/controllers/posts_controller.rb
+class PostsController < ApplicationController
+  def index = render json: Post.order(:id).limit(50)
+
+  def show = render json: Post.find(params[:id])
+
+  def create
+    post = Post.create!(post_params)
+    render json: post, status: :created
+  end
+
+  def update
+    post = Post.find(params[:id])
+    post.update!(post_params)
+    render json: post
+  end
+
+  def destroy
+    Post.find(params[:id]).destroy
+    head :no_content
+  end
+
+  private
+
+  def post_params = params.require(:post).permit(:title)
+end
+  create  app/models/status.rb
+  create  db/migrations/0001_create_statuses.sql
+  create  test/models/status_test.rb
+  create  app/controllers/statuses_controller.rb
+  create  test/controllers/statuses_test.rb
+  route  r.resources :statuses
+
+Apply the migration locally: pnpm exec wrangler d1 migrations apply DB_NAME --local
+0001_create_statuses.sql
+-- app/models/status.rb
+class Status < ApplicationModel
+  attribute :title, :string
+  timestamps
+end
+-- app/controllers/statuses_controller.rb
+class StatusesController < ApplicationController
+  def index = render json: Status.order(:id).limit(50)
+
+  def show = render json: Status.find(params[:id])
+
+  def create
+    status = Status.create!(status_params)
+    render json: status, status: :created
+  end
+
+  def update
+    status = Status.find(params[:id])
+    status.update!(status_params)
+    render json: status
+  end
+
+  def destroy
+    Status.find(params[:id]).destroy
+    head :no_content
+  end
+
+  private
+
+  def status_params = params.require(:status).permit(:title)
+end
+-- config/routes.rb
+Edgeway.application.routes.draw do |r|
+  r.resources :statuses
+end
+  identical  r.resources :tags
+true
+  identical  r.resources :tags
+true
+  identical  r.resources :tags
+true
+  identical  r.resources :tags
+true
+  identical  r.resources :tags
+true
+-- nested
+  route  r.resources :todos
+"module App\n  Edgeway.application.routes.draw do  | r |\n    r.get \"/todos/search\", to: \"todos#search\"\n    # end\n    r.resources :todos\n  end\nend\n"
+-- crlf
+  route  r.resources :todos
+"Edgeway.application.routes.draw do |r|\r\n  r.root to: \"health#show\"\r\n  r.resources :todos\r\nend\r\n"
+-- no end
+config/routes.rb not changed: no closing `end` found
+Add to config/routes.rb:
+  r.resources :todos
+"Edgeway.application.routes.draw do |r|\n  r.root to: \"health#show\"\n"
+  create  app/models/note.rb
+  create  db/migrations/0001_create_notes.sql
+  create  test/models/note_test.rb
+  create  app/controllers/notes_controller.rb
+  create  test/controllers/notes_test.rb
+
+config/routes.rb not changed: no `routes.draw do |r|` block found
+
+Add to config/routes.rb:
+  r.resources :notes
+
+Apply the migration locally: pnpm exec wrangler d1 migrations apply DB_NAME --local
+# custom
+app/controllers/todos_controller.rb already exists
+app/controllers/todos_controller.rb
+config/routes.rb
+true
 --
 no config/routes.rb in DIR; run this inside an app made by `edgeway new`
 Usage: edgeway generate model NAME [field:type ...]
 Usage: edgeway generate model NAME [field:type ...]
-app/models/todo.rb already exists
+db/migrations/0001_create_todos.sql already exists
 unknown field type blob (string, text, integer, float, boolean, datetime)
 invalid action name: Bad-Action

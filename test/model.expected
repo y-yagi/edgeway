@@ -86,6 +86,36 @@ days
 categories
 category
 todo
+status statuses status status
+class classes class class
+box boxes box box
+wish wishes wish wish
+match matches match match
+address addresses address address
+bus buses bus bus
+post posts post post
+category categories category category
+day days day day
+case cases case case
+base bases base base
+database databases database database
+type types type type
+house houses house house
+todo todos todo todo
+comment comments comment comment
+statuses status true
+classes class true
+addresses address true
+boxes box true
+wishes wish true
+matches match true
+cases case true
+bases base true
+databases database true
+types type true
+houses house true
+todos todo true
+comments comment true
 SELECT id, basket_id FROM categories WHERE basket_id = ? | [4]
 false
 ["name has already been taken"]
