@@ -22,7 +22,8 @@ module Edgeway
         new APP                  create a new app in APP/
         build [--env ENV]        compile the app to build/app.wasm (ENV: development)
         test [ARGS]              regenerate tmp/test_app.rb, run test/ with spinel_test-unit
-        generate, g KIND NAME    generate a model (NAME field:type ...) or a controller (NAME action ...)
+        generate, g KIND NAME    generate a model (NAME field:type ...), a controller (NAME action ...)
+                                   or a scaffold (NAME field:type ...)
         routes                   print the routes
         version                  print the version
     TEXT
