@@ -420,6 +420,31 @@ rescue Edgeway::DatabaseError => e
   puts e.message
 end
 show(db)
+[
+  "D1_ERROR: NOT NULL constraint failed: tags.name: SQLITE_CONSTRAINT",
+  "D1_ERROR: FOREIGN KEY constraint failed: SQLITE_CONSTRAINT",
+  "D1_ERROR: CHECK constraint failed: stars: SQLITE_CONSTRAINT",
+  "D1_ERROR: no such table: tags: SQLITE_ERROR",
+].each do |m|
+  db.fail_next(m)
+  begin
+    db.execute("INSERT", [])
+  rescue Edgeway::DatabaseError => e
+    puts "#{e.class}: #{e.is_a?(Edgeway::RecordNotUnique)}"
+  end
+end
+show(db)
+[
+  '{"error":"D1_ERROR: Network connection lost.","unavailable":true}',
+  '{"error":"D1_ERROR: UNIQUE constraint failed: tags.name: SQLITE_CONSTRAINT"}',
+  '{"error":"D1_ERROR: exceeded CPU time limit"}',
+].each do |json|
+  begin
+    db.raise_error_result(JSON.parse(json), "d1: ")
+  rescue Edgeway::DatabaseError => e
+    puts "#{e.class}: #{e.message}"
+  end
+end
 # INSERT ... RETURNING goes through the same mapping
 db.queue([])
 db.fail_next("UNIQUE constraint failed: projects.id", "RETURNING")

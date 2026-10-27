@@ -53,6 +53,24 @@ module Edgeway
   # the log only.
   class RecordNotUnique < DatabaseError; end
 
+  # A write the database refused for a NOT NULL constraint: 500, since it is a
+  # bug in the app. The message goes to the log only.
+  class NotNullViolation < DatabaseError; end
+
+  # A write the database refused for a FOREIGN KEY constraint: 500, since it is
+  # a bug in the app. The message goes to the log only.
+  class InvalidForeignKey < DatabaseError; end
+
+  # A write the database refused for a CHECK constraint: 500, since it is a bug
+  # in the app. The message goes to the log only.
+  class CheckViolation < DatabaseError; end
+
+  # A transient D1 failure or overload (a lost connection, a reset object...):
+  # 503 with "Retry-After: 1" and a fixed body. The message goes to the log
+  # only. Edgeway never retries it. A write that fails this way may still have
+  # been applied, so only an idempotent request is safe to retry.
+  class DatabaseUnavailable < DatabaseError; end
+
   # A record that failed its validations: 422 with {"errors": [...]}.
   class RecordInvalid < Error
     attr_reader :errors

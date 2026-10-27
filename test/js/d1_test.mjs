@@ -14,7 +14,7 @@ WebAssembly.Suspending = class { constructor(fn) { this.fn = fn; } };
 const dir = mkdtempSync(join(tmpdir(), "edgeway-js-"));
 cpSync(join(dirname(fileURLToPath(import.meta.url)), "../../js"), dir, { recursive: true });
 writeFileSync(join(dir, "config.js"), 'export default { env: "test", d1Binding: "DB" };\n');
-const { d1Imports } = await import(pathToFileURL(join(dir, "cloudflare.js")));
+const { d1Imports, isTransientD1Error, TRANSIENT_D1_ERRORS } = await import(pathToFileURL(join(dir, "cloudflare.js")));
 
 let count = 0;
 async function test(name, fn) {
@@ -74,6 +74,30 @@ await test("batch answers an error when D1 rejects it", async () => {
 await test("batch with an unknown binding answers an error", async () => {
   const res = await call({}, "batch", "DB", "[]");
   assert.deepEqual(res, { error: "no D1 binding DB" });
+});
+
+await test("a transient D1 failure answers unavailable", async () => {
+  const db = fakeD1();
+  db.fail = "D1_ERROR: Network connection lost";
+  const res = await call({ DB: db }, "batch", "DB", JSON.stringify([["UPDATE t SET a = ?", [1]]]));
+  assert.deepEqual(res, { error: db.fail, unavailable: true });
+  assert.equal(db.batches.length, 1); // never retried
+});
+
+await test("query and execute answer unavailable for a transient failure", async () => {
+  for (const name of ["query", "execute"]) {
+    const db = fakeD1();
+    db.prepare = () => ({ bind() { return this; }, async all() { throw new Error("D1 DB is overloaded"); }, async run() { throw new Error("D1 DB is overloaded"); } });
+    const res = await call({ DB: db }, name, "DB", "SELECT 1", "[]");
+    assert.deepEqual(res, { error: "D1 DB is overloaded", unavailable: true });
+  }
+});
+
+await test("isTransientD1Error matches the transient messages only", () => {
+  for (const m of TRANSIENT_D1_ERRORS) assert.equal(isTransientD1Error(`D1_ERROR: ${m}: x`), true);
+  for (const m of ["exceeded its CPU time limit", "memory limit", "timeout", "UNIQUE constraint failed: t.a"]) {
+    assert.equal(isTransientD1Error(m), false);
+  }
 });
 
 rmSync(dir, { recursive: true, force: true });

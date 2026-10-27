@@ -21,6 +21,7 @@ false
 unique: UNIQUE constraint failed: labels.name
 db error: no such table: nowhere false
 not null: NOT NULL constraint failed: labels.name
+check: CHECK constraint failed: stars BETWEEN 1 AND 5
 1
 2
 ["x", "b1", "b2"]

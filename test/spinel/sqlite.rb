@@ -28,6 +28,7 @@ Edgeway::Model.connection = db
 db.load_schema(<<~SQL)
   CREATE TABLE groups (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, score REAL, active INTEGER NOT NULL DEFAULT 0, rank INTEGER);
   CREATE TABLE members (id INTEGER PRIMARY KEY AUTOINCREMENT, group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE, name TEXT);
+  CREATE TABLE ratings (id INTEGER PRIMARY KEY AUTOINCREMENT, stars INTEGER CHECK (stars BETWEEN 1 AND 5));
   CREATE TABLE labels (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, UNIQUE (name));
 SQL
 
@@ -75,8 +76,13 @@ rescue Edgeway::DatabaseError => e
 end
 begin
   db.execute("INSERT INTO labels (name) VALUES (?)", [nil])
-rescue Edgeway::DatabaseError => e
+rescue Edgeway::NotNullViolation => e
   puts "not null: #{e.message}"
+end
+begin
+  db.execute("INSERT INTO ratings (stars) VALUES (?)", [9])
+rescue Edgeway::CheckViolation => e
+  puts "check: #{e.message}"
 end
 p Label.count
 
@@ -123,7 +129,7 @@ db.execute("DELETE FROM groups WHERE id = ?", [g.id])
 p Member.count
 begin
   db.execute("INSERT INTO members (group_id, name) VALUES (?, ?)", [999, "orphan"])
-rescue Edgeway::DatabaseError => e
+rescue Edgeway::InvalidForeignKey => e
   puts "fk: #{e.message}"
 end
 

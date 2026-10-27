@@ -132,6 +132,20 @@ class ThingsController < ApplicationController
   end
 end
 
+class DownController < ApplicationController
+  def show = raise(Edgeway::DatabaseUnavailable, "d1: Network connection lost")
+end
+
+class BusyController < ApplicationController
+  rescue_from Edgeway::DatabaseUnavailable, with: :busy
+
+  def show = raise(Edgeway::DatabaseUnavailable, "d1: D1 DB is overloaded")
+
+  def busy(e)
+    render json: { "error" => "busy" }, status: :too_many_requests
+  end
+end
+
 # A controller that answers RecordNotUnique itself.
 class TakenController < ApplicationController
   rescue_from Edgeway::RecordNotUnique, with: :taken
@@ -197,6 +211,8 @@ class Draw
       r.get "/things/bad_header_name", to: "things#bad_header_name"
       r.post "/things/form", to: "things#form"
       r.post "/taken", to: "taken#create"
+      r.get "/down", to: "down#show"
+      r.get "/busy", to: "busy#show"
       r.post "/mass/raw", to: "mass#raw"
       r.post "/mass/required", to: "mass#required"
       r.post "/mass/raw_update/:id", to: "mass#raw_update"
@@ -301,6 +317,16 @@ call("POST", "/todos", "", '{"todo":{"title":"dup"}}')
 puts capture.take
 # rescue_from RecordNotUnique wins over the default
 call("POST", "/taken")
+puts capture.take
+
+["NOT NULL constraint failed: todos.title", "FOREIGN KEY constraint failed", "CHECK constraint failed: stars"].each do |m|
+  db.fail_next("D1_ERROR: #{m}: SQLITE_CONSTRAINT", "INSERT")
+  call("POST", "/todos", "", '{"todo":{"title":"dup"}}')
+  puts capture.take
+end
+call("GET", "/down")
+puts capture.take
+call("GET", "/busy")
 puts capture.take
 
 # raw params (or require without permit) given to create!/update! are a bug in
