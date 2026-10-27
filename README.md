@@ -41,6 +41,7 @@ end
 - [Models](#models)
   - [Strong parameters](#strong-parameters)
   - [Uniqueness](#uniqueness)
+  - [Database errors](#database-errors)
   - [Ordering and deleting](#ordering-and-deleting)
   - [Batch](#batch)
   - [Associations](#associations)
@@ -92,6 +93,22 @@ Project.where(owner_id: uid).find_or_create_by(name: "default")
 - Left alone, it is answered 409 `{"error":"record not unique"}`;
   the database's message (table and columns) goes only to the log.
 - A controller can `rescue_from Edgeway::RecordNotUnique` to answer otherwise.
+
+### Database errors
+
+All are `Edgeway::DatabaseError`; the database's message goes only to the log.
+
+- `NotNullViolation`, `InvalidForeignKey` and `CheckViolation` (a constraint the app broke):
+  answered 500 `{"error":"internal error"}`, like any other `DatabaseError`.
+- `DatabaseUnavailable` (D1 lost its connection, was reset or is overloaded):
+  answered 503 `{"error":"database unavailable"}` with `Retry-After: 1`.
+- A controller can `rescue_from` any of them to answer otherwise.
+  `rescue_from Edgeway::DatabaseError` also catches `DatabaseUnavailable` and `RecordNotUnique`,
+  so it replaces their default 503 and 409.
+- D1 retries read-only queries itself. Edgeway never retries a query, a write or a batch.
+- A write that got a 503 may still have been applied:
+  only an idempotent request (a GET, or a write the app made idempotent) is safe to retry.
+- Timeouts and CPU or memory limits stay a plain `DatabaseError` (500).
 
 ### Ordering and deleting
 

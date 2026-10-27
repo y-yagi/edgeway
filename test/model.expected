@@ -161,6 +161,17 @@ false
 D1_ERROR: no such table: tags: SQLITE_ERROR
 INSERT | []
 SELECT | []
+Edgeway::NotNullViolation: false
+Edgeway::InvalidForeignKey: false
+Edgeway::CheckViolation: false
+Edgeway::DatabaseError: false
+INSERT | []
+INSERT | []
+INSERT | []
+INSERT | []
+Edgeway::DatabaseUnavailable: d1: D1_ERROR: Network connection lost.
+Edgeway::RecordNotUnique: d1: D1_ERROR: UNIQUE constraint failed: tags.name: SQLITE_CONSTRAINT
+Edgeway::DatabaseError: d1: D1_ERROR: exceeded CPU time limit
 insert: UNIQUE constraint failed: projects.id
 SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT ? | ["x","u9",1]
 INSERT INTO projects (owner_id, name) VALUES (?, ?) RETURNING id, owner_id, name | ["u9","x"]

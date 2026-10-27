@@ -11,13 +11,29 @@ import config from "./config.js";
 import { jwtImports } from "./jwt.js";
 import { withCors } from "./cors.js";
 
+// D1's transient errors, which are worth a retry by the client
+// (developers.cloudflare.com/d1/observability/debug-d1/). D1 retries read-only
+// queries itself; Edgeway never retries, as a write is not idempotent.
+// "exceeded", "CPU time limit", "memory limit" and "timeout" are not here.
+export const TRANSIENT_D1_ERRORS = [
+  "Network connection lost",
+  "reset because its code was updated",
+  "storage caused object to be reset",
+  "Replica disconnected from primary",
+  "transient issue on remote node",
+  "Can't read from request stream because client disconnected",
+  "D1 DB is overloaded",
+];
+
+export const isTransientD1Error = (message) => TRANSIENT_D1_ERRORS.some((s) => message.includes(s));
+
 // The wasm import module "edgeway_d1" (lib/edgeway/service/cloudflare/d1.rb). Each call
 // answers the byte length of its JSON result; take() copies it out.
 //   query(binding, sql, binds)   -> {"rows": [...]}
 //   execute(binding, sql, binds) -> {"changes": n, "last_insert_id": id}
 //   batch(binding, statements)   -> {"results": [{"changes": n, "last_insert_id": id}, ...]}
 //                                   (statements: [[sql, binds], ...], one atomic D1 batch)
-// An error is {"error": "message"}.
+// An error is {"error": "message"}, with "unavailable": true when it is transient.
 export function d1Imports(env, getInstance) {
   const mem = () => new Uint8Array(getInstance().exports.memory.buffer);
   const cstr = (p) => {
@@ -37,7 +53,8 @@ export function d1Imports(env, getInstance) {
       if (!db) throw new Error(`no D1 binding ${name}`);
       res = await fn(db, ...ptrs);
     } catch (e) {
-      res = { error: String(e?.message ?? e) };
+      const error = String(e?.message ?? e);
+      res = isTransientD1Error(error) ? { error, unavailable: true } : { error };
     }
     pending = new TextEncoder().encode(JSON.stringify(res));
     return pending.length;

@@ -42,6 +42,15 @@ info 409 D1_ERROR: UNIQUE constraint failed: todos.title: SQLITE_CONSTRAINT
 POST /todos -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
 error Edgeway::DatabaseError: D1_ERROR: no such table: todos: SQLITE_ERROR
 POST /taken -> 422 {"X-Log" => "in", "Content-Type" => "application/json"} {"error":"name taken"}
+POST /todos -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
+error Edgeway::NotNullViolation: D1_ERROR: NOT NULL constraint failed: todos.title: SQLITE_CONSTRAINT
+POST /todos -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
+error Edgeway::InvalidForeignKey: D1_ERROR: FOREIGN KEY constraint failed: SQLITE_CONSTRAINT
+POST /todos -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
+error Edgeway::CheckViolation: D1_ERROR: CHECK constraint failed: stars: SQLITE_CONSTRAINT
+GET /down -> 503 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff", "Retry-After" => "1"} {"error":"database unavailable"}
+error 503 d1: Network connection lost
+GET /busy -> 429 {"X-Log" => "in", "Content-Type" => "application/json"} {"error":"busy"}
 POST /mass/raw -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
 error Edgeway::ForbiddenAttributes: Todo: params must go through permit
 POST /mass/required -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}

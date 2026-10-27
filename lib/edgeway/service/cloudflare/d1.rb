@@ -15,6 +15,8 @@ module Edgeway
     #   d1_execute  {"changes": n, "last_insert_id": id}
     #   d1_batch    {"results": [{"changes": n, "last_insert_id": id}, ...]}
     #   any         {"error": "message"} when D1 failed
+    #   any         {"error": "message", "unavailable": true} when it failed
+    #               in a transient way (DatabaseUnavailable)
     #
     # An import can't hand a string to wasm, so a call is two: query/execute
     # runs the statement and answers the byte length of its result, and
@@ -93,7 +95,7 @@ module Edgeway
 
       def result(json)
         res = JSON.parse(json)
-        fail_with("d1: #{res["error"]}") if res.key?("error")
+        raise_error_result(res, "d1: ") if res.key?("error")
         res
       end
     end

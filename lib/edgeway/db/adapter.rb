@@ -21,7 +21,16 @@ module Edgeway
 
       def fail_with(message)
         raise RecordNotUnique, message if message.include?("UNIQUE constraint failed")
+        raise NotNullViolation, message if message.include?("NOT NULL constraint failed")
+        raise InvalidForeignKey, message if message.include?("FOREIGN KEY constraint failed")
+        raise CheckViolation, message if message.include?("CHECK constraint failed")
         raise DatabaseError, message
+      end
+
+      def raise_error_result(res, prefix = "")
+        message = "#{prefix}#{res["error"]}"
+        raise DatabaseUnavailable, message if res.key?("unavailable")
+        fail_with(message)
       end
 
       def supports_returning? = true

@@ -38,6 +38,11 @@ module Edgeway
         # The message names the table and columns: the log only.
         Edgeway.logger.info "409 #{e.message}"
         message(409, "record not unique")
+      elsif e.is_a?(DatabaseUnavailable)
+        Edgeway.logger.error "503 #{e.message}"
+        response = message(503, "database unavailable")
+        response.headers["Retry-After"] = "1"
+        response
       elsif e.is_a?(RoutingError) || e.is_a?(RecordNotFound)
         # The message can hold the path or an id from the request: the log only.
         Edgeway.logger.info "404 #{e.message}"
