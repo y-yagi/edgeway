@@ -11,9 +11,12 @@ module Edgeway
     # and the statements ([[sql, binds], ...], JSON text), and answer the result as JSON
     # text:
     #
-    #   d1_query    {"rows": [...]}
-    #   d1_execute  {"changes": n, "last_insert_id": id}
-    #   d1_batch    {"results": [{"changes": n, "last_insert_id": id}, ...]}
+    #   d1_query    {"rows": [...], "meta": META}
+    #   d1_execute  {"changes": n, "last_insert_id": id, "meta": META}
+    #   d1_batch    {"results": [{"changes": n, "last_insert_id": id}, ...], "meta": META}
+    #   META        {"rows_read": n, "rows_written": n, "duration": ms,
+    #                "served_by_region": "...", "served_by_primary": bool}
+    #               (a batch's is the sum over its statements)
     #   any         {"error": "message"} when D1 failed
     #   any         {"error": "message", "unavailable": true} when it failed
     #               in a transient way (DatabaseUnavailable)
@@ -99,6 +102,7 @@ module Edgeway
       def result(json)
         res = JSON.parse(json)
         raise_error_result(res, "d1: ") if res.key?("error")
+        record_meta(res["meta"]) if res.key?("meta")
         res
       end
     end

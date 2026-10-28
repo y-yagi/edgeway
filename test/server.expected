@@ -35,3 +35,12 @@ bad header name: "Näme"
 bad value for header X-Name
 bad value for header X-Name
 bad value for header X-Name
+Status: 200
+Content-Type: application/json
+
+{"status":"ok","q":null}
+Status: 200
+Content-Type: application/json
+
+{"status":"ok","q":null}
+info db=1 rows_read=3 rows_written=1 db_ms=2.00

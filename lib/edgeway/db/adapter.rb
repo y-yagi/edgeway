@@ -1,7 +1,17 @@
+require_relative "query_stats"
+
 module Edgeway
   module DB
     class Adapter
       MAX_BINDS = 100
+
+      def query_stats
+        @query_stats ||= QueryStats.new
+      end
+
+      def record_meta(meta)
+        query_stats.add(meta)
+      end
 
       def select_all(sql, binds)
         raise Error, "#{self.class} does not define select_all"

@@ -12,8 +12,16 @@ module Edgeway
       @connection = adapter
     end
 
+    def self.connected?
+      !@connection.nil?
+    end
+
     def self.connection
       @connection || raise(ConfigurationError, "Edgeway::Model.connection is not set")
+    end
+
+    def self.query_stats
+      connection.query_stats
     end
 
     # Runs the block with writes queued instead of executed, then sends them

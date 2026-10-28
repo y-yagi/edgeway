@@ -1,4 +1,5 @@
 require "edgeway"
+require "edgeway/db/memory"
 
 class HealthController < Edgeway::Controller::Base
   def show = render json: { "status" => "ok", "q" => params["q"] }
@@ -59,3 +60,19 @@ end
     puts e.message
   end
 end
+
+class StatsLogger
+  def info(message)
+    puts "info #{message}"
+  end
+
+  def error(message)
+    puts "error #{message}"
+  end
+end
+Edgeway.logger = StatsLogger.new
+stats_db = Edgeway::DB::MemoryAdapter.new
+Edgeway::Model.connection = stats_db
+run("/health")
+stats_db.record_meta(JSON.parse('{"rows_read":3,"rows_written":1,"duration":2,"served_by_region":"WEUR","served_by_primary":true}'))
+run("/health")

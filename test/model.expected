@@ -385,3 +385,9 @@ too many bind parameters: 101 (D1 allows 100)
 too many bind parameters: 101 (D1 allows 100)
 2
 true
+db=0 rows_read=0 rows_written=0 db_ms=0.00
+0
+[2, 7, 1, 2.456, "ENAM", true]
+db=2 rows_read=7 rows_written=1 db_ms=2.46
+db=1 rows_read=30 rows_written=3 db_ms=1.50
+db=2 rows_read=2147483647+ rows_written=10 db_ms=2.00
