@@ -1,13 +1,13 @@
 todos
 comments
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE done = ? ORDER BY title DESC LIMIT ? OFFSET ? | [0,5,10]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE done = ? ORDER BY title DESC LIMIT 5 OFFSET 10 | [0]
 4
 SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos WHERE priority = ?) | ["high"]
 {"id" => 3, "title" => "a", "done" => true, "priority" => "low", "position" => 2, "created_at" => "t", "updated_at" => "t"}
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT ? | [3,1]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT 1 | [3]
 true
 todos 4 not found
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT ? | [4,1]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT 1 | [4]
 unknown column: title;DROP TABLE todos
 unknown column: nope
 ["x", "y"]
@@ -24,10 +24,10 @@ true
 DELETE FROM todos WHERE id = ? | [9]
 SELECT id, body, todo_id FROM comments WHERE todo_id = ? ORDER BY id ASC | [1]
 1
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT ? | [1,1]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT 1 | [1]
 INSERT INTO comments (body, todo_id) VALUES (?, ?) RETURNING id, body, todo_id | ["b",1]
 ["todo must exist"]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT ? | [99,1]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT 1 | [99]
 1
 INSERT INTO todos (title, done, priority, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) | ["z",0,"normal",1,"2026-01-02T03:04:05.000Z","2026-01-02T03:04:05.000Z"]
 SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? | [3]
@@ -35,30 +35,30 @@ SELECT id, title, done, priority, position, created_at, updated_at FROM todos WH
 SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position IS NULL AND done = ? AND title = ? | [1,"x"]
 nil
 true
-SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos LIMIT ?) | [1]
+SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos LIMIT 1) | []
 false
-SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos WHERE title = ? LIMIT ?) | ["none",1]
+SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos WHERE title = ? LIMIT 1) | ["none"]
 2
-SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos LIMIT ?) | [2]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos LIMIT -1 OFFSET ? | [3]
+SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos LIMIT 2) | []
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos LIMIT -1 OFFSET 3 | []
 true
-SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos WHERE done = ? LIMIT ?) | [1,1]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY id ASC LIMIT ? | [1]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY title ASC LIMIT ? | [1]
+SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos WHERE done = ? LIMIT 1) | [1]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY id ASC LIMIT 1 | []
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY title ASC LIMIT 1 | []
 nil
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE title = ? LIMIT ? | ["z",1]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE title = ? LIMIT 1 | ["z"]
 nil
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE done = ? AND title = ? LIMIT ? | [1,"z",1]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE done = ? AND title = ? LIMIT 1 | [1,"z"]
 todos 4294967297 not found
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT ? | ["4294967297",1]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT 1 | ["4294967297"]
 todos 99999999999999999999 not found
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT ? | ["99999999999999999999",1]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT 1 | ["99999999999999999999"]
 bad limit: 99999999999
 bad limit: -1
 bad limit: 2147483648
 bad offset: 4294967297
 0
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos LIMIT ? OFFSET ? | [2147483647,0]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos LIMIT 2147483647 OFFSET 0 | []
 false
 ["position is out of range"]
 2147483647
@@ -119,42 +119,42 @@ comments comment true
 SELECT id, basket_id FROM categories WHERE basket_id = ? | [4]
 false
 ["name has already been taken"]
-SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT ? | ["work","u1",1]
+SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT 1 | ["work","u1"]
 true
-SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT ? | ["home","u1",1]
+SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT 1 | ["home","u1"]
 true
-SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT ? | ["work","u1",1]
+SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT 1 | ["work","u1"]
 false
 ["name has already been taken"]
-SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT ? | ["work","u1",1]
+SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT 1 | ["work","u1"]
 false
 true
-SELECT id, name, a, b FROM tags WHERE a = ? AND b IS NULL AND name IS NULL LIMIT ? | ["x",1]
+SELECT id, name, a, b FROM tags WHERE a = ? AND b IS NULL AND name IS NULL LIMIT 1 | ["x"]
 true
-SELECT id, name, a, b FROM tags WHERE name = ? LIMIT ? | ["l",1]
-SELECT id, name, a, b FROM tags WHERE a = ? AND b IS NULL AND name = ? LIMIT ? | ["x","l",1]
+SELECT id, name, a, b FROM tags WHERE name = ? LIMIT 1 | ["l"]
+SELECT id, name, a, b FROM tags WHERE a = ? AND b IS NULL AND name = ? LIMIT 1 | ["x","l"]
 unknown column: nope
 2
-SELECT id, owner_id, name FROM projects WHERE owner_id = ? AND name = ? LIMIT ? | ["u1","work",1]
+SELECT id, owner_id, name FROM projects WHERE owner_id = ? AND name = ? LIMIT 1 | ["u1","work"]
 [4, "u1", true]
-SELECT id, owner_id, name FROM projects WHERE owner_id = ? AND name = ? LIMIT ? | ["u1","default",1]
-SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT ? | ["default","u1",1]
+SELECT id, owner_id, name FROM projects WHERE owner_id = ? AND name = ? LIMIT 1 | ["u1","default"]
+SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT 1 | ["default","u1"]
 INSERT INTO projects (owner_id, name) VALUES (?, ?) RETURNING id, owner_id, name | ["u1","default"]
 [false, ["name can't be blank"]]
-SELECT id, owner_id, name FROM projects WHERE name = ? LIMIT ? | ["",1]
+SELECT id, owner_id, name FROM projects WHERE name = ? LIMIT 1 | [""]
 validation failed: name can't be blank
-SELECT id, owner_id, name FROM projects WHERE name = ? LIMIT ? | ["",1]
+SELECT id, owner_id, name FROM projects WHERE name = ? LIMIT 1 | [""]
 unknown column: nope
 5
-SELECT id, owner_id, name FROM projects WHERE owner_id = ? AND name = ? LIMIT ? | ["u1","race",1]
-SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT ? | ["race","u1",1]
+SELECT id, owner_id, name FROM projects WHERE owner_id = ? AND name = ? LIMIT 1 | ["u1","race"]
+SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT 1 | ["race","u1"]
 INSERT INTO projects (owner_id, name) VALUES (?, ?) RETURNING id, owner_id, name | ["u1","race"]
-SELECT id, owner_id, name FROM projects WHERE owner_id = ? AND name = ? LIMIT ? | ["u1","race",1]
+SELECT id, owner_id, name FROM projects WHERE owner_id = ? AND name = ? LIMIT 1 | ["u1","race"]
 D1_ERROR: UNIQUE constraint failed: projects.id: SQLITE_CONSTRAINT
-SELECT id, owner_id, name FROM projects WHERE name = ? LIMIT ? | ["ghost",1]
-SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id IS NULL LIMIT ? | ["ghost",1]
+SELECT id, owner_id, name FROM projects WHERE name = ? LIMIT 1 | ["ghost"]
+SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id IS NULL LIMIT 1 | ["ghost"]
 INSERT INTO projects (name) VALUES (?) RETURNING id, owner_id, name | ["ghost"]
-SELECT id, owner_id, name FROM projects WHERE name = ? LIMIT ? | ["ghost",1]
+SELECT id, owner_id, name FROM projects WHERE name = ? LIMIT 1 | ["ghost"]
 not unique: D1_ERROR: UNIQUE constraint failed: tags.name: SQLITE_CONSTRAINT
 true
 false
@@ -173,14 +173,14 @@ Edgeway::DatabaseUnavailable: d1: D1_ERROR: Network connection lost.
 Edgeway::RecordNotUnique: d1: D1_ERROR: UNIQUE constraint failed: tags.name: SQLITE_CONSTRAINT
 Edgeway::DatabaseError: d1: D1_ERROR: exceeded CPU time limit
 insert: UNIQUE constraint failed: projects.id
-SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT ? | ["x","u9",1]
+SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT 1 | ["x","u9"]
 INSERT INTO projects (owner_id, name) VALUES (?, ?) RETURNING id, owner_id, name | ["u9","x"]
 SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY updated_at DESC, id DESC | []
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY title ASC, position DESC LIMIT ? | [2]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY title ASC, position DESC LIMIT 2 | []
 SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY position ASC | []
 SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY title DESC | []
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE done = ? ORDER BY id DESC LIMIT ? | [1,1]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY title ASC, id DESC LIMIT ? | [1]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE done = ? ORDER BY id DESC LIMIT 1 | [1]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY title ASC, id DESC LIMIT 1 | []
 SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos) | []
 unknown column: nope
 bad order direction: sideways
@@ -221,22 +221,22 @@ unknown dependent: nullify
 SELECT id, member_ref FROM memberships WHERE member_ref = ? | [4]
 SELECT id, account_uid FROM logins WHERE account_uid = ? | ["u-1"]
 "u-1"
-SELECT id, uid, name FROM accounts WHERE id = ? LIMIT ? | [4,1]
-SELECT id, uid, name FROM accounts WHERE id = ? LIMIT ? | [4,1]
+SELECT id, uid, name FROM accounts WHERE id = ? LIMIT 1 | [4]
+SELECT id, uid, name FROM accounts WHERE id = ? LIMIT 1 | [4]
 INSERT INTO memberships (member_ref) VALUES (?) RETURNING id, member_ref | [4]
 ["account must exist"]
-SELECT id, uid, name FROM accounts WHERE id = ? LIMIT ? | [9,1]
+SELECT id, uid, name FROM accounts WHERE id = ? LIMIT 1 | [9]
 "u-1"
 "a"
-SELECT id, uid, name FROM accounts WHERE uid = ? LIMIT ? | ["u-1",1]
+SELECT id, uid, name FROM accounts WHERE uid = ? LIMIT 1 | ["u-1"]
 accounts uid u-1 not found
-SELECT id, uid, name FROM accounts WHERE uid = ? LIMIT ? | ["u-1",1]
+SELECT id, uid, name FROM accounts WHERE uid = ? LIMIT 1 | ["u-1"]
 accounts uid  not found
 []
-SELECT id, uid, name FROM accounts WHERE uid = ? LIMIT ? | ["u-1",1]
+SELECT id, uid, name FROM accounts WHERE uid = ? LIMIT 1 | ["u-1"]
 INSERT INTO devices (owner_uid) VALUES (?) RETURNING id, owner_uid | ["u-1"]
 ["account must exist"]
-SELECT id, uid, name FROM accounts WHERE uid = ? LIMIT ? | ["zz",1]
+SELECT id, uid, name FROM accounts WHERE uid = ? LIMIT 1 | ["zz"]
 ["account must exist"]
 SELECT id, body, todo_id FROM comments WHERE todo_id = ? | [2]
 true
@@ -306,14 +306,14 @@ Team
 Comment
 no model for ghosts
 SELECT id, post_id FROM comments WHERE post_id = ? | [4]
-SELECT id, title FROM posts WHERE id = ? LIMIT ? | [4,1]
-SELECT todos.id AS p_id, todos.title AS p_title, todos.done AS p_done, todos.priority AS p_priority, todos.position AS p_position, todos.created_at AS p_created_at, todos.updated_at AS p_updated_at, eager_comments.id AS c0_id, eager_comments.body AS c0_body, eager_comments.todo_id AS c0_todo_id FROM (SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE done = ? ORDER BY title ASC LIMIT ?) AS todos LEFT JOIN comments AS eager_comments ON eager_comments.todo_id = todos.id ORDER BY todos.title ASC, eager_comments.id | [0,5]
+SELECT id, title FROM posts WHERE id = ? LIMIT 1 | [4]
+SELECT todos.id AS p_id, todos.title AS p_title, todos.done AS p_done, todos.priority AS p_priority, todos.position AS p_position, todos.created_at AS p_created_at, todos.updated_at AS p_updated_at, eager_comments.id AS c0_id, eager_comments.body AS c0_body, eager_comments.todo_id AS c0_todo_id FROM (SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE done = ? ORDER BY title ASC LIMIT 5) AS todos LEFT JOIN comments AS eager_comments ON eager_comments.todo_id = todos.id ORDER BY todos.title ASC, eager_comments.id | [0]
 ["a", "b"]
 [["x", "y"], []]
 ["a"]
 SELECT comments.id AS p_id, comments.body AS p_body, comments.todo_id AS p_todo_id, eager_todo.id AS c0_id, eager_todo.title AS c0_title, eager_todo.done AS c0_done, eager_todo.priority AS c0_priority, eager_todo.position AS c0_position, eager_todo.created_at AS c0_created_at, eager_todo.updated_at AS c0_updated_at FROM (SELECT id, body, todo_id FROM comments) AS comments LEFT JOIN todos AS eager_todo ON eager_todo.id = comments.todo_id ORDER BY comments.id, eager_todo.id | []
 no association ghosts
-SELECT shelfs.id AS p_id, shelfs.name AS p_name, eager_books.id AS c0_id, eager_books.shelf_id AS c0_shelf_id, eager_pens.id AS c1_id, eager_pens.shelf_id AS c1_shelf_id FROM (SELECT id, name FROM shelfs WHERE name = ? LIMIT ?) AS shelfs LEFT JOIN books AS eager_books ON eager_books.shelf_id = shelfs.id LEFT JOIN pens AS eager_pens ON eager_pens.shelf_id = shelfs.id ORDER BY shelfs.id, eager_books.id, eager_pens.id | ["x",3]
+SELECT shelfs.id AS p_id, shelfs.name AS p_name, eager_books.id AS c0_id, eager_books.shelf_id AS c0_shelf_id, eager_pens.id AS c1_id, eager_pens.shelf_id AS c1_shelf_id FROM (SELECT id, name FROM shelfs WHERE name = ? LIMIT 3) AS shelfs LEFT JOIN books AS eager_books ON eager_books.shelf_id = shelfs.id LEFT JOIN pens AS eager_pens ON eager_pens.shelf_id = shelfs.id ORDER BY shelfs.id, eager_books.id, eager_pens.id | ["x"]
 [[10, 11], [], []]
 [[20, 21], [22], []]
 SELECT shelfs.id AS p_id, shelfs.name AS p_name, eager_books.id AS c0_id, eager_books.shelf_id AS c0_shelf_id, eager_pens.id AS c1_id, eager_pens.shelf_id AS c1_shelf_id FROM (SELECT id, name FROM shelfs) AS shelfs LEFT JOIN books AS eager_books ON eager_books.shelf_id = shelfs.id LEFT JOIN pens AS eager_pens ON eager_pens.shelf_id = shelfs.id ORDER BY shelfs.id, eager_books.id, eager_pens.id | []
@@ -321,4 +321,67 @@ SELECT books.id AS p_id, books.shelf_id AS p_shelf_id, eager_shelf.id AS c0_id, 
 "s1"
 [[100, 101], []]
 no association ghosts
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id IN (?, ?) | [1,2]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE done IN (?, ?) | [1,0]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE 1 = 0 | []
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE (position IN (?) OR position IS NULL) | [1]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position IS NULL | []
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position >= ? AND position <= ? | [1,5]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position >= ? AND position < ? | [1,5]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position >= ? | [2]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position <= ? | [5]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position < ? | [5]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE (title LIKE ?) | ["%x%"]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE (done = 1) | []
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE (title LIKE ? OR priority = ?) AND done = ? | ["%x%","low",1]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE (done = ?) | [1]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id IN (?, ?) AND position >= ? AND position <= ? AND (title <> ?) AND done = ? ORDER BY id ASC LIMIT 5 OFFSET 2 | [1,2,3,4,"z",0]
+2
+SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos WHERE id IN (?, ?) AND (title <> ?) LIMIT 1) | [1,2,"z"]
+true
+SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos WHERE position >= ? AND position <= ? LIMIT 1) | [1,3]
+SELECT title FROM todos WHERE id IN (?, ?) | [1,2]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position >= ? AND position <= ? ORDER BY id ASC LIMIT 1 | [1,3]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id IN (?, ?) AND title = ? LIMIT 1 | [3,4,"z"]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE (title LIKE ?) AND id = ? LIMIT 1 | ["a%",7]
+DELETE FROM todos WHERE id IN (?, ?) | [1,2]
+DELETE FROM todos WHERE position >= ? AND position < ? AND (title = ?) AND done = ? | [1,3,"z",1]
+DELETE FROM todos WHERE 1 = 0 | []
+2
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id IN (?, ?) AND (title <> ?) | [1,2,"z"]
+DELETE FROM todos WHERE id = ? | [1]
+DELETE FROM todos WHERE id = ? | [2]
+SELECT todos.id AS p_id, todos.title AS p_title, todos.done AS p_done, todos.priority AS p_priority, todos.position AS p_position, todos.created_at AS p_created_at, todos.updated_at AS p_updated_at, eager_comments.id AS c0_id, eager_comments.body AS c0_body, eager_comments.todo_id AS c0_todo_id FROM (SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id IN (?, ?) AND (title <> ?) LIMIT 3) AS todos LEFT JOIN comments AS eager_comments ON eager_comments.todo_id = todos.id ORDER BY todos.id, eager_comments.id | [1,2,"z"]
+SELECT id, body, todo_id FROM comments WHERE todo_id = ? AND body IN (?, ?) AND (body <> ?) | [5,"a","b","c"]
+unknown column: nope
+unknown column: nope
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE created_at = ? | ["2026-10-28T05:00:00.000Z"]
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE created_at IN (?, ?) AND (updated_at > ?) | ["2026-10-28T05:00:00.000Z","2026-10-28T06:00:00.000Z","2026-10-28T05:00:00.000Z"]
+SELECT 1 WHERE ? < ? | ["2026-10-28T05:00:00.000Z",1]
+an Array bind in a SQL fragment isn't expanded; use where(column: [...])
+where(Hash) takes no binds
+[3, "high", "b", nil]
+[nil, "normal"]
+[[4, "raw", true, true]]
+[{"n" => 3}]
+0
+{"changes" => 1, "last_insert_id" => 41}
+{"changes" => 1, "last_insert_id" => 42}
+SELECT * FROM todos WHERE done = ? AND title LIKE ? | [1,"r%"]
+SELECT COUNT(*) AS n FROM todos WHERE done = ? | [0]
+SELECT * FROM todos | []
+UPDATE todos SET done = ? WHERE id = ? | [1,1]
+DELETE FROM todos | []
+{"changes" => 0, "last_insert_id" => 0}
+0
+[{"changes" => 1, "last_insert_id" => 43}, {"changes" => 1, "last_insert_id" => 44}]
+BATCH 2
+UPDATE todos SET done = ? WHERE id = ? | [1,1]
+DELETE FROM comments WHERE todo_id = ? | [1]
+1
+too many bind parameters: 101 (D1 allows 100)
+, ?, ?, ?, ?) LIMIT 1 OFFSET 2
+too many bind parameters: 101 (D1 allows 100)
+too many bind parameters: 101 (D1 allows 100)
+2
 true

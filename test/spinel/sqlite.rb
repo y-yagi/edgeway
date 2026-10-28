@@ -23,12 +23,18 @@ class Label < ApplicationModel
   attribute :name, :string
 end
 
+class Event < ApplicationModel
+  attribute :name, :string
+  timestamps
+end
+
 db = Edgeway::DB::SQLiteAdapter.new(":memory:")
 Edgeway::Model.connection = db
 db.load_schema(<<~SQL)
   CREATE TABLE groups (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, score REAL, active INTEGER NOT NULL DEFAULT 0, rank INTEGER);
   CREATE TABLE members (id INTEGER PRIMARY KEY AUTOINCREMENT, group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE, name TEXT);
   CREATE TABLE ratings (id INTEGER PRIMARY KEY AUTOINCREMENT, stars INTEGER CHECK (stars BETWEEN 1 AND 5));
+  CREATE TABLE events (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, created_at TEXT, updated_at TEXT);
   CREATE TABLE labels (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, UNIQUE (name));
 SQL
 
@@ -142,6 +148,89 @@ p db.execute("DELETE FROM labels WHERE name = ?", ["zzz"])["changes"]
 db.log.clear
 Label.find_by(name: "ret2")
 puts db.log
+
+# where: IN, Range, fragments; raw SQL
+Group.delete_all
+[["a", 1.0, 1, true], ["b", 2.0, 2, false], ["c", 3.0, 3, true], ["d", 4.0, nil, false], ["e'", 5.0, 5, true]].each do |n, s, r, a|
+  Group.create!(name: n, score: s, rank: r, active: a)
+end
+p Group.where(rank: [1, 3]).order(:id).pluck(:name)
+p Group.where(rank: ["2", 5]).order(:id).pluck(:name)
+p Group.where(rank: []).count
+p Group.where(rank: [1, nil]).order(:id).pluck(:name)
+p Group.where(active: [true]).order(:id).pluck(:name)
+p Group.where(name: ["a", "e'"]).order(:id).pluck(:name)
+p Group.where(rank: 2..4).order(:id).pluck(:name)
+p Group.where(rank: 2...4).order(:id).pluck(:name)
+p Group.where(rank: (3..)).order(:id).pluck(:name)
+p Group.where(rank: (..2)).order(:id).pluck(:name)
+p Group.where(score: 1.5..3.5).order(:id).pluck(:name)
+p Group.where("name LIKE ?", "%'").pluck(:name)
+p Group.where("rank > 1 AND active = 1").order(:id).pluck(:name)
+p Group.where("rank > ? OR rank IS NULL", 4).order(:id).pluck(:name)
+p Group.where("active = ?", true).where(rank: 1..3).order(:id).pluck(:name)
+p Group.where(rank: [1, 2, 3]).where("name <> ?", "b").order(:id).limit(1).offset(1).pluck(:name)
+p Group.where(rank: 1..3).count
+p Group.where("name = ?", "a").exists?
+p Group.where(rank: [1, 2]).first.name
+p Group.where(rank: [4]).find_by(name: "d")
+p Group.where(rank: 3..9).find_by(name: "e'").name
+p Group.where(rank: [1, 2, 3]).eager_load(:members).to_a.size
+p Group.where(rank: 1..2).build(name: "z").rank
+p Group.where(rank: [5], name: "e'").destroy_all.map { |g| g.name }
+p Group.where(rank: 1...2).delete_all
+p Group.where("name = ?", "none").delete_all
+p Group.where(rank: [2, 3]).order(:id).pluck(:name)
+g = Group.where(rank: 2).first
+Member.create!(group_id: g.id, name: "m")
+p g.members.where(name: ["m", "n"]).where("name <> ?", "x").count
+p Group.find_by_sql("SELECT * FROM groups WHERE rank >= ? ORDER BY id", [2]).map { |x| [x.name, x.active, x.score] }
+p Group.find_by_sql("SELECT id, name, score, active, rank FROM groups WHERE active = ?", [false]).map { |x| x.as_json }
+p Edgeway::Model.select_all("SELECT name, active FROM groups WHERE active = ? ORDER BY id", [true])
+p Edgeway::Model.execute("UPDATE groups SET rank = ? WHERE name = ?", [10, "c"])
+p Edgeway::Model.execute("INSERT INTO labels (name) VALUES (?)", ["raw"])["changes"]
+Edgeway::Model.batch do
+  p Edgeway::Model.execute("UPDATE groups SET rank = ? WHERE name = ?", [11, "c"])
+  Edgeway::Model.execute("DELETE FROM labels WHERE name = ?", ["raw"])
+  p Group.find_by(name: "c").rank
+end
+p Group.find_by(name: "c").rank
+p Label.where(name: "raw").count
+p Group.where(id: (1..100).to_a).count
+begin
+  Group.where(id: (1..101).to_a).count
+rescue ArgumentError => e
+  puts e.message
+end
+begin
+  Edgeway::Model.batch do
+    Edgeway::Model.execute("UPDATE groups SET rank = 0", [])
+    Edgeway::Model.execute("DELETE FROM groups WHERE id IN (#{(1..101).map { "?" }.join(", ")})", (1..101).to_a)
+  end
+rescue ArgumentError => e
+  puts e.message
+end
+p Group.find_by(name: "c").rank
+
+t0 = Time.utc(2026, 10, 28, 5, 0, 0)
+[0, 1800, 3600, 7200].each_with_index do |d, i|
+  Edgeway::Model.freeze_time((t0 + d).utc.iso8601(3))
+  Event.create!(name: "e#{i}")
+end
+Edgeway::Model.freeze_time(nil)
+p Event.where("created_at >= ? AND created_at <= ?", t0, t0 + 3600).order(:id).pluck(:name)
+p Event.where(created_at: [t0, t0 + 7200]).order(:id).pluck(:name)
+p Event.where(created_at: t0).pluck(:name)
+p Event.where("created_at > ?", t0 + 1800).order(:id).pluck(:name)
+p Event.find_by_sql("SELECT * FROM events WHERE created_at < ?", [t0 + 1800]).map { |e| e.name }
+p Event.where(created_at: "2026-10-28T05:00:00.000Z".."2026-10-28T06:00:00.000Z").order(:id).pluck(:name)
+p Event.where(created_at: t0.utc.iso8601(3)...(t0 + 3600).utc.iso8601(3)).order(:id).pluck(:name)
+p Edgeway::Model.select_all("SELECT name FROM events WHERE created_at = ?", [t0 + 7200])
+begin
+  Group.where("rank IN (?)", [1, 2])
+rescue ArgumentError => e
+  puts e.message
+end
 
 # a second database is separate
 db2 = Edgeway::DB::SQLiteAdapter.new(":memory:")

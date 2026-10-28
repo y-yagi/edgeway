@@ -76,10 +76,12 @@ module Edgeway
       end
 
       def select_all(sql, binds)
+        check_binds(binds)
         result(D1Imports.d1_query(@binding_name, sql, JSON.generate(binds)))["rows"]
       end
 
       def execute(sql, binds)
+        check_binds(binds)
         res = result(D1Imports.d1_execute(@binding_name, sql, JSON.generate(binds)))
         { "changes" => res["changes"].to_i, "last_insert_id" => res["last_insert_id"].to_i }
       end
@@ -87,6 +89,7 @@ module Edgeway
       # One D1 batch(): the statements run as a single transaction, so any
       # failure rolls all of them back.
       def batch(statements)
+        statements.each { |s| check_binds(s[1]) }
         res = result(D1Imports.d1_batch(@binding_name, JSON.generate(statements)))
         res["results"].map { |r| { "changes" => r["changes"].to_i, "last_insert_id" => r["last_insert_id"].to_i } }
       end

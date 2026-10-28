@@ -42,11 +42,13 @@ module Edgeway
       def supports_returning? = @returning
 
       def select_all(sql, binds)
+        check_binds(binds)
         record(sql, binds)
         @queue.empty? ? [] : @queue.shift
       end
 
       def execute(sql, binds)
+        check_binds(binds)
         record(sql, binds)
         id = @next_id
         @next_id += 1
@@ -54,6 +56,7 @@ module Edgeway
       end
 
       def batch(statements)
+        statements.each { |s| check_binds(s[1]) }
         @log << "BATCH #{statements.size}"
         statements.map { |s| execute(s[0], s[1]) }
       end

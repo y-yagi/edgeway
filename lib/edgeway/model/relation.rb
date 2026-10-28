@@ -3,12 +3,17 @@ module Edgeway
     class Relation
       # eager is the associations eager_load names (empty: none); records, when
       # set, are what to_a answers instead of a query (an eager-loaded has_many).
+      # conds are the WHERE terms (each with its own "?"s) and binds their
+      # values in order; eq_cols/eq_vals are the plain equality terms, which
+      # build copies into the new record.
       attr_writer :records
 
-      def initialize(model, where_cols = [], binds = [], order = [], limit = nil, offset = nil, eager = [])
+      def initialize(model, conds = [], binds = [], eq_cols = [], eq_vals = [], order = [], limit = nil, offset = nil, eager = [])
         @model = model
-        @where_cols = where_cols
+        @conds = conds
         @binds = binds
+        @eq_cols = eq_cols
+        @eq_vals = eq_vals
         @order = order
         @limit = limit
         @offset = offset
@@ -16,37 +21,45 @@ module Edgeway
         @records = nil
       end
 
-      def where(conditions)
-        cols = @where_cols.dup
+      def where(conditions, *args)
+        conds = @conds.dup
         binds = @binds.dup
-        conditions.each do |k, v|
-          col = @model.column(k)
-          casted = Model.cast(@model.type_of(col), v)
-          # An integer outside 32 bits can't be held as one; it goes as its
-          # text, which SQLite compares as the number it is, so nothing
-          # matches (a find on it is a 404).
-          casted = v.to_s if casted.nil? && !v.nil?
-          cols << col
-          binds << Model.to_db(casted)
+        eq_cols = @eq_cols.dup
+        eq_vals = @eq_vals.dup
+        if conditions.is_a?(String)
+          add_fragment(conditions, args, conds, binds)
+        else
+          raise ArgumentError, "where(Hash) takes no binds" unless args.empty?
+          conditions.each do |k, v|
+            column = @model.column(k)
+            type = @model.type_of(column)
+            if v.is_a?(Array)
+              add_in(column, type, v, conds, binds)
+            elsif v.is_a?(Range)
+              add_range(column, type, v, conds, binds)
+            else
+              add_equality(column, type, v, conds, binds, eq_cols, eq_vals)
+            end
+          end
         end
-        Relation.new(@model, cols, binds, @order, @limit, @offset, @eager)
+        Relation.new(@model, conds, binds, eq_cols, eq_vals, @order, @limit, @offset, @eager)
       end
 
       def order(col, dir = :asc)
-        Relation.new(@model, @where_cols, @binds, @order + [order_term(col, dir)], @limit, @offset, @eager)
+        Relation.new(@model, @conds, @binds, @eq_cols, @eq_vals, @order + [order_term(col, dir)], @limit, @offset, @eager)
       end
 
       # Replaces all the terms.
       def reorder(col, dir = :asc)
-        Relation.new(@model, @where_cols, @binds, [order_term(col, dir)], @limit, @offset, @eager)
+        Relation.new(@model, @conds, @binds, @eq_cols, @eq_vals, [order_term(col, dir)], @limit, @offset, @eager)
       end
 
       def limit(n)
-        Relation.new(@model, @where_cols, @binds, @order, count_arg("limit", n), @offset, @eager)
+        Relation.new(@model, @conds, @binds, @eq_cols, @eq_vals, @order, count_arg("limit", n), @offset, @eager)
       end
 
       def offset(n)
-        Relation.new(@model, @where_cols, @binds, @order, @limit, count_arg("offset", n), @eager)
+        Relation.new(@model, @conds, @binds, @eq_cols, @eq_vals, @order, @limit, count_arg("offset", n), @eager)
       end
 
       # Loads the has_manys and belongs_tos named of every record with the one
@@ -59,12 +72,12 @@ module Edgeway
         names.each do |n|
           eager << n.to_s unless eager.include?(n.to_s)
         end
-        Relation.new(@model, @where_cols, @binds, @order, @limit, @offset, eager)
+        Relation.new(@model, @conds, @binds, @eq_cols, @eq_vals, @order, @limit, @offset, eager)
       end
 
       # Same conditions, but to_a answers these records.
       def loaded(records)
-        relation = Relation.new(@model, @where_cols, @binds, @order, @limit, @offset)
+        relation = Relation.new(@model, @conds, @binds, @eq_cols, @eq_vals, @order, @limit, @offset)
         relation.records = records
         relation
       end
@@ -94,9 +107,7 @@ module Edgeway
 
       def delete_all
         raise ArgumentError, "delete_all doesn't support limit/offset" if @limit || @offset
-        conn = Model.connection
-        where_sql, _marks = where_clause(conn)
-        Model.write("DELETE FROM #{@model.table_name}#{where_sql}", @binds.compact)["changes"]
+        Model.write("DELETE FROM #{@model.table_name}#{where_clause}", @binds)["changes"]
       end
 
       def destroy_all
@@ -110,7 +121,7 @@ module Edgeway
       def size = to_a.size
       def empty? = !exists?
 
-      def find_by(conditions) = Relation.new(@model, @where_cols, @binds, @order, @limit, nil, @eager).where(conditions).limit(1).to_a.first
+      def find_by(conditions) = Relation.new(@model, @conds, @binds, @eq_cols, @eq_vals, @order, @limit, nil, @eager).where(conditions).limit(1).to_a.first
 
       def find(id)
         find_by("id" => id) || raise(RecordNotFound, "#{@model.table_name} #{id} not found")
@@ -118,7 +129,7 @@ module Edgeway
 
       def build(attrs = {})
         record = @model.new(attrs)
-        @where_cols.each_with_index { |col, i| record.write_attribute(col, @binds[i]) }
+        @eq_cols.each_with_index { |col, i| record.write_attribute(col, @eq_vals[i]) }
         record
       end
 
@@ -254,39 +265,74 @@ module Edgeway
         "#{@model.column(col)} #{d.upcase}"
       end
 
-      # " WHERE ..." (empty without conditions) and the number of placeholders
-      # it used. A nil value is IS NULL, with no bind.
-      def where_clause(conn)
-        marks = 0
-        return ["", marks] if @where_cols.empty?
-        conds = @where_cols.each_with_index.map do |c, i|
-          if @binds[i].nil?
-            "#{c} IS NULL"
-          else
-            marks += 1
-            "#{c} = #{conn.placeholder(marks)}"
-          end
+      def add_fragment(sql, values, conds, binds)
+        conds << "(#{sql})"
+        values.each do |v|
+          raise ArgumentError, "an Array bind in a SQL fragment isn't expanded; use where(column: [...])" if v.is_a?(Array)
+          binds << Model.to_db(v)
         end
-        [" WHERE " + conds.join(" AND "), marks]
       end
 
+      def add_in(column, type, values, conds, binds)
+        vals = values.map { |x| bind_value(type, x) }
+        rest = vals.compact
+        has_nil = rest.size < vals.size
+        if rest.empty?
+          conds << (has_nil ? "#{column} IS NULL" : "1 = 0")
+          return
+        end
+        term = "#{column} IN (#{rest.map { |_x| "?" }.join(", ")})"
+        conds << (has_nil ? "(#{term} OR #{column} IS NULL)" : term)
+        rest.each { |x| binds << x }
+      end
+
+      def add_range(column, type, range, conds, binds)
+        lo = range.begin
+        hi = range.end
+        unless lo.nil?
+          conds << "#{column} >= ?"
+          binds << bind_value(type, lo)
+        end
+        unless hi.nil?
+          conds << "#{column} #{range.exclude_end? ? "<" : "<="} ?"
+          binds << bind_value(type, hi)
+        end
+      end
+
+      def add_equality(column, type, value, conds, binds, eq_cols, eq_vals)
+        bound = bind_value(type, value)
+        if bound.nil?
+          conds << "#{column} IS NULL"
+        else
+          conds << "#{column} = ?"
+          binds << bound
+        end
+        eq_cols << column
+        eq_vals << bound
+      end
+
+      # The value as it is bound. An integer outside 32 bits can't be held as
+      # one; it goes as its text, which SQLite compares as the number it is
+      # (an equality on it matches nothing: a find on it is a 404).
+      def bind_value(type, v)
+        v = Model.to_db(v) if v.is_a?(Time)
+        casted = Model.cast(type, v)
+        casted = v.to_s if casted.nil? && !v.nil?
+        Model.to_db(casted)
+      end
+
+      def where_clause = @conds.empty? ? "" : " WHERE " + @conds.join(" AND ")
+
       def select(what, ordered)
-        conn = Model.connection
-        where_sql, _marks = where_clause(conn)
-        sql = "SELECT #{what} FROM #{@model.table_name}#{where_sql}"
+        sql = "SELECT #{what} FROM #{@model.table_name}#{where_clause}"
         sql += " ORDER BY #{@order.join(", ")}" if ordered && !@order.empty?
-        binds = @binds.compact
         if @limit
-          binds = binds + [@limit]
-          sql += " LIMIT #{conn.placeholder(binds.size)}"
+          sql += " LIMIT #{@limit}"
         elsif @offset
           sql += " LIMIT -1"
         end
-        if @offset
-          binds = binds + [@offset]
-          sql += " OFFSET #{conn.placeholder(binds.size)}"
-        end
-        [sql, binds]
+        sql += " OFFSET #{@offset}" if @offset
+        [sql, @binds]
       end
     end
   end

@@ -37,5 +37,55 @@ fk: FOREIGN KEY constraint failed
 {"id" => 5, "name" => "ret"}
 1
 0
-SELECT id, name FROM labels WHERE name = ? LIMIT ? | ["ret2",1]
+SELECT id, name FROM labels WHERE name = ? LIMIT 1 | ["ret2"]
+["a", "c"]
+["b", "e'"]
+0
+["a", "d"]
+["a", "c", "e'"]
+["a", "e'"]
+["b", "c"]
+["b", "c"]
+["c", "e'"]
+["a", "b"]
+["b", "c"]
+["e'"]
+["c", "e'"]
+["d", "e'"]
+["a", "c"]
+["c"]
+3
+true
+"a"
+nil
+"e'"
+3
+nil
+["e'"]
+1
+0
+["b", "c"]
+1
+[["b", false, 2.0], ["c", true, 3.0]]
+[{"id" => 7, "name" => "b", "score" => 2.0, "active" => false, "rank" => 2}, {"id" => 9, "name" => "d", "score" => 4.0, "active" => false, "rank" => nil}]
+[{"name" => "c", "active" => 1}]
+{"changes" => 1, "last_insert_id" => 3}
+1
+{"changes" => 0, "last_insert_id" => 0}
+10
+11
+0
+3
+too many bind parameters: 101 (D1 allows 100)
+too many bind parameters: 101 (D1 allows 100)
+11
+["e0", "e1", "e2"]
+["e0", "e3"]
+["e0"]
+["e2", "e3"]
+["e0"]
+["e0", "e1", "e2"]
+["e0", "e1"]
+[{"name" => "e3"}]
+an Array bind in a SQL fragment isn't expanded; use where(column: [...])
 [{"n" => 0}]

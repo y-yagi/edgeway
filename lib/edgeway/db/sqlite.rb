@@ -63,6 +63,7 @@ module Edgeway
       def supports_returning? = @returning
 
       def select_all(sql, binds)
+        check_binds(binds)
         stmt = start(sql, binds)
         rows = []
         rc = SQLiteFFI.sqlite3_step(stmt)
@@ -75,6 +76,7 @@ module Edgeway
       end
 
       def execute(sql, binds)
+        check_binds(binds)
         stmt = start(sql, binds)
         rc = SQLiteFFI.sqlite3_step(stmt)
         while rc == SQLiteFFI::ROW
