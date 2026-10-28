@@ -269,7 +269,7 @@ module Edgeway
         conds << "(#{sql})"
         values.each do |v|
           raise ArgumentError, "an Array bind in a SQL fragment isn't expanded; use where(column: [...])" if v.is_a?(Array)
-          binds << Model.to_db(v)
+          binds << Model.database_value(v)
         end
       end
 
@@ -315,10 +315,10 @@ module Edgeway
       # one; it goes as its text, which SQLite compares as the number it is
       # (an equality on it matches nothing: a find on it is a 404).
       def bind_value(type, v)
-        v = Model.to_db(v) if v.is_a?(Time)
+        v = Model.database_value(v) if v.is_a?(Time)
         casted = Model.cast(type, v)
         casted = v.to_s if casted.nil? && !v.nil?
-        Model.to_db(casted)
+        Model.database_value(casted, type)
       end
 
       def where_clause = @conds.empty? ? "" : " WHERE " + @conds.join(" AND ")

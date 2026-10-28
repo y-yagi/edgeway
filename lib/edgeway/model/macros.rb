@@ -2,6 +2,10 @@ module Edgeway
   module Model
     module Macros
       def attribute(name, type, default: nil)
+        if name.to_s == "id"
+          self.id_type = type
+          return
+        end
         attribute_types[name.to_s] = type
         attribute_defaults[name.to_s] = default unless default.nil?
         define_method(name) { @attributes[name.to_s] }

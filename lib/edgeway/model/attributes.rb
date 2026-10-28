@@ -59,11 +59,11 @@ module Edgeway
     end
 
     def self.select_all(sql, binds = [])
-      connection.select_all(sql, binds.map { |b| to_db(b) })
+      connection.select_all(sql, binds.map { |b| database_value(b) })
     end
 
     def self.execute(sql, binds = [])
-      write(sql, binds.map { |b| to_db(b) })
+      write(sql, binds.map { |b| database_value(b) })
     end
 
     def self.to_int(v)
@@ -79,14 +79,51 @@ module Edgeway
       when :integer then to_int(v)
       when :float then v.is_a?(Float) ? v : v.to_s.to_f
       when :boolean then v == true || TRUE_STRINGS.include?(v.to_s)
+      when :bigint then to_bigint(v)
+      when :binary then to_binary(v)
       else v.to_s
       end
     end
 
-    def self.to_db(v)
-      return connection.quote_boolean(v) if v == true || v == false
-      return v.getutc.iso8601(3) if v.is_a?(Time)
-      v
+    INT64_MAX_DIGITS = "9223372036854775807"
+    INT64_MIN_DIGITS = "9223372036854775808"
+
+    # A bigint is held as its decimal String, as a number beyond 32 bits can't
+    # be an Integer in wasm.
+    def self.to_bigint(value)
+      text = value.to_s
+      return nil unless text.match?(/\A-?[0-9]+\z/)
+      negative = text.start_with?("-")
+      digits = text.sub(/\A-?0*/, "")
+      digits = "0" if digits.empty?
+      return nil unless within_int64?(digits, negative)
+      negative && digits != "0" ? "-#{digits}" : digits
+    end
+
+    def self.within_int64?(digits, negative)
+      limit = negative ? INT64_MIN_DIGITS : INT64_MAX_DIGITS
+      return digits.length < limit.length || (digits.length == limit.length && digits <= limit)
+    end
+
+    def self.to_binary(value)
+      return value.to_s.b unless value.is_a?(Hash)
+      return nil unless value.key?("$blob")
+      value["$blob"].to_s.unpack1("m0").b
+    rescue ArgumentError
+      nil
+    end
+
+    def self.encode_base64(bytes) = [bytes].pack("m0")
+
+    def self.blob(bytes)
+      { "$blob" => encode_base64(bytes) }
+    end
+
+    def self.database_value(value, type = nil)
+      return connection.quote_boolean(value) if value == true || value == false
+      return value.getutc.iso8601(3) if value.is_a?(Time)
+      return blob(value) if type == :binary && value.is_a?(String)
+      value
     end
 
     def self.underscore(name)

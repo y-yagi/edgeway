@@ -82,8 +82,13 @@ module Edgeway
         ["id"] + attribute_types.keys
       end
 
+      def self.id_type = (@id_type ||= :integer)
+      def self.id_type=(type)
+        @id_type = type
+      end
+
       def self.type_of(col)
-        col == "id" ? :integer : attribute_types[col]
+        col == "id" ? id_type : attribute_types[col]
       end
 
       def self.all = Relation.new(self)
@@ -149,14 +154,25 @@ module Edgeway
         types = self.class.attribute_types
         values.each do |k, v|
           key = k.to_s
-          write_attribute(key, v) if types.key?(key)
+          write_attribute(key, param_value(types[key], v, attrs)) if types.key?(key)
         end
       end
 
+      def param_value(type, value, attrs)
+        return value unless type == :binary && attrs.is_a?(HTTP::Parameters) && value.is_a?(String)
+        { "$blob" => value }
+      end
+
       def load_row(row)
-        self.class.columns.each { |col| @attributes[col] = Model.cast(self.class.type_of(col), row[col]) }
         @raw = {}
+        self.class.columns.each { |column| load_column(column, row[column]) }
         @persisted = true
+      end
+
+      def load_column(column, value)
+        casted = Model.cast(self.class.type_of(column), value)
+        @attributes[column] = casted
+        @raw[column] = value if casted.nil? && !value.nil?
       end
 
       def write_attribute(col, v)
@@ -166,8 +182,16 @@ module Edgeway
 
       def as_json
         h = {}
-        self.class.columns.each { |col| h[col] = @attributes[col] }
+        self.class.columns.each { |column| h[column] = json_value(column) }
         h
+      end
+
+      private
+
+      def json_value(column)
+        value = @attributes[column]
+        return value unless self.class.type_of(column) == :binary && !value.nil?
+        Model.encode_base64(value)
       end
     end
   end

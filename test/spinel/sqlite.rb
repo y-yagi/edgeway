@@ -23,6 +23,22 @@ class Label < ApplicationModel
   attribute :name, :string
 end
 
+class Document < ApplicationModel
+  attribute :name, :string
+  attribute :body, :binary
+end
+
+class Ticket < ApplicationModel
+  attribute :id, :bigint
+  attribute :title, :string
+  attribute :owner_id, :bigint
+end
+
+class Reference < ApplicationModel
+  attribute :ticket_id, :integer
+  attribute :note, :string
+end
+
 class Event < ApplicationModel
   attribute :name, :string
   timestamps
@@ -35,6 +51,9 @@ db.load_schema(<<~SQL)
   CREATE TABLE members (id INTEGER PRIMARY KEY AUTOINCREMENT, group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE, name TEXT);
   CREATE TABLE ratings (id INTEGER PRIMARY KEY AUTOINCREMENT, stars INTEGER CHECK (stars BETWEEN 1 AND 5));
   CREATE TABLE events (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, created_at TEXT, updated_at TEXT);
+  CREATE TABLE documents (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, body BLOB);
+  CREATE TABLE tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, owner_id INTEGER);
+  CREATE TABLE refs (id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_id INTEGER, note TEXT);
   CREATE TABLE labels (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, UNIQUE (name));
 SQL
 
@@ -231,6 +250,71 @@ begin
 rescue ArgumentError => e
   puts e.message
 end
+
+# binary
+bytes = [0, 1, 255, 0, 128, 10, 200].pack("C*")
+doc = Document.create!(name: "bin", body: bytes)
+p doc.body.bytes
+p doc.body.encoding
+found = Document.find(doc.id)
+p found.body == bytes
+p found.as_json
+p db.select_all("SELECT typeof(body) AS type, length(body) AS bytes, hex(body) AS hex FROM documents", [])
+p db.select_all("SELECT body FROM documents", [])
+doc.update!(body: [0, 0].pack("C*"))
+p Document.find(doc.id).body.bytes
+p Document.where(body: [0, 0].pack("C*")).count
+p Document.where(body: [0, 1].pack("C*")).count
+p Document.where(body: [[0, 0].pack("C*"), bytes]).count
+Document.create!(name: "empty", body: "")
+Document.create!(name: "none")
+p Document.order(:id).map { |d| d.body.nil? ? nil : d.body.bytesize }
+p Document.find_by_sql("SELECT * FROM documents WHERE name = ?", ["bin"]).first.body.bytes
+p Document.new(body: {"$blob" => "AAH/"}).body.bytes
+
+# bigint
+p Ticket.create!(title: "small").id
+db.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = ?", ["3000000000", "tickets"])
+ticket = Ticket.create!(title: "big", owner_id: "5000000000")
+p ticket.id
+p ticket.owner_id
+p ticket.as_json
+p db.select_all("SELECT typeof(id) AS id_type, typeof(owner_id) AS owner_type FROM tickets WHERE title = ?", ["big"])
+p db.execute("INSERT INTO tickets (title) VALUES (?)", ["raw"])
+big = Ticket.find(ticket.id)
+p big.title
+p Ticket.find("3000000001").title
+p Ticket.where(id: ["3000000001", 1]).order(:id).pluck(:title)
+p Ticket.where(owner_id: "5000000000").count
+p Ticket.where(id: "3000000001"..).count
+big.update!(title: "big2")
+p Ticket.find(big.id).title
+big.destroy
+p Ticket.exists?(id: 3000000001)
+p Ticket.order(:id).pluck(:id)
+db.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = ?", ["3000000010", "tickets"])
+p Ticket.new(title: "x").tap { |t| t.save }.id
+
+# a value an :integer can't hold is not overwritten by NULL
+Reference.table_name = "refs"
+db.execute("INSERT INTO refs (ticket_id, note) VALUES (?, ?)", ["5000000000", "a"])
+reference = Reference.first
+p reference.ticket_id
+p reference.update(note: "b")
+p reference.errors
+p db.select_all("SELECT ticket_id, note FROM refs", [])
+
+begin
+  db.execute("INSERT INTO documents (name, body) VALUES (?, ?)", ["x", { "other" => 1 }])
+rescue ArgumentError => e
+  puts e.message
+end
+begin
+  db.execute("INSERT INTO documents (name, body) VALUES (?, ?)", ["x", { "$blob" => "!!" }])
+rescue ArgumentError => e
+  puts e.message
+end
+p Document.count
 
 # a second database is separate
 db2 = Edgeway::DB::SQLiteAdapter.new(":memory:")

@@ -114,7 +114,7 @@ module Edgeway
       def update_row
         conn = Model.connection
         cols = self.class.attribute_types.keys
-        values = cols.map { |c| Model.to_db(@attributes[c]) }
+        values = cols.map { |c| Model.database_value(@attributes[c], self.class.type_of(c)) }
         sets = cols.each_with_index.map { |c, i| "#{c} = #{conn.placeholder(i + 1)}" }.join(", ")
         Model.write("UPDATE #{self.class.table_name} SET #{sets} WHERE id = #{conn.placeholder(cols.size + 1)}",
                      values + [id])
@@ -125,7 +125,7 @@ module Edgeway
         conn = Model.connection
         table = self.class.table_name
         cols = self.class.attribute_types.keys.reject { |c| @attributes[c].nil? }
-        values = cols.map { |c| Model.to_db(@attributes[c]) }
+        values = cols.map { |c| Model.database_value(@attributes[c], self.class.type_of(c)) }
         sql = "INSERT INTO #{table}"
         if cols.empty?
           sql += " DEFAULT VALUES"

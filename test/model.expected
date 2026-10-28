@@ -391,3 +391,46 @@ db=0 rows_read=0 rows_written=0 db_ms=0.00
 db=2 rows_read=7 rows_written=1 db_ms=2.46
 db=1 rows_read=30 rows_written=3 db_ms=1.50
 db=2 rows_read=2147483647+ rows_written=10 db_ms=2.00
+[0, 1, 255, 0, 128]
+[0, 1, 255, 0, 128]
+0
+nil
+nil
+nil
+{"$blob" => "AAH/AIA="}
+{"$blob" => "AAH/AIA="}
+[0, 1, 255, 0, 128]
+nil
+"3000000000" "3000000000" "-5" "7" nil nil nil nil nil nil
+"3000000000"
+[0, 1, 255, 0, 128]
+{"id" => nil, "name" => "a", "data" => "AAH/AIA="}
+INSERT INTO attachments (name, data) VALUES (?, ?) RETURNING id, name, data | ["a",{"$blob":"AAH/AIA="}]
+[0, 1, 255, 0, 128]
+{"id" => 1, "name" => "a", "data" => "AAH/AIA="}
+SELECT id, name, data FROM attachments WHERE data = ? ORDER BY id ASC LIMIT 1 | [{"$blob":"AAH/AIA="}]
+UPDATE attachments SET name = ?, data = ? WHERE id = ? | ["a",{"$blob":"eA=="},1]
+SELECT id, total FROM ledgers WHERE id = ? LIMIT 1 | ["3000000000"]
+"3000000000"
+"9007199254740991"
+{"id" => "3000000000", "total" => "9007199254740991"}
+UPDATE ledgers SET total = ? WHERE id = ? | ["12","3000000000"]
+DELETE FROM ledgers WHERE id = ? | ["3000000000"]
+nil
+5 2147483647 "2147483648" -2147483648 "-2147483649" "9007199254740991" 0
+"3000000000"
+[0, 1, 255, 0, 128]
+0
+nil
+false
+["data is invalid"]
+[65, 65, 72, 47]
+"7" "0" "-7" "0" "9223372036854775807" nil "-9223372036854775808" nil "1"
+false
+["total is invalid"]
+true
+["data can't be blank"]
+["data is too long (maximum is 3 bytes)"]
+nil
+false
+["ticket_id is out of range"]

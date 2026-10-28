@@ -31,6 +31,14 @@ module Edgeway
         rows[0]
       end
 
+      def last_insert_id_of(value)
+        return 0 if value.nil?
+        number = value.to_i
+        number > Edgeway::Model::INT_MAX || number < Edgeway::Model::INT_MIN ? value.to_s : number
+      rescue RangeError
+        value.to_s
+      end
+
       def check_binds(binds)
         return if binds.size <= MAX_BINDS
         raise ArgumentError, "too many bind parameters: #{binds.size} (D1 allows #{MAX_BINDS})"
