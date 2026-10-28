@@ -27,13 +27,41 @@ export const TRANSIENT_D1_ERRORS = [
 
 export const isTransientD1Error = (message) => TRANSIENT_D1_ERRORS.some((s) => message.includes(s));
 
+// Counts are 32-bit in wasm: a larger one is clamped.
+const MAX_COUNT = 2147483647;
+
+// D1's result.meta in the shape of META above. A local D1 (wrangler dev) may
+// leave fields out.
+export function metaOf(meta) {
+  return {
+    rows_read: Math.min(meta?.rows_read ?? 0, MAX_COUNT),
+    rows_written: Math.min(meta?.rows_written ?? 0, MAX_COUNT),
+    duration: meta?.duration ?? 0,
+    served_by_region: meta?.served_by_region ?? "",
+    served_by_primary: meta?.served_by_primary ?? true,
+  };
+}
+
+export function sumMeta(metas) {
+  const all = metas.map(metaOf);
+  const sum = (field) => all.reduce((total, meta) => total + meta[field], 0);
+  return {
+    ...all[all.length - 1],
+    rows_read: Math.min(sum("rows_read"), MAX_COUNT),
+    rows_written: Math.min(sum("rows_written"), MAX_COUNT),
+    duration: sum("duration"),
+  };
+}
+
 // The wasm import module "edgeway_d1" (lib/edgeway/service/cloudflare/d1.rb). Each call
 // answers the byte length of its JSON result; take() copies it out.
-//   query(binding, sql, binds)   -> {"rows": [...]}
-//   execute(binding, sql, binds) -> {"changes": n, "last_insert_id": id}
-//   batch(binding, statements)   -> {"results": [{"changes": n, "last_insert_id": id}, ...]}
+//   query(binding, sql, binds)   -> {"rows": [...], "meta": META}
+//   execute(binding, sql, binds) -> {"changes": n, "last_insert_id": id, "meta": META}
+//   batch(binding, statements)   -> {"results": [{"changes": n, "last_insert_id": id}, ...], "meta": META}
 //                                   (statements: [[sql, binds], ...], one atomic D1 batch)
-// An error is {"error": "message"}, with "unavailable": true when it is transient.
+// META is {"rows_read": n, "rows_written": n, "duration": ms, "served_by_region": "...",
+// "served_by_primary": bool}; a batch's sums the statements'.
+// An error is {"error": "message"} (no meta), with "unavailable": true when it is transient.
 export function d1Imports(env, getInstance) {
   const mem = () => new Uint8Array(getInstance().exports.memory.buffer);
   const cstr = (p) => {
@@ -64,10 +92,13 @@ export function d1Imports(env, getInstance) {
 
   return {
     edgeway_d1: {
-      query: run(async (st) => ({ rows: (await st.all()).results })),
-      execute: run(async (st) => {
-        const meta = (await st.run()).meta;
-        return { changes: meta.changes ?? 0, last_insert_id: meta.last_row_id ?? 0 };
+      query: run(async (statement) => {
+        const result = await statement.all();
+        return { rows: result.results, meta: metaOf(result.meta) };
+      }),
+      execute: run(async (statement) => {
+        const meta = (await statement.run()).meta;
+        return { changes: meta.changes ?? 0, last_insert_id: meta.last_row_id ?? 0, meta: metaOf(meta) };
       }),
       // db.batch() is one transaction: a failing statement rejects it and
       // none of the statements stay applied.
@@ -75,7 +106,8 @@ export function d1Imports(env, getInstance) {
         const statements = JSON.parse(cstr(statementsPtr));
         const results = await db.batch(statements.map(([sql, binds]) => db.prepare(sql).bind(...binds)));
         return {
-          results: results.map((r) => ({ changes: r.meta.changes ?? 0, last_insert_id: r.meta.last_row_id ?? 0 })),
+          results: results.map((result) => ({ changes: result.meta.changes ?? 0, last_insert_id: result.meta.last_row_id ?? 0 })),
+          meta: sumMeta(results.map((result) => result.meta)),
         };
       }),
       take(buf) {

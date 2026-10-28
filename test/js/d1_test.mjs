@@ -36,7 +36,7 @@ function fakeD1() {
     async batch(stmts) {
       db.batches.push(stmts.map((s) => [s.sql, s.binds]));
       if (db.fail) throw new Error(db.fail);
-      return stmts.map((_s, i) => ({ meta: { changes: i + 1, last_row_id: 10 + i } }));
+      return stmts.map((_s, i) => ({ meta: { changes: i + 1, last_row_id: 10 + i, rows_read: 10 * (i + 1), rows_written: i + 1, duration: 0.5, served_by_region: `R${i}`, served_by_primary: i === 0 } }));
     },
   };
   return db;
@@ -61,7 +61,28 @@ await test("batch sends the statements in one db.batch and answers a result each
   const db = fakeD1();
   const res = await call({ DB: db }, "batch", "DB", JSON.stringify([["UPDATE t SET a = ?", [1]], ["DELETE FROM t", []]]));
   assert.deepEqual(db.batches, [[["UPDATE t SET a = ?", [1]], ["DELETE FROM t", []]]]);
-  assert.deepEqual(res, { results: [{ changes: 1, last_insert_id: 10 }, { changes: 2, last_insert_id: 11 }] });
+  assert.deepEqual(res, {
+    results: [{ changes: 1, last_insert_id: 10 }, { changes: 2, last_insert_id: 11 }],
+    meta: { rows_read: 30, rows_written: 3, duration: 1, served_by_region: "R1", served_by_primary: false },
+  });
+});
+
+function fakeStatement(meta) {
+  return { bind() { return this; }, async all() { return { results: [{ id: 1 }], meta }; }, async run() { return { meta }; } };
+}
+
+await test("query and execute answer D1's meta", async () => {
+  const meta = { rows_read: 5, rows_written: 2, duration: 1.25, served_by_region: "WEUR", served_by_primary: false, changes: 2, last_row_id: 7 };
+  const db = { prepare: () => fakeStatement(meta) };
+  const expected = { rows_read: 5, rows_written: 2, duration: 1.25, served_by_region: "WEUR", served_by_primary: false };
+  assert.deepEqual(await call({ DB: db }, "query", "DB", "SELECT 1", "[]"), { rows: [{ id: 1 }], meta: expected });
+  assert.deepEqual(await call({ DB: db }, "execute", "DB", "UPDATE t SET a = 1", "[]"), { changes: 2, last_insert_id: 7, meta: expected });
+});
+
+await test("meta fields that D1 leaves out get defaults", async () => {
+  const db = { prepare: () => fakeStatement({ rows_read: 3 }) };
+  const res = await call({ DB: db }, "query", "DB", "SELECT 1", "[]");
+  assert.deepEqual(res.meta, { rows_read: 3, rows_written: 0, duration: 0, served_by_region: "", served_by_primary: true });
 });
 
 await test("batch answers an error when D1 rejects it", async () => {
@@ -69,6 +90,13 @@ await test("batch answers an error when D1 rejects it", async () => {
   db.fail = "D1_ERROR: UNIQUE constraint failed: tags.name: SQLITE_CONSTRAINT";
   const res = await call({ DB: db }, "batch", "DB", JSON.stringify([["UPDATE t SET a = ?", [1]]]));
   assert.deepEqual(res, { error: db.fail });
+  assert.equal("meta" in res, false);
+});
+
+await test("meta counts are clamped to 32 bits", async () => {
+  const db = { prepare: () => fakeStatement({ rows_read: 3e9, rows_written: 2 }) };
+  const res = await call({ DB: db }, "query", "DB", "SELECT 1", "[]");
+  assert.equal(res.meta.rows_read, 2147483647);
 });
 
 await test("batch with an unknown binding answers an error", async () => {

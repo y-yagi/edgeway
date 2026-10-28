@@ -164,6 +164,24 @@ Edgeway::Model.execute("DELETE FROM todos WHERE done = ?", [true]) # {"changes" 
 - D1 allows 100 bound parameters per statement: more raises `ArgumentError`, in every adapter (`limit` and `offset` are literals, not binds).
   `where(id: ids)` with over 100 ids needs chunking.
 
+### Query stats
+
+`Edgeway::Model.query_stats` (it raises `ConfigurationError` without a connection) is what D1 reported for the queries of the current request
+(a wasm instance serves one request, so it starts at zero):
+
+- `queries`: the number of successful D1 calls (a `Model.batch` is one). A failed call and its time are not counted.
+- `rows_read`, `rows_written`: the sums of D1's `meta`, capped at 2147483647 (32-bit; the log line shows a capped count with a trailing `+`).
+- `duration_ms` (Float): the sum of D1's `meta.duration`.
+- `served_by_region` and `served_by_primary`: from the last call (`""` and `true` when D1 doesn't say, as in `wrangler dev`).
+
+When a request ran any query, `Edgeway::Server` logs one line after it, also for a request that raised and was rescued:
+
+```
+[edgeway] db=3 rows_read=12 rows_written=1 db_ms=2.46
+```
+
+The Memory and SQLite adapters report zeros and log nothing.
+
 ### Batch
 
 `Edgeway::Model.batch` makes several writes atomic.

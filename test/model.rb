@@ -1013,3 +1013,19 @@ db.log.clear
 # (so the strings sort in time order).
 Edgeway::Model.freeze_time(nil)
 puts Edgeway::Model.now.match?(/\A\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z\z/)
+
+puts Edgeway::Model.query_stats.log_text
+puts Edgeway::Model.query_stats.queries
+stats_db = Edgeway::DB::MemoryAdapter.new
+stats_db.record_meta(JSON.parse('{"rows_read":3,"rows_written":1,"duration":2,"served_by_region":"WEUR","served_by_primary":false}'))
+stats_db.record_meta(JSON.parse('{"rows_read":4,"rows_written":0,"duration":0.456,"served_by_region":"ENAM","served_by_primary":true}'))
+stats = stats_db.query_stats
+puts [stats.queries, stats.rows_read, stats.rows_written, stats.duration_ms, stats.served_by_region, stats.served_by_primary].inspect
+puts stats.log_text
+batch_db = Edgeway::DB::MemoryAdapter.new
+batch_db.record_meta(JSON.parse('{"rows_read":30,"rows_written":3,"duration":1.5,"served_by_region":"","served_by_primary":true}'))
+puts batch_db.query_stats.log_text
+big_db = Edgeway::DB::MemoryAdapter.new
+big_db.record_meta(JSON.parse('{"rows_read":2147483647,"rows_written":5,"duration":1}'))
+big_db.record_meta(JSON.parse('{"rows_read":10,"rows_written":5,"duration":1}'))
+puts big_db.query_stats.log_text
