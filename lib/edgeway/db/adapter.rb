@@ -1,6 +1,8 @@
 module Edgeway
   module DB
     class Adapter
+      MAX_BINDS = 100
+
       def select_all(sql, binds)
         raise Error, "#{self.class} does not define select_all"
       end
@@ -17,6 +19,11 @@ module Edgeway
         rows = select_all(sql, binds)
         raise DatabaseError, "INSERT ... RETURNING answered no row" if rows.empty?
         rows[0]
+      end
+
+      def check_binds(binds)
+        return if binds.size <= MAX_BINDS
+        raise ArgumentError, "too many bind parameters: #{binds.size} (D1 allows #{MAX_BINDS})"
       end
 
       def fail_with(message)

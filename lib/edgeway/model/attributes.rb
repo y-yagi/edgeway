@@ -50,6 +50,14 @@ module Edgeway
       end
     end
 
+    def self.select_all(sql, binds = [])
+      connection.select_all(sql, binds.map { |b| to_db(b) })
+    end
+
+    def self.execute(sql, binds = [])
+      write(sql, binds.map { |b| to_db(b) })
+    end
+
     def self.to_int(v)
       n = v.is_a?(Integer) ? v : v.to_s.to_i
       n > INT_MAX || n < INT_MIN ? nil : n
@@ -69,6 +77,7 @@ module Edgeway
 
     def self.to_db(v)
       return connection.quote_boolean(v) if v == true || v == false
+      return v.getutc.iso8601(3) if v.is_a?(Time)
       v
     end
 

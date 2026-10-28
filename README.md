@@ -43,6 +43,7 @@ end
   - [Uniqueness](#uniqueness)
   - [Database errors](#database-errors)
   - [Ordering and deleting](#ordering-and-deleting)
+  - [Queries](#queries)
   - [Batch](#batch)
   - [Associations](#associations)
   - [Eager loading](#eager-loading)
@@ -132,6 +133,36 @@ class Todo < ApplicationModel
   has_many :comments, dependent: :destroy
 end
 ```
+
+### Queries
+
+```ruby
+Todo.where(id: [1, 2])                    # id IN (?, ?)
+Todo.where(position: 1..5)                # position >= ? AND position <= ?
+Todo.where(position: (3..))               # position >= ?
+Todo.where("title LIKE ?", "%x%")         # (title LIKE ?)
+Todo.where("done = 1")
+
+Todo.find_by_sql("SELECT * FROM todos WHERE done = ?", [true])   # records
+Edgeway::Model.select_all("SELECT COUNT(*) AS n FROM todos", [])  # row Hashes
+Edgeway::Model.execute("DELETE FROM todos WHERE done = ?", [true]) # {"changes" => n, "last_insert_id" => id}
+```
+
+- `where(column: value)` is `=`, `IS NULL` for `nil`. Every form chains, and works with `order`, `limit`, `count`, `delete_all`, `eager_load` and `todo.comments.where(...)`.
+- An Array is `IN`; each value is cast by the column type. An empty Array matches nothing (`1 = 0`).
+  A `nil` in an Array also matches `NULL`: `(position IN (?) OR position IS NULL)`.
+- A Range is `>=` and `<=` (`<` for `1...5`); an endless or beginless Range has one side.
+  Spinel can't build a Range of Times: use ISO 8601 Strings (`"2026-10-28"..."2026-10-29"`) or a fragment.
+- A String is a raw SQL fragment, in parentheses and ANDed with the rest; its binds follow it.
+  It is raw SQL: put user input in the binds, never interpolate it.
+  Its binds are not cast by column type: only booleans (1/0) and Times (ISO 8601) are converted.
+  An Array bind raises `ArgumentError` (not expanded): use `where(column: [...])`.
+- `build`/`create`/`find_or_create_by` on a relation copy only the plain equality conditions.
+- `find_by_sql` makes records of the rows, so select the model's columns (`SELECT *` or each of them): a missing one is `nil`.
+- `Model.select_all` and `Model.execute` take `?` placeholders. Booleans are bound as 1/0, and a Time as ISO 8601 UTC (`2026-10-28T05:00:00.000Z`, as timestamps are stored), also in `where` values.
+  `execute` is a write, so inside `Model.batch` it is queued (and answers 0 counts).
+- D1 allows 100 bound parameters per statement: more raises `ArgumentError`, in every adapter (`limit` and `offset` are literals, not binds).
+  `where(id: ids)` with over 100 ids needs chunking.
 
 ### Batch
 

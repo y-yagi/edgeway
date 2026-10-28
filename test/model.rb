@@ -887,6 +887,128 @@ rescue ArgumentError => e
   puts e.message
 end
 
+db.log.clear
+Todo.where(id: [1, "2"]).to_a
+Todo.where(done: [true, false]).to_a
+Todo.where(id: []).to_a
+Todo.where(position: [1, nil]).to_a
+Todo.where(position: [nil]).to_a
+show(db)
+Todo.where(position: 1..5).to_a
+Todo.where(position: 1...5).to_a
+Todo.where(position: (2..)).to_a
+Todo.where(position: (..5)).to_a
+Todo.where(position: (...5)).to_a
+show(db)
+Todo.where("title LIKE ?", "%x%").to_a
+Todo.where("done = 1").to_a
+Todo.where("title LIKE ? OR priority = ?", "%x%", "low").where(done: true).to_a
+Todo.where("done = ?", true).to_a
+show(db)
+Todo.where(id: [1, 2]).where(position: 3..4).where("title <> ?", "z").where(done: false).order(:id).limit(5).offset(2).to_a
+show(db)
+db.queue([{ "n" => 2 }])
+p Todo.where(id: [1, 2]).where("title <> ?", "z").limit(1).count
+show(db)
+db.queue([{ "n" => 1 }])
+p Todo.where(position: 1..3).exists?
+show(db)
+Todo.where(id: [1, 2]).pluck(:title)
+Todo.where(position: 1..3).first
+Todo.where(id: [3, 4]).find_by(title: "z")
+Todo.where("title LIKE ?", "a%").find_by(id: 7)
+show(db)
+Todo.where(id: [1, 2]).delete_all
+Todo.where(position: 1...3).where("title = ?", "z").where(done: true).delete_all
+Todo.where(id: []).delete_all
+show(db)
+db.queue([{ "id" => 1, "title" => "a" }, { "id" => 2, "title" => "b" }])
+p Todo.where(id: [1, 2]).where("title <> ?", "z").destroy_all.size
+show(db)
+Todo.where(id: [1, 2]).eager_load(:comments).where("title <> ?", "z").limit(3).to_a
+show(db)
+todo = Todo.instantiate({ "id" => 5, "title" => "x" })
+todo.comments.where(body: ["a", "b"]).where("body <> ?", "c").to_a
+show(db)
+begin
+  Todo.where(nope: [1]).to_a
+rescue Edgeway::UnknownColumn => e
+  puts e.message
+end
+begin
+  Todo.where(nope: 1..2).to_a
+rescue Edgeway::UnknownColumn => e
+  puts e.message
+end
+
+t0 = Time.utc(2026, 10, 28, 5, 0, 0)
+db.log.clear
+Todo.where(created_at: t0).to_a
+Todo.where(created_at: [t0, t0 + 3600]).where("updated_at > ?", t0).to_a
+Edgeway::Model.select_all("SELECT 1 WHERE ? < ?", [t0, true])
+show(db)
+begin
+  Todo.where("id IN (?)", [1, 2])
+rescue ArgumentError => e
+  puts e.message
+end
+begin
+  Todo.where({ id: 1 }, 2)
+rescue ArgumentError => e
+  puts e.message
+end
+
+# build copies the equality conditions only
+rec = Todo.where(position: 3, priority: "high").where(id: [9, 10]).where(position: 1..5).where("title = ?", "q").build(title: "b")
+p [rec.position, rec.priority, rec.title, rec.id]
+rec = Todo.where(position: [7]).where(priority: ["low"]).build
+p [rec.position, rec.priority]
+
+# raw SQL
+db.queue([{ "id" => 4, "title" => "raw", "done" => 1, "priority" => "low", "position" => 2 }])
+raw = Todo.find_by_sql("SELECT * FROM todos WHERE done = ? AND title LIKE ?", [true, "r%"])
+p raw.map { |r| [r.id, r.title, r.done, r.persisted?] }
+db.queue([{ "n" => 3 }])
+p Edgeway::Model.select_all("SELECT COUNT(*) AS n FROM todos WHERE done = ?", [false])
+p Todo.find_by_sql("SELECT * FROM todos").size
+p Edgeway::Model.execute("UPDATE todos SET done = ? WHERE id = ?", [true, 1])
+p Edgeway::Model.execute("DELETE FROM todos")
+show(db)
+results = Edgeway::Model.batch do
+  p Edgeway::Model.execute("UPDATE todos SET done = ? WHERE id = ?", [true, 1])
+  Edgeway::Model.execute("DELETE FROM comments WHERE todo_id = ?", [1])
+  p db.log.size
+end
+p results
+show(db)
+
+# D1 allows 100 bound parameters per statement
+db.log.clear
+Todo.where(id: (1..100).to_a).to_a
+p db.log.size
+begin
+  Todo.where(id: (1..101).to_a).to_a
+rescue ArgumentError => e
+  puts e.message
+end
+Todo.where(id: (1..100).to_a).limit(1).offset(2).to_a
+puts db.log.last.split(" | ")[0][-30..]
+begin
+  Edgeway::Model.execute("DELETE FROM todos WHERE id IN (#{(1..101).map { "?" }.join(", ")})", (1..101).to_a)
+rescue ArgumentError => e
+  puts e.message
+end
+begin
+  Edgeway::Model.batch do
+    Edgeway::Model.execute("DELETE FROM todos WHERE id = ?", [1])
+    Edgeway::Model.execute("DELETE FROM todos WHERE id IN (#{(1..101).map { "?" }.join(", ")})", (1..101).to_a)
+  end
+rescue ArgumentError => e
+  puts e.message
+end
+p db.log.size
+db.log.clear
+
 # Model.now without a frozen time: UTC, always three digits of milliseconds
 # (so the strings sort in time order).
 Edgeway::Model.freeze_time(nil)

@@ -87,7 +87,7 @@ module Edgeway
       end
 
       def self.all = Relation.new(self)
-      def self.where(conditions) = all.where(conditions)
+      def self.where(conditions, *args) = all.where(conditions, *args)
       def self.order(col, dir = :asc) = all.order(col, dir)
       def self.reorder(col, dir = :asc) = all.reorder(col, dir)
       def self.delete_all = all.delete_all
@@ -100,6 +100,7 @@ module Edgeway
       def self.pluck(col) = all.pluck(col)
       def self.first = all.first
       def self.find_by(conditions) = all.find_by(conditions)
+      def self.find_by_sql(sql, binds = []) = Model.select_all(sql, binds).map { |row| instantiate(row) }
       def self.find(id) = all.find(id)
 
       def self.find_or_create_by(conditions) = all.find_or_create_by(conditions)
