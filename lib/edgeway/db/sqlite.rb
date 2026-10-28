@@ -20,6 +20,7 @@ module Edgeway
       ffi_func :sqlite3_prepare_v2,      [:ptr, :str, :int, :ptr, :ptr],    :int
       ffi_func :sqlite3_bind_text,       [:ptr, :int, :str, :int, :ptr],    :int
       ffi_func :sqlite3_bind_int64,      [:ptr, :int, :long],               :int
+      ffi_func :sqlite3_bind_blob,       [:ptr, :int, :str, :int, :ptr],    :int
       ffi_func :sqlite3_bind_double,     [:ptr, :int, :double],             :int
       ffi_func :sqlite3_bind_null,       [:ptr, :int],                      :int
       ffi_func :sqlite3_step,            [:ptr],                            :int
@@ -35,6 +36,35 @@ module Edgeway
       ffi_func :sqlite3_changes,         [:ptr],                            :int
       ffi_func :sqlite3_libversion_number, [],                              :int
 
+      # A BLOB can hold NUL, which would cut a :str result short, so it is read
+      # as hex text.
+      ffi_source <<~C
+        #include <stdlib.h>
+
+        extern const void *sqlite3_column_blob(void *statement, int column);
+        extern int sqlite3_column_bytes(void *statement, int column);
+
+        static char *hex;
+        static int hex_capacity;
+
+        const char *column_hex(void *statement, int column) {
+          const unsigned char *bytes = sqlite3_column_blob(statement, column);
+          int length = sqlite3_column_bytes(statement, column);
+          if (2 * length + 1 > hex_capacity) {
+            hex = realloc(hex, 2 * length + 1);
+            if (!hex) abort();
+            hex_capacity = 2 * length + 1;
+          }
+          for (int i = 0; i < length; i++) {
+            hex[2 * i] = "0123456789abcdef"[bytes[i] >> 4];
+            hex[2 * i + 1] = "0123456789abcdef"[bytes[i] & 15];
+          }
+          hex[2 * length] = 0;
+          return hex;
+        }
+      C
+      ffi_func :column_hex, [:ptr, :int], :str
+
       ffi_buffer :db_out,   8
       ffi_buffer :stmt_out, 8
       ffi_read_ptr :read_ptr, 0
@@ -43,6 +73,7 @@ module Edgeway
     class SQLiteAdapter < Adapter
       INTEGER = 1
       FLOAT = 2
+      BLOB = 4
       NULL = 5
 
       attr_reader :log
@@ -83,7 +114,7 @@ module Edgeway
           rc = SQLiteFFI.sqlite3_step(stmt)
         end
         finish(stmt, rc)
-        { "changes" => SQLiteFFI.sqlite3_changes(@db), "last_insert_id" => SQLiteFFI.sqlite3_last_insert_rowid(@db) }
+        { "changes" => SQLiteFFI.sqlite3_changes(@db), "last_insert_id" => last_insert_id_of(SQLiteFFI.sqlite3_last_insert_rowid(@db)) }
       end
 
       def batch(statements)
@@ -124,6 +155,7 @@ module Edgeway
       # finalized before the error is raised.
       def start(sql, binds)
         @log << "#{sql} | #{JSON.generate(binds)}"
+        check_blob_binds(binds)
         rc = SQLiteFFI.sqlite3_prepare_v2(@db, sql, -1, SQLiteFFI.stmt_out, nil)
         if rc != SQLiteFFI::OK
           message = SQLiteFFI.sqlite3_errmsg(@db)
@@ -150,6 +182,8 @@ module Edgeway
           SQLiteFFI.sqlite3_bind_int64(stmt, n, value)
         elsif value.is_a?(Float)
           SQLiteFFI.sqlite3_bind_double(stmt, n, value)
+        elsif value.is_a?(Hash)
+          bind_blob(stmt, n, value)
         elsif value == true
           SQLiteFFI.sqlite3_bind_int64(stmt, n, 1)
         elsif value == false
@@ -160,11 +194,28 @@ module Edgeway
         end
       end
 
+      def check_blob_binds(binds)
+        binds.each do |value|
+          next unless value.is_a?(Hash)
+          bytes = value.key?("$blob") ? Edgeway::Model.cast(:binary, value) : nil
+          raise ArgumentError, "a Hash bind must be {\"$blob\" => base64}: #{value}" if bytes.nil?
+        end
+      end
+
+      def bind_blob(statement, position, value)
+        bytes = Edgeway::Model.cast(:binary, value).to_s
+        SQLiteFFI.sqlite3_bind_blob(statement, position, bytes, bytes.bytesize, -1)
+      end
+
       # Finalizes the statement; raises if its last step failed.
       def finish(stmt, rc)
         message = rc == SQLiteFFI::DONE ? "" : SQLiteFFI.sqlite3_errmsg(@db)
         SQLiteFFI.sqlite3_finalize(stmt)
         fail_with(message) if rc != SQLiteFFI::DONE
+      end
+
+      def read_blob(statement, column)
+        Edgeway::Model.blob([SQLiteFFI.column_hex(statement, column)].pack("H*"))
       end
 
       def read_row(stmt)
@@ -180,6 +231,8 @@ module Edgeway
             row[name] = SQLiteFFI.sqlite3_column_int64(stmt, i)
           elsif type == FLOAT
             row[name] = SQLiteFFI.sqlite3_column_double(stmt, i)
+          elsif type == BLOB
+            row[name] = read_blob(stmt, i)
           else
             row[name] = SQLiteFFI.sqlite3_column_text(stmt, i)
           end

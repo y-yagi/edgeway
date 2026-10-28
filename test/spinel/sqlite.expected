@@ -88,4 +88,39 @@ too many bind parameters: 101 (D1 allows 100)
 ["e0", "e1"]
 [{"name" => "e3"}]
 an Array bind in a SQL fragment isn't expanded; use where(column: [...])
+[0, 1, 255, 0, 128, 10, 200]
+#<Encoding:BINARY (ASCII-8BIT)>
+true
+{"id" => 1, "name" => "bin", "body" => "AAH/AIAKyA=="}
+[{"type" => "blob", "bytes" => 7, "hex" => "0001FF00800AC8"}]
+[{"body" => {"$blob" => "AAH/AIAKyA=="}}]
+[0, 0]
+1
+0
+1
+[2, 0, nil]
+[0, 0]
+[0, 1, 255]
+"1"
+"3000000001"
+"5000000000"
+{"id" => "3000000001", "title" => "big", "owner_id" => "5000000000"}
+[{"id_type" => "integer", "owner_type" => "integer"}]
+{"changes" => 1, "last_insert_id" => "3000000002"}
+"big"
+"big"
+["small", "big"]
+1
+2
+"big2"
+false
+["1", "3000000002"]
+"3000000011"
+nil
+false
+["ticket_id is out of range"]
+[{"ticket_id" => 5000000000, "note" => "a"}]
+a Hash bind must be {"$blob" => base64}: {"other" => 1}
+a Hash bind must be {"$blob" => base64}: {"$blob" => "!!"}
+3
 [{"n" => 0}]

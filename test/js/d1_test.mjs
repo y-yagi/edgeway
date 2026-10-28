@@ -79,6 +79,63 @@ await test("query and execute answer D1's meta", async () => {
   assert.deepEqual(await call({ DB: db }, "execute", "DB", "UPDATE t SET a = 1", "[]"), { changes: 2, last_insert_id: 7, meta: expected });
 });
 
+function recordingStatement(rows) {
+  return { binds: [], bind(...b) { this.binds = b; return this; }, async all() { return { results: rows, meta: {} }; }, async run() { return { meta: {} }; } };
+}
+
+const blob = (...bytes) => ({ $blob: btoa(String.fromCharCode(...bytes)) });
+
+await test("a $blob bind is bound as an ArrayBuffer of its bytes", async () => {
+  const statement = recordingStatement([]);
+  const db = { prepare: () => statement };
+  await call({ DB: db }, "execute", "DB", "INSERT INTO t (d, n) VALUES (?, ?)", JSON.stringify([blob(0, 1, 255, 0, 128), 7]));
+  assert.ok(statement.binds[0] instanceof ArrayBuffer);
+  assert.deepEqual([...new Uint8Array(statement.binds[0])], [0, 1, 255, 0, 128]);
+  assert.equal(statement.binds[1], 7);
+});
+
+await test("other binds are left as they are", async () => {
+  const statement = recordingStatement([]);
+  const db = { prepare: () => statement };
+  await call({ DB: db }, "query", "DB", "SELECT 1", JSON.stringify([null, "text", 1.5, "3000000000", { other: 1 }]));
+  assert.deepEqual(statement.binds, [null, "text", 1.5, "3000000000", { other: 1 }]);
+});
+
+await test("batch binds a $blob as bytes in every statement", async () => {
+  const db = fakeD1();
+  const bound = [];
+  db.prepare = (sql) => ({ sql, bind(...b) { bound.push(b); return this; } });
+  await call({ DB: db }, "batch", "DB", JSON.stringify([["UPDATE t SET d = ?", [blob(9, 0)]], ["UPDATE t SET d = ?", [blob(255)]]]));
+  assert.deepEqual(bound.map(([bytes]) => [...new Uint8Array(bytes)]), [[9, 0], [255]]);
+});
+
+await test("a BLOB column is answered as $blob, whatever shape D1 gives", async () => {
+  const bytes = [0, 1, 255, 0, 128];
+  const rows = [
+    { id: 1, d: bytes },
+    { id: 2, d: Uint8Array.from(bytes) },
+    { id: 3, d: Uint8Array.from(bytes).buffer },
+    { id: 4, d: null, name: "x", score: 1.5 },
+  ];
+  const db = { prepare: () => recordingStatement(rows) };
+  const res = await call({ DB: db }, "query", "DB", "SELECT * FROM t", "[]");
+  const expected = blob(...bytes);
+  assert.deepEqual(res.rows, [{ id: 1, d: expected }, { id: 2, d: expected }, { id: 3, d: expected }, { id: 4, d: null, name: "x", score: 1.5 }]);
+});
+
+await test("a large BLOB round-trips through base64", async () => {
+  const bytes = Array.from({ length: 20000 }, (_v, i) => i % 256);
+  const db = { prepare: () => recordingStatement([{ d: bytes }]) };
+  const res = await call({ DB: db }, "query", "DB", "SELECT d FROM t", "[]");
+  assert.deepEqual([...Uint8Array.from(atob(res.rows[0].d.$blob), (c) => c.charCodeAt(0))], bytes);
+});
+
+await test("execute answers a rowid beyond 32 bits as the number D1 gave", async () => {
+  const db = { prepare: () => fakeStatement({ changes: 1, last_row_id: 3000000000 }) };
+  const res = await call({ DB: db }, "execute", "DB", "INSERT INTO t DEFAULT VALUES", "[]");
+  assert.equal(res.last_insert_id, 3000000000);
+});
+
 await test("meta fields that D1 leaves out get defaults", async () => {
   const db = { prepare: () => fakeStatement({ rows_read: 3 }) };
   const res = await call({ DB: db }, "query", "DB", "SELECT 1", "[]");

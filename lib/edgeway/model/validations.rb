@@ -6,13 +6,13 @@ module Edgeway
       def valid?
         @errors = []
         @raw.each do |col, raw|
-          @errors << "#{col} is out of range" if !raw.nil? && @attributes[col].nil?
+          @errors << "#{col} #{bad_value_text(col)}" if !raw.nil? && @attributes[col].nil?
         end
 
         self.class.rules.each do |rule|
           col = rule.attribute
           value = rule.kind == "numericality" && @raw.key?(col) ? @raw[col] : @attributes[col]
-          msg = rule.message(value)
+          msg = rule.message(value, self.class.type_of(col))
           @errors << msg unless msg.nil?
         end
 
@@ -33,6 +33,10 @@ module Edgeway
       end
 
       private
+
+      def bad_value_text(column)
+        self.class.type_of(column) == :integer ? "is out of range" : "is invalid"
+      end
 
       def taken?(rule)
         value = @attributes[rule.attribute]
@@ -77,16 +81,16 @@ module Edgeway
         @pattern = pattern
       end
 
-      def message(v)
+      def message(v, type = nil)
         # Uniqueness needs a query: Validations#taken? does it.
         return nil if @kind == "uniqueness"
         if @kind == "presence"
-          return "#{@attribute} can't be blank" if v.nil? || v.to_s.strip.empty?
+          return "#{@attribute} can't be blank" if v.nil? || blank_text?(v.to_s, type)
           return nil
         end
         return nil if v.nil?
         case @kind
-        when "length" then length_message(v.to_s.length)
+        when "length" then type == :binary ? length_message(v.to_s.bytesize, "bytes") : length_message(v.to_s.length, "characters")
         when "inclusion" then @list.include?(v.to_s) ? nil : "#{@attribute} is not included in the list"
         when "format" then @pattern.match?(v.to_s) ? nil : "#{@attribute} is invalid"
         when "numericality" then numericality_message(v)
@@ -97,15 +101,17 @@ module Edgeway
 
       private
 
-      def length_message(n)
+      def blank_text?(text, type) = type == :binary ? text.empty? : text.strip.empty?
+
+      def length_message(n, unit)
         if @bounds.key?("minimum") && n < @bounds["minimum"]
-          return "#{@attribute} is too short (minimum is #{@bounds["minimum"]} characters)"
+          return "#{@attribute} is too short (minimum is #{@bounds["minimum"]} #{unit})"
         end
         if @bounds.key?("maximum") && n > @bounds["maximum"]
-          return "#{@attribute} is too long (maximum is #{@bounds["maximum"]} characters)"
+          return "#{@attribute} is too long (maximum is #{@bounds["maximum"]} #{unit})"
         end
         if @bounds.key?("is") && n != @bounds["is"]
-          return "#{@attribute} is the wrong length (should be #{@bounds["is"]} characters)"
+          return "#{@attribute} is the wrong length (should be #{@bounds["is"]} #{unit})"
         end
         nil
       end

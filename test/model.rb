@@ -44,6 +44,16 @@ class Basket < ApplicationModel
   has_many :categories
 end
 
+class Attachment < ApplicationModel
+  attribute :name, :string
+  attribute :data, :binary
+end
+
+class Ledger < ApplicationModel
+  attribute :id, :bigint
+  attribute :total, :bigint
+end
+
 class Project < ApplicationModel
   attribute :owner_id, :string
   attribute :name, :string
@@ -1029,3 +1039,87 @@ big_db = Edgeway::DB::MemoryAdapter.new
 big_db.record_meta(JSON.parse('{"rows_read":2147483647,"rows_written":5,"duration":1}'))
 big_db.record_meta(JSON.parse('{"rows_read":10,"rows_written":5,"duration":1}'))
 puts big_db.query_stats.log_text
+
+# binary and bigint
+raw = [0, 1, 255, 0, 128].pack("C*")
+puts Edgeway::Model.cast(:binary, raw).bytes.inspect
+puts Edgeway::Model.cast(:binary, {"$blob" => "AAH/AIA="}).bytes.inspect
+puts Edgeway::Model.cast(:binary, {"$blob" => ""}).bytesize
+puts Edgeway::Model.cast(:binary, {"other" => 1}).inspect
+puts Edgeway::Model.cast(:binary, {"$blob" => "!!"}).inspect
+puts Edgeway::Model.cast(:binary, nil).inspect
+puts Edgeway::Model.blob(raw).inspect
+puts Edgeway::Model.database_value(raw, :binary).inspect
+puts Edgeway::Model.database_value(raw).bytes.inspect
+puts Edgeway::Model.database_value(nil, :binary).inspect
+puts ["3000000000", 3000000000, "-5", 7, "", "1.5", "12a", " 1", 1.5, true].map { |v| Edgeway::Model.cast(:bigint, v).inspect }.join(" ")
+puts Edgeway::Model.database_value("3000000000", :bigint).inspect
+
+db.log.clear
+attachment = Attachment.new(name: "a", data: raw)
+puts attachment.data.bytes.inspect
+puts attachment.as_json.inspect
+db.queue([{ "id" => 1, "name" => "a", "data" => {"$blob" => "AAH/AIA="} }])
+attachment.save
+puts db.log.last
+puts attachment.data.bytes.inspect
+db.queue([{ "id" => 1, "name" => "a", "data" => {"$blob" => "AAH/AIA="} }])
+puts Attachment.where(data: raw).first.as_json.inspect
+puts db.log.last
+attachment.data = "x"
+attachment.save
+puts db.log.last
+
+db.log.clear
+db.queue([{ "id" => 3000000000, "total" => 9007199254740991 }])
+ledger = Ledger.find("3000000000")
+puts db.log.last
+puts ledger.id.inspect
+puts ledger.total.inspect
+puts ledger.as_json.inspect
+ledger.total = 12
+ledger.save
+puts db.log.last
+ledger.destroy
+puts db.log.last
+puts Ledger.new(total: "12x").total.inspect
+
+puts [5, 2147483647, 2147483648, -2147483648, -2147483649, 9007199254740991, nil].map { |v| db.last_insert_id_of(v).inspect }.join(" ")
+puts db.last_insert_id_of(JSON.parse('{"id":3000000000}')["id"]).inspect
+
+# request params carry a binary attribute as base64
+params = Edgeway::HTTP::Parameters.new({ "name" => "p", "data" => "AAH/AIA=" }, true)
+puts Attachment.new(params).data.bytes.inspect
+puts Attachment.new(Edgeway::HTTP::Parameters.new({ "data" => "" }, true)).data.bytesize
+bad = Attachment.new(Edgeway::HTTP::Parameters.new({ "data" => "!!" }, true))
+puts bad.data.inspect
+puts bad.valid?
+puts bad.errors.inspect
+puts Attachment.new(data: "AAH/").data.bytes.inspect
+
+puts ["007", "-0", "-007", "0", "9223372036854775807", "9223372036854775808", "-9223372036854775808", "-9223372036854775809", "00000000000000000000001"].map { |v| Edgeway::Model.cast(:bigint, v).inspect }.join(" ")
+ledger = Ledger.new(total: "12x")
+puts ledger.valid?
+puts ledger.errors.inspect
+
+class Sized < ApplicationModel
+  attribute :data, :binary
+  validates :data, presence: true, length: { maximum: 3 }
+end
+puts Sized.new(data: [0, 0].pack("C*")).valid?
+["", "abcd"].each do |data|
+  sized = Sized.new(data: data)
+  sized.valid?
+  puts sized.errors.inspect
+end
+
+# a stored value an :integer can't hold is kept, so a save is refused
+class Reference < ApplicationModel
+  attribute :ticket_id, :integer
+  attribute :note, :string
+end
+db.queue([{ "id" => 1, "ticket_id" => 5000000000, "note" => "a" }])
+reference = Reference.first
+puts reference.ticket_id.inspect
+puts reference.update(note: "b")
+puts reference.errors.inspect

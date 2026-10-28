@@ -39,6 +39,7 @@ end
 ## Contents
 
 - [Models](#models)
+  - [Attribute types](#attribute-types)
   - [Strong parameters](#strong-parameters)
   - [Uniqueness](#uniqueness)
   - [Database errors](#database-errors)
@@ -61,6 +62,45 @@ end
 - [License](#license)
 
 ## Models
+
+### Attribute types
+
+| Type | Ruby value | SQLite column | In JSON |
+| --- | --- | --- | --- |
+| `:string`, `:text` | String | TEXT | string |
+| `:integer` | Integer (32 bits) | INTEGER | number |
+| `:float` | Float | REAL | number |
+| `:boolean` | `true`/`false` | INTEGER (1/0) | `true`/`false` |
+| `:datetime` | String, ISO 8601 UTC | TEXT | string |
+| `:binary` | binary String (`.b`) | BLOB | base64 string |
+| `:bigint` | decimal String (`"3000000000"`) | INTEGER | string |
+
+- Integers are 32 bits in a wasm build. A `:integer` value beyond -2147483648..2147483647 casts to `nil`; use `:bigint` for those columns.
+  Assigning one is refused by validation ("is out of range"). A row that already holds one (a foreign key to a bigint parent
+  declared as `:integer`) loads as `nil`, and saving it fails the same way instead of writing `NULL` over it.
+- A `:bigint` holds its value as a String of an optional `-` and digits, without leading zeros (`"-0"` is `"0"`);
+  anything else, or a value beyond 64 bits, casts to `nil` ("is invalid"). It is bound as text and SQLite's INTEGER affinity
+  stores it as an integer, so `where`, `order` and comparisons work on the number.
+  It renders in JSON as a String, which JavaScript clients read exactly.
+  D1 hands rows over as JavaScript numbers, so a value beyond 2^53 (9007199254740991) has already lost precision before Ruby sees it.
+  Keep such values below 2^53, or store them as `:string`.
+- Pass bigint values as Strings: `Todo.find("3000000000")`, `where(id: "3000000000")`, `create!(owner_id: "5000000000")`,
+  `Model.execute("... WHERE id = ?", ["3000000000"])`. A Hash holding an Integer literal beyond 32 bits raises `RangeError` in a wasm build
+  (a Spinel limitation), so do not write them as Integers.
+- `attribute :id, :bigint` makes the primary key a bigint: `find`, `where(id: ...)`, `update`, `destroy` and an insert
+  (`RETURNING id`) work past 2^31, and `id` is a String. A foreign key to it is `attribute :owner_id, :bigint`
+  (declare it before `belongs_to` and it keeps its type).
+- Rows from raw SQL (`Model.select_all`) hold what the database gave: in a wasm build an INTEGER beyond 32 bits is a Bignum,
+  and `render json:` of it raises. Select it as text (`SELECT CAST(id AS TEXT) AS id ...`) or pass it through `Edgeway::Model.cast(:bigint, value)`.
+- A `:binary` attribute holds a binary String. Assigned from Ruby, a String keeps its bytes (`Document.new(body: bytes)`), and so does a `{"$blob" => base64}` Hash.
+  It is bound as a BLOB (`where(body: bytes)` too), and renders in JSON as a base64 String.
+  In a request body the value is that base64 String, so a GET then PATCH round trip is stable: params assigned through `permit` are decoded,
+  and invalid base64 fails validation ("is invalid"). `{"$blob": ...}` objects are not supported in a request body (nested objects are dropped).
+  `presence` counts a binary String blank only when empty, and `length` counts bytes.
+  A BLOB crosses between wasm and JS as `{"$blob": "<base64>"}`, as raw bytes would be cut at a NUL.
+  In raw SQL (`Model.select_all`, `Model.execute`, `where("...", value)`) bind a BLOB with `Edgeway::Model.blob(bytes)`,
+  and a BLOB column comes back as `{"$blob" => base64}`.
+- `Model.execute` answers `"last_insert_id"` as an Integer, or as a decimal String when the rowid is beyond 32 bits.
 
 ### Strong parameters
 

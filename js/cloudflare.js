@@ -53,6 +53,36 @@ export function sumMeta(metas) {
   };
 }
 
+// A BLOB crosses as {"$blob": "<base64>"}. D1 binds an ArrayBuffer as a BLOB and
+// answers a BLOB column as an Array of byte numbers.
+export function bindOf(value) {
+  if (value === null || typeof value !== "object" || typeof value.$blob !== "string") return value;
+  return Uint8Array.from(atob(value.$blob), (char) => char.charCodeAt(0)).buffer;
+}
+
+const isBytes = (value) => Array.isArray(value) || value instanceof ArrayBuffer || ArrayBuffer.isView(value);
+
+function bytesOf(value) {
+  if (Array.isArray(value)) return Uint8Array.from(value);
+  if (ArrayBuffer.isView(value)) return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  return new Uint8Array(value);
+}
+
+function base64Of(value) {
+  const bytes = bytesOf(value);
+  let binary = "";
+  for (let at = 0; at < bytes.length; at += 8192) binary += String.fromCharCode(...bytes.subarray(at, at + 8192));
+  return btoa(binary);
+}
+
+export function rowOf(row) {
+  for (const column of Object.keys(row)) {
+    const value = row[column];
+    if (value !== null && typeof value === "object" && isBytes(value)) row[column] = { $blob: base64Of(value) };
+  }
+  return row;
+}
+
 // The wasm import module "edgeway_d1" (lib/edgeway/service/cloudflare/d1.rb). Each call
 // answers the byte length of its JSON result; take() copies it out.
 //   query(binding, sql, binds)   -> {"rows": [...], "meta": META}
@@ -87,14 +117,15 @@ export function d1Imports(env, getInstance) {
     pending = new TextEncoder().encode(JSON.stringify(res));
     return pending.length;
   });
+  const prepare = (db, sql, binds) => db.prepare(sql).bind(...binds.map(bindOf));
   const run = (fn) => suspending((db, sqlPtr, bindsPtr) =>
-    fn(db.prepare(cstr(sqlPtr)).bind(...JSON.parse(cstr(bindsPtr)))));
+    fn(prepare(db, cstr(sqlPtr), JSON.parse(cstr(bindsPtr)))));
 
   return {
     edgeway_d1: {
       query: run(async (statement) => {
         const result = await statement.all();
-        return { rows: result.results, meta: metaOf(result.meta) };
+        return { rows: result.results.map(rowOf), meta: metaOf(result.meta) };
       }),
       execute: run(async (statement) => {
         const meta = (await statement.run()).meta;
@@ -104,7 +135,7 @@ export function d1Imports(env, getInstance) {
       // none of the statements stay applied.
       batch: suspending(async (db, statementsPtr) => {
         const statements = JSON.parse(cstr(statementsPtr));
-        const results = await db.batch(statements.map(([sql, binds]) => db.prepare(sql).bind(...binds)));
+        const results = await db.batch(statements.map(([sql, binds]) => prepare(db, sql, binds)));
         return {
           results: results.map((result) => ({ changes: result.meta.changes ?? 0, last_insert_id: result.meta.last_row_id ?? 0 })),
           meta: sumMeta(results.map((result) => result.meta)),

@@ -17,6 +17,10 @@ module Edgeway
     #   META        {"rows_read": n, "rows_written": n, "duration": ms,
     #                "served_by_region": "...", "served_by_primary": bool}
     #               (a batch's is the sum over its statements)
+    #   BLOB        a bind or a column value that is a BLOB is {"$blob": "<base64>"}
+    #               (raw bytes can't cross: JSON.generate cuts a String at a NUL)
+    #   last_insert_id  is a number; a rowid beyond 32 bits is a Bignum here,
+    #               which last_insert_id_of turns into its decimal String
     #   any         {"error": "message"} when D1 failed
     #   any         {"error": "message", "unavailable": true} when it failed
     #               in a transient way (DatabaseUnavailable)
@@ -86,7 +90,7 @@ module Edgeway
       def execute(sql, binds)
         check_binds(binds)
         res = result(D1Imports.d1_execute(@binding_name, sql, JSON.generate(binds)))
-        { "changes" => res["changes"].to_i, "last_insert_id" => res["last_insert_id"].to_i }
+        write_result(res)
       end
 
       # One D1 batch(): the statements run as a single transaction, so any
@@ -94,10 +98,14 @@ module Edgeway
       def batch(statements)
         statements.each { |s| check_binds(s[1]) }
         res = result(D1Imports.d1_batch(@binding_name, JSON.generate(statements)))
-        res["results"].map { |r| { "changes" => r["changes"].to_i, "last_insert_id" => r["last_insert_id"].to_i } }
+        res["results"].map { |entry| write_result(entry) }
       end
 
       private
+
+      def write_result(entry)
+        { "changes" => entry["changes"].to_i, "last_insert_id" => last_insert_id_of(entry["last_insert_id"]) }
+      end
 
       def result(json)
         res = JSON.parse(json)
