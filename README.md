@@ -338,13 +338,16 @@ cd myapp && bin/setup
 # the app's tests, natively (needs libsqlite3-dev, see "Testing an app")
 bundle exec edgeway test        # or bin/test [FILE...] in a generated app
 
-# edgeway build: writes build/app.wasm and build/edgeway/ (the JS)
+# edgeway build: writes build/app.wasm and build/edgeway/ (the JS).
+# A development build: Spinel's --incremental caches the generated C in units,
+# so a rebuild recompiles only what changed (no inlining across units)
 bin/build
 
 pnpm exec wrangler dev
 edgeway routes
 
-# bin/build, remote D1 migrations, then pnpm exec wrangler deploy
+# bin/build --release (one unit, without --incremental), remote D1 migrations,
+# then pnpm exec wrangler deploy
 bin/deploy
 ```
 
@@ -359,7 +362,7 @@ Before `bin/deploy`:
 `bin/setup` prints these steps when they are missing.
 
 - A generated app's Gemfile takes `edgeway` and `spinel_test-unit` from RubyGems.
-- A generated app's `.github/workflows/ci.yml` installs libsqlite3-dev, Ruby (from `.ruby-version`, which `edgeway new` writes with the Ruby that ran it), and mise's tools, then runs `bin/test` and `bin/build`.
+- A generated app's `.github/workflows/ci.yml` installs libsqlite3-dev, Ruby (from `.ruby-version`, which `edgeway new` writes with the Ruby that ran it), and mise's tools, then runs `bin/test` and `bin/build --release`.
 - An app uses [pnpm](https://pnpm.io/) for wrangler (`package.json`, `bin/setup`, `mise.toml`);
   `edgeway new` names it in one place (`Edgeway::CLI::PackageManager`).
 - `SPINEL=/path/to/spinel bin/build` uses a Spinel other than the one on `PATH`.
@@ -407,7 +410,7 @@ Edgeway needs a Spinel newer than the 2026.09.12 release
 (that release refuses `send` with a computed name, which `Callbacks#run_before_actions` uses).
 
 - `mise.toml` (Edgeway's own and the one `edgeway new` writes) pins a commit of [matz/spinel](https://github.com/matz/spinel),
-  `7b6d85642`, which mise-spinel builds from source.
+  `ec0ad13e4`, which mise-spinel builds from source.
   A commit rather than `master`, so that an install is the Spinel that was tested.
 - The WASI SDK (`wasi-sdk-34`) is installed first,
   because mise-spinel builds Spinel's wasm32-wasi runtime only when it finds one.

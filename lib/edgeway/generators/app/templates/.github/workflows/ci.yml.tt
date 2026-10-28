@@ -35,4 +35,4 @@ jobs:
       - name: Run the tests
         run: bin/test
       - name: Build
-        run: bin/build
+        run: bin/build --release

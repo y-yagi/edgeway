@@ -5,6 +5,6 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-bin/build
+bin/build --release
 <%= PackageManager.exec %> wrangler d1 migrations apply <%= @name %>-db --remote
 <%= PackageManager.exec %> wrangler deploy "$@"

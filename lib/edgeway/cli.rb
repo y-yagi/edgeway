@@ -20,7 +20,9 @@ module Edgeway
       Usage: edgeway COMMAND [options]
 
         new APP                  create a new app in APP/
-        build [--env ENV]        compile the app to build/app.wasm (ENV: development)
+        build [--env ENV] [--release]
+                                 compile the app to build/app.wasm (ENV: development);
+                                   --release builds for deploying (no --incremental)
         test [ARGS]              regenerate tmp/test_app.rb, run test/ with spinel_test-unit
         generate, g KIND NAME    generate a model (NAME field:type ...), a controller (NAME action ...)
                                    or a scaffold (NAME field:type ...)

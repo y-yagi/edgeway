@@ -32,11 +32,12 @@ bin/deploy executable: true
 bin/test executable: true
 package.json: nil
 mise.toml: node = "lts"; pnpm = "latest"; 
+bin/build --release
 pnpm exec wrangler d1 migrations apply my_app-db --remote
 pnpm exec wrangler deploy "$@"
 mentions npm/npx: []
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
         run: bin/test
-        run: bin/build
+        run: bin/build --release
 .ruby-version: true
 Next: cd APP && bin/setup && bin/test && bin/build
