@@ -53,6 +53,7 @@ module Edgeway
       end
 
       def destroy
+        check_dependents_database
         if self.class.dependents.empty?
           delete_row
         else
@@ -106,23 +107,31 @@ module Edgeway
 
       private
 
+      def check_dependents_database
+        self.class.dependents.each do |dependent|
+          child = Edgeway::Model::Base.model_named(dependent.name, self.class.name)
+          next if child.database == self.class.database
+          raise ArgumentError, "#{self.class.name} has_many :#{dependent.name}, dependent: :#{dependent.mode}, on database #{child.database}; destroy can't delete across databases atomically"
+        end
+      end
+
       def delete_row
-        conn = Model.connection
-        Model.write("DELETE FROM #{self.class.table_name} WHERE id = #{conn.placeholder(1)}", [id])
+        conn = self.class.connection
+        Model.write("DELETE FROM #{self.class.table_name} WHERE id = #{conn.placeholder(1)}", [id], database: self.class.database)
       end
 
       def update_row
-        conn = Model.connection
+        conn = self.class.connection
         cols = self.class.attribute_types.keys
         values = cols.map { |c| Model.database_value(@attributes[c], self.class.type_of(c)) }
         sets = cols.each_with_index.map { |c, i| "#{c} = #{conn.placeholder(i + 1)}" }.join(", ")
         Model.write("UPDATE #{self.class.table_name} SET #{sets} WHERE id = #{conn.placeholder(cols.size + 1)}",
-                     values + [id])
+                     values + [id], database: self.class.database)
       end
 
       def insert_row
         raise ArgumentError, "create isn't supported inside Model.batch" if Model.batching?
-        conn = Model.connection
+        conn = self.class.connection
         table = self.class.table_name
         cols = self.class.attribute_types.keys.reject { |c| @attributes[c].nil? }
         values = cols.map { |c| Model.database_value(@attributes[c], self.class.type_of(c)) }

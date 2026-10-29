@@ -37,3 +37,32 @@ begin
 rescue Edgeway::CLI::Error => e
   puts e.message.sub(/ in .*/, "")
 end
+
+puts "--"
+Dir.mktmpdir do |root|
+  write(root, "config/routes.rb")
+  File.write(File.join(root, "config/database.yml"), <<~YML)
+    development:
+      adapter: d1
+      databases:
+        analytics:
+          binding: ANALYTICS
+    production:
+      adapter: d1
+      databases:
+        analytics:
+          binding: ANALYTICS
+        audit_log:
+          binding: AUDIT
+    test:
+      adapter: memory
+  YML
+  Edgeway::CLI::Test.new(root).write_test_app
+  puts File.read(File.join(root, "tmp/test_app.rb")).lines.grep(/TEST_DATABASES/)
+  File.write(File.join(root, "config/database.yml"), "test:\n  adapter: memory\n  databases:\n    analytics: {}\n")
+  begin
+    Edgeway::CLI::Test.new(root).write_test_app
+  rescue Edgeway::CLI::Error => e
+    puts e.message
+  end
+end

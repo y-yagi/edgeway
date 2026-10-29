@@ -434,3 +434,40 @@ true
 nil
 false
 ["ticket_id is out of range"]
+["primary", "analytics", "analytics"]
+no database analytics: it is not under databases: of this environment in config/database.yml
+true
+true
+true
+INSERT INTO events (name) VALUES (?) RETURNING id, name | ["signup"]
+UPDATE events SET name = ? WHERE id = ? | ["login",1]
+SELECT COUNT(*) AS n FROM (SELECT 1 FROM click_events) | []
+SELECT COUNT(*) AS n FROM (SELECT 1 FROM events WHERE name = ?) | ["login"]
+SELECT * FROM events WHERE id = ? | [1]
+SELECT 1 | []
+DELETE FROM events | []
+DELETE FROM events WHERE id = ? | [1]
+DELETE FROM events | []
+[]
+p
+SELECT id, note, todo_id FROM impressions ORDER BY id ASC LIMIT 1 | []
+SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT 1 | [7]
+BATCH 2
+UPDATE events SET name = ? WHERE id = ? | ["one",1]
+DELETE FROM events | []
+[]
+Model.batch spans databases (analytics and primary); D1 batches are per database
+false
+[[], []]
+Model.batch spans databases (primary and analytics); D1 batches are per database
+[[], []]
+eager_load :todo joins Todo (database primary) to Impression (database analytics); a JOIN can't cross databases
+[[], []]
+db=1 rows_read=2 rows_written=0 db_ms=1.00
+["primary", "analytics"]
+Venue has_many :guests, dependent: :destroy, on database analytics; destroy can't delete across databases atomically
+true
+[[], []]
+Stand has_many :passes, dependent: :delete_all, on database analytics; destroy can't delete across databases atomically
+true
+[[], []]

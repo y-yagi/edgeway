@@ -1123,3 +1123,123 @@ reference = Reference.first
 puts reference.ticket_id.inspect
 puts reference.update(note: "b")
 puts reference.errors.inspect
+
+class Event < ApplicationModel
+  self.database = :analytics
+  attribute :name, :string
+end
+
+class Impression < ApplicationModel
+  self.database = :analytics
+  attribute :note, :string
+  belongs_to :todo
+end
+
+class ClickEvent < Event
+end
+
+puts [Todo.database, Event.database, ClickEvent.database].inspect
+begin
+  Event.count
+rescue Edgeway::ConfigurationError => e
+  puts e.message
+end
+analytics_db = Edgeway::DB::MemoryAdapter.new
+Edgeway::Model.connect(:analytics, analytics_db)
+puts Edgeway::Model.connection_for("analytics").equal?(analytics_db)
+puts Event.connection.equal?(analytics_db)
+puts Todo.connection.equal?(db)
+db.log.clear
+
+analytics_db.queue([{ "id" => 1, "name" => "signup" }])
+event = Event.create!(name: "signup")
+event.update!(name: "login")
+analytics_db.queue([{ "n" => 1 }])
+ClickEvent.count
+analytics_db.queue([{ "n" => 1 }])
+Event.where(name: "login").count
+Event.find_by_sql("SELECT * FROM events WHERE id = ?", [1])
+Edgeway::Model.select_all("SELECT 1", [], database: :analytics)
+Edgeway::Model.execute("DELETE FROM events", [], database: "analytics")
+event.destroy
+Event.delete_all
+show(analytics_db)
+p db.log
+
+analytics_db.queue([{ "id" => 1, "note" => "n", "todo_id" => 7 }])
+impression = Impression.first
+db.queue([{ "id" => 7, "title" => "p", "done" => 0, "priority" => "normal", "position" => 1, "created_at" => "c", "updated_at" => "u" }])
+puts impression.todo.title
+show(analytics_db)
+show(db)
+
+event = Event.instantiate({ "id" => 1, "name" => "signup" })
+Edgeway::Model.batch do
+  event.update!(name: "one")
+  Event.delete_all
+end
+show(analytics_db)
+p db.log
+
+begin
+  Edgeway::Model.batch do
+    event.update!(name: "two")
+    bt.update!(title: "mixed")
+  end
+rescue ArgumentError => e
+  puts e.message
+end
+p Edgeway::Model.batching?
+p [db.log, analytics_db.log]
+begin
+  Edgeway::Model.batch do
+    bt.update!(title: "mixed")
+    event.update!(name: "two")
+  end
+rescue ArgumentError => e
+  puts e.message
+end
+p [db.log, analytics_db.log]
+
+begin
+  Impression.eager_load(:todo).to_a
+rescue ArgumentError => e
+  puts e.message
+end
+p [db.log, analytics_db.log]
+
+analytics_db.record_meta(JSON.parse('{"rows_read":2,"rows_written":0,"duration":1,"served_by_region":"WEUR","served_by_primary":true}'))
+puts Edgeway::Model.query_stats(:analytics).log_text
+puts Edgeway::Model.database_names.inspect
+
+class Venue < ApplicationModel
+  attribute :name, :string
+  has_many :guests, dependent: :destroy
+end
+
+class Stand < ApplicationModel
+  attribute :name, :string
+  has_many :passes, dependent: :delete_all
+end
+
+class Guest < ApplicationModel
+  self.database = :analytics
+  attribute :venue_id, :integer
+end
+
+class Pass < ApplicationModel
+  self.database = :analytics
+  attribute :stand_id, :integer
+end
+
+[Venue.instantiate({ "id" => 1, "name" => "hall" }), Stand.instantiate({ "id" => 1, "name" => "booth" })].each do |owner|
+  db.log.clear
+  analytics_db.log.clear
+  begin
+    owner.destroy
+  rescue ArgumentError => e
+    puts e.message
+  end
+  p owner.persisted?
+  p [db.log, analytics_db.log]
+end

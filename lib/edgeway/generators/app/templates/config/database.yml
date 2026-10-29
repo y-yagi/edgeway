@@ -2,6 +2,16 @@
 # the wasm. adapter: d1 uses the D1 binding named by binding:, which must
 # match a binding in wrangler.toml (wrangler.toml says which D1 database it
 # is); memory is for tests.
+#
+# Another database goes under databases:, which a model picks with
+# `self.database = :analytics` (see the README's "Multiple databases").
+# It has its own binding, migrations (db/<name>/migrations) and test database.
+#   production:
+#     adapter: d1
+#     binding: DB
+#     databases:
+#       analytics:
+#         binding: ANALYTICS
 development:
   adapter: d1
   binding: DB

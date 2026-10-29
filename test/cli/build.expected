@@ -40,6 +40,18 @@ require_relative "../config/routes"
 
 Edgeway::Server.run
 --
+Edgeway::Model.connection = Edgeway::Cloudflare::D1Adapter.new(binding: "DB")
+Edgeway::Model.connect("analytics", Edgeway::Cloudflare::D1Adapter.new(binding: "ANALYTICS"))
+Edgeway::Model.connect("audit_log", Edgeway::Cloudflare::D1Adapter.new(binding: "AUDIT"))
+Edgeway::Model.connection = Edgeway::DB::MemoryAdapter.new
+Edgeway::Model.connect("analytics", Edgeway::DB::MemoryAdapter.new)
+--
+config/database.yml: bad database name "Analytics" in development (lowercase letters, digits and _, and not primary)
+config/database.yml: bad database name "primary" in development (lowercase letters, digits and _, and not primary)
+config/database.yml: databases.analytics in development has no binding:
+config/database.yml: databases.analytics in development has no binding:
+config/database.yml: databases.analytics in development has no binding:
+--
 require_relative "../app/models/we\"ird \#{x}"
 ../app/models/we"ird #{x}
 --

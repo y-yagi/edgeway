@@ -11,9 +11,14 @@ module Edgeway
     end
 
     def self.log_query_stats
-      return unless Model.connected?
-      stats = Model.query_stats
-      Edgeway.logger.info(stats.log_text) if stats.queries > 0
+      Model.database_names.each { |name| log_database_stats(name) }
+    end
+
+    def self.log_database_stats(name)
+      stats = Model.query_stats(name)
+      return unless stats.queries > 0
+      prefix = name == Model::PRIMARY ? "" : "database=#{name} "
+      Edgeway.logger.info(prefix + stats.log_text)
     end
   end
 end

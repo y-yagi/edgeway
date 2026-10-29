@@ -8,24 +8,33 @@ module Edgeway
     INT_MAX = 2147483647
     INT_MIN = -2147483648
 
+    PRIMARY = "primary"
+
+    def self.registry = (@registry ||= ConnectionRegistry.new)
+
+    def self.connect(name, adapter) = registry.connect(name, adapter)
+
+    def self.disconnect(name) = registry.disconnect(name)
+
     def self.connection=(adapter)
-      @connection = adapter
+      connect(PRIMARY, adapter)
     end
 
-    def self.connected?
-      !@connection.nil?
-    end
+    def self.connected? = registry.connected?(PRIMARY)
 
-    def self.connection
-      @connection || raise(ConfigurationError, "Edgeway::Model.connection is not set")
-    end
+    def self.connection = connection_for(PRIMARY)
 
-    def self.query_stats
-      connection.query_stats
+    def self.connection_for(name) = registry.fetch(name)
+
+    def self.database_names = registry.names
+
+    def self.query_stats(name = PRIMARY)
+      connection_for(name).query_stats
     end
 
     # Runs the block with writes queued instead of executed, then sends them
     # all as one atomic batch (D1 batch(): one SQL transaction, all or none).
+    # A batch belongs to the database of its first write.
     def self.batch
       if @batch_queue
         yield
@@ -33,14 +42,16 @@ module Edgeway
       end
       queue = []
       @batch_queue = queue
+      @batch_database = nil
       begin
         yield
       rescue => e
         @batch_queue = nil
         raise e
       end
+      database = @batch_database
       @batch_queue = nil
-      queue.empty? ? [] : connection.batch(queue)
+      queue.empty? ? [] : connection_for(database).batch(queue)
     end
 
     def self.batching? = !@batch_queue.nil?
@@ -48,22 +59,33 @@ module Edgeway
     # Every model write but an INSERT goes through here: executed at once, or
     # queued inside batch. A queued write answers a placeholder result, as its
     # counts are not known until the batch is sent.
-    def self.write(sql, binds)
+    def self.write(sql, binds, database: PRIMARY)
+      name = database.to_s
       queue = @batch_queue
       if queue.nil?
-        connection.execute(sql, binds)
+        connection_for(name).execute(sql, binds)
       else
+        join_batch(name)
         queue << [sql, binds]
         { "changes" => 0, "last_insert_id" => 0 }
       end
     end
 
-    def self.select_all(sql, binds = [])
-      connection.select_all(sql, binds.map { |b| database_value(b) })
+    def self.join_batch(name)
+      current = @batch_database
+      if current.nil?
+        @batch_database = name
+      elsif current != name
+        raise ArgumentError, "Model.batch spans databases (#{current} and #{name}); D1 batches are per database"
+      end
     end
 
-    def self.execute(sql, binds = [])
-      write(sql, binds.map { |b| database_value(b) })
+    def self.select_all(sql, binds = [], database: PRIMARY)
+      connection_for(database).select_all(sql, binds.map { |b| database_value(b) })
+    end
+
+    def self.execute(sql, binds = [], database: PRIMARY)
+      write(sql, binds.map { |b| database_value(b) }, database: database)
     end
 
     def self.to_int(v)

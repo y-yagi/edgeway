@@ -48,6 +48,7 @@ end
   - [Batch](#batch)
   - [Associations](#associations)
   - [Eager loading](#eager-loading)
+  - [Multiple databases](#multiple-databases)
 - [Views](#views)
 - [Usage](#usage)
   - [Generators](#generators)
@@ -286,6 +287,31 @@ Todo.eager_load(:comments, :tags)   # several at once, still one query
 - Only `to_a` and what is built on it (`each`, `map`, `size`) read the loaded records;
   `comments.where(...)`, `count` and `first` query as usual.
 
+### Multiple databases
+
+A model uses the primary database unless it names another, declared in `config/database.yml` (see "Configuration"):
+
+```ruby
+class Event < ApplicationModel
+  self.database = :analytics   # inherited by subclasses
+  attribute :name, :string
+end
+
+Event.create!(name: "signup")
+Edgeway::Model.select_all("SELECT COUNT(*) AS n FROM events", [], database: :analytics)
+Edgeway::Model.execute("DELETE FROM events", [], database: :analytics)
+```
+
+- Every query and write of a model goes to its database, including `find_by_sql`.
+  `Model.select_all` and `Model.execute` use the primary unless given `database:`.
+- Associations between models on different databases work as separate queries.
+  A `has_many` with `dependent:` to a model on another database raises `ArgumentError` on `destroy`, before any query: it can't be atomic.
+  `eager_load` across databases raises `ArgumentError`: a `JOIN` can't cross them.
+- A `Model.batch` belongs to the database of its first write; a write for another one raises `ArgumentError`
+  (D1 batches are per database). Use one `batch` per database.
+- `Edgeway::Model.query_stats(:analytics)` is that database's stats. The request log has one line per database that ran queries,
+  and the extra ones start with `database=analytics`.
+
 ## Views
 
 ```ruby
@@ -437,6 +463,21 @@ Two files configure the database, each for its own side:
 - `wrangler.toml` is Cloudflare's: which D1 database the binding is (`database_name`, `database_id`),
   the migrations, and the Worker. `binding` in it must match `binding` in `config/database.yml`.
 
+Another database goes under `databases:` of an environment, with its own binding in `wrangler.toml`:
+
+```yaml
+production:
+  adapter: d1
+  binding: DB
+  databases:
+    analytics:
+      binding: ANALYTICS
+```
+
+Its migrations are in `db/analytics/migrations` (`migrations_dir` of its `[[d1_databases]]`; apply them per database).
+A name is lowercase letters, digits and `_`, and not `primary`; `binding:` is required.
+The extra databases use the environment's adapter.
+
 `database_id` is not a secret: it only names the database, and using it takes an API token of the account,
 so it is committed with `wrangler.toml` as Cloudflare's own examples do.
 Secrets the app needs go in Worker secrets (`pnpm exec wrangler secret put NAME`),
@@ -556,6 +597,7 @@ bin/test [FILE...]                # in a generated app: the same, all of test/ w
 
 Each test runs against a real in-memory SQLite database (`Edgeway::DB::SQLiteAdapter`, through Spinel's FFI)
 with `db/migrations/*.sql` applied in file name order, so requests really write and read rows.
+Each database under `databases:` (in any environment) gets its own, with `db/NAME/migrations`; `db(:analytics)` answers it, and `db` the primary.
 
 ### SQLite
 

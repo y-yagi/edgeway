@@ -3,6 +3,7 @@ require "edgeway"
 require "edgeway/db/memory"
 require "edgeway/db/sqlite"
 module Edgeway; TEST_APP_ROOT = "ROOT"; end
+module Edgeway; TEST_DATABASES = []; end
 
 require_relative "../app/models/application_model"
 require_relative "../app/models/todo"
@@ -19,3 +20,6 @@ class TodosController
   def _view_todos_index
   def _render_view(action)
 no config/routes.rb
+--
+module Edgeway; TEST_DATABASES = ["analytics", "audit_log"]; end
+config/database.yml: databases.analytics in test has no binding:

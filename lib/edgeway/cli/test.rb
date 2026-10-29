@@ -24,6 +24,7 @@ module Edgeway
         # Where the migrations are read from at test time (the binary may run
         # from another directory); Edgeway::UnitTest#setup applies them.
         lines << "module Edgeway; TEST_APP_ROOT = #{@root.dump}; end"
+        lines << "module Edgeway; TEST_DATABASES = #{Build::DatabaseConfig.new(@root).names.inspect}; end"
         lines << ""
         views = Build::ViewCompiler.new(@root).compile
         File.write(File.join(@root, "tmp/views.rb"), views) if views

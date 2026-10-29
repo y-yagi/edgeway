@@ -40,6 +40,26 @@ module Edgeway
         @table_name || Inflector.pluralize(Model.underscore(name.split("::").last))
       end
 
+      def self.database=(name)
+        raise ArgumentError, "database name can't be blank" if name.nil? || name.to_s.empty?
+        @database = name.to_s
+      end
+
+      def self.own_database = @database
+
+      def self.database
+        klass = self
+        while klass
+          name = klass.own_database
+          return name unless name.nil?
+          break if klass == Base
+          klass = klass.superclass
+        end
+        Model::PRIMARY
+      end
+
+      def self.connection = Model.connection_for(database)
+
       def self.attribute_types = (@attribute_types ||= {})
       def self.attribute_defaults = (@attribute_defaults ||= {})
       def self.belongs_to_list = (@belongs_to ||= [])
@@ -105,7 +125,7 @@ module Edgeway
       def self.pluck(col) = all.pluck(col)
       def self.first = all.first
       def self.find_by(conditions) = all.find_by(conditions)
-      def self.find_by_sql(sql, binds = []) = Model.select_all(sql, binds).map { |row| instantiate(row) }
+      def self.find_by_sql(sql, binds = []) = Model.select_all(sql, binds, database: database).map { |row| instantiate(row) }
       def self.find(id) = all.find(id)
 
       def self.find_or_create_by(conditions) = all.find_or_create_by(conditions)
