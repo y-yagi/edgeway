@@ -27,6 +27,17 @@ module Edgeway
           end
         end
 
+        def primary_binding(section) = (section["binding"] || "DB").to_s
+
+        def session_bindings(section, env)
+          flags = {}
+          record_sessions(flags, "the #{env} section", primary_binding(section), section, "the #{env} section")
+          (section["databases"] || {}).each do |name, entry|
+            record_sessions(flags, "databases.#{name}", entry["binding"].to_s, entry, "databases.#{name} in #{env}")
+          end
+          flags.select { |_binding, (_label, enabled)| enabled }.keys
+        end
+
         def names
           names = []
           return names unless File.exist?(path)
@@ -46,6 +57,23 @@ module Edgeway
           raise Error, "no config/database.yml in #{@root} (is this an Edgeway app?)" unless File.exist?(path)
 
           YAML.safe_load_file(path) || {}
+        end
+
+        def record_sessions(flags, label, binding_name, entry, where)
+          enabled = sessions?(entry, where)
+          known_label, known = flags[binding_name]
+          if known_label && known != enabled
+            raise Error, "config/database.yml: #{known_label} and #{label} share binding #{binding_name} but differ in sessions"
+          end
+
+          flags[binding_name] = [label, enabled]
+        end
+
+        def sessions?(entry, where)
+          return false unless entry.is_a?(Hash) && entry.key?("sessions")
+          return entry["sessions"] if [true, false].include?(entry["sessions"])
+
+          raise Error, "config/database.yml: sessions in #{where} must be true or false"
         end
 
         def database_binding(name, entry, env)

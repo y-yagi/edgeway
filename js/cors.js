@@ -4,6 +4,8 @@
 // status instead of an opaque CORS error. Nothing here is specific to a
 // platform. Cookies are not supported: Access-Control-Allow-Credentials is
 // never sent.
+import { addVary, withHeaders } from "./headers.js";
+
 const DEFAULT_HEADERS = "Authorization, Content-Type";
 const DEFAULT_MAX_AGE = "600";
 const METHODS = "GET, HEAD, POST, PUT, PATCH, DELETE";
@@ -15,17 +17,17 @@ function json(status, body, headers = {}) {
 // The settings from the Worker's variables, or null when CORS is off.
 // A bad CORS_MAX_AGE is { error }: like JWT, a misconfiguration is a 500, not
 // a silent default.
-function settings(env) {
-  const list = (env.CORS_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+function settings(env, { exposeHeaders, allowHeaders }) {
+  const list = (env.CORS_ORIGINS ?? "").split(",").map((origin) => origin.trim()).filter(Boolean);
   if (list.length === 0) return null;
   const maxAge = (env.CORS_MAX_AGE ?? "").trim() || DEFAULT_MAX_AGE;
   if (!/^\d+$/.test(maxAge)) return { error: `CORS_MAX_AGE must be a non-negative integer, got "${env.CORS_MAX_AGE}"` };
   return {
     any: list.includes("*"),
     origins: new Set(list),
-    headers: (env.CORS_HEADERS ?? "").trim() || DEFAULT_HEADERS,
+    headers: withHeaders((env.CORS_HEADERS ?? "").trim() || DEFAULT_HEADERS, ...allowHeaders),
     maxAge,
-    expose: (env.CORS_EXPOSE_HEADERS ?? "").trim(),
+    expose: withHeaders(env.CORS_EXPOSE_HEADERS, ...exposeHeaders),
   };
 }
 
@@ -36,20 +38,17 @@ function allowed(cfg, origin) {
   return cfg.any || cfg.origins.has(origin);
 }
 
-// Appends Origin to Vary unless it (or *) is already there.
-function addVary(headers, ...names) {
-  const have = (headers.get("Vary") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-  if (have.includes("*")) return;
-  for (const n of names) {
-    if (!have.some((h) => h.toLowerCase() === n.toLowerCase())) have.push(n);
-  }
-  headers.set("Vary", have.join(", "));
+function exposeOn(headers, expose) {
+  const merged = withHeaders(headers.get("Access-Control-Expose-Headers"), ...expose.split(", ").filter(Boolean));
+  if (merged) headers.set("Access-Control-Expose-Headers", merged);
 }
 
-// Wraps a fetch handler (request, env, ctx) -> Response.
-export function withCors(handler) {
+// Wraps a fetch handler (request, env, ctx) -> Response. exposeHeaders and
+// allowHeaders are names the platform layer always adds to the exposed and the
+// preflight-allowed headers.
+export function withCors(handler, { exposeHeaders = [], allowHeaders = [] } = {}) {
   return async (request, env, ctx) => {
-    const cfg = settings(env);
+    const cfg = settings(env, { exposeHeaders, allowHeaders });
     if (!cfg) return handler(request, env, ctx);
     if (cfg.error) {
       console.error(cfg.error);
@@ -79,7 +78,7 @@ export function withCors(handler) {
     const out = new Response(res.body, res);
     if (ok) {
       out.headers.set("Access-Control-Allow-Origin", origin);
-      if (cfg.expose) out.headers.set("Access-Control-Expose-Headers", cfg.expose);
+      exposeOn(out.headers, cfg.expose);
     }
     addVary(out.headers, "Origin");
     return out;

@@ -18,7 +18,7 @@ function app(reply = () => new Response("hi", { headers: { "X-App": "1" } })) {
   inner.calls = 0;
   return inner;
 }
-const call = (inner, env, url, init) => withCors(inner)(new Request(url, init), env);
+const call = (inner, env, url, init, options) => withCors(inner, options)(new Request(url, init), env);
 const ORIGIN = "https://app.example";
 const preflight = (origin = ORIGIN, extra = {}) => ({
   method: "OPTIONS",
@@ -92,6 +92,21 @@ await test("an actual request from an allowed origin gets the headers", async ()
 await test("no Expose-Headers unless set", async () => {
   const r = await call(app(), ON, "http://x/a", { headers: { Origin: ORIGIN } });
   assert.equal(r.headers.get("access-control-expose-headers"), null);
+});
+
+await test("exposeHeaders are added to Expose-Headers once, merged with the app's and CORS_EXPOSE_HEADERS", async () => {
+  const exposed = async (env, reply) => (await call(app(reply), env, "http://x/a", { headers: { Origin: ORIGIN } }, { exposeHeaders: ["X-Example"] }))
+    .headers.get("access-control-expose-headers");
+  assert.equal(await exposed(ON), "X-Example");
+  assert.equal(await exposed({ ...ON, CORS_EXPOSE_HEADERS: "x-example, X-A" }), "x-example, X-A");
+  const reply = () => new Response("hi", { headers: { "Access-Control-Expose-Headers": "X-App" } });
+  assert.equal(await exposed({ ...ON, CORS_EXPOSE_HEADERS: "X-A" }, reply), "X-App, X-A, X-Example");
+});
+
+await test("allowHeaders are added to a preflight's Allow-Headers once", async () => {
+  const allowed = async (env) => (await call(app(), env, "http://x/a", preflight(), { allowHeaders: ["X-Example"] })).headers.get("access-control-allow-headers");
+  assert.equal(await allowed(ON), "Authorization, Content-Type, X-Example");
+  assert.equal(await allowed({ ...ON, CORS_HEADERS: "Authorization, X-EXAMPLE" }), "Authorization, X-EXAMPLE");
 });
 
 await test("another origin gets no Allow-Origin, but Vary", async () => {

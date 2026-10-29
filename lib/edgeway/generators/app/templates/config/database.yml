@@ -12,6 +12,13 @@
 #     databases:
 #       analytics:
 #         binding: ANALYTICS
+#
+# For a database with read replication, `sessions: true` next to its binding
+# (see the README's "Read replication (Sessions)").
+#   production:
+#     adapter: d1
+#     binding: DB
+#     sessions: true
 development:
   adapter: d1
   binding: DB
