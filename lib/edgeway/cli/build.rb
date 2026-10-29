@@ -9,7 +9,9 @@ require_relative "build/view_compiler"
 module Edgeway
   module CLI
     # edgeway build: app/, config/ -> build/main.rb -> build/app.wasm, and the
-    # gem's js/ -> build/edgeway/.
+    # gem's js/ -> build/edgeway/. Spinel compiles with --incremental (cached C
+    # units, fast rebuilds, no inlining across units) unless --release, which
+    # builds as one unit for deploying.
     #
     # Spinel resolves require at compile time and has no autoloading, so
     # build/main.rb requires every file, in an order where a class body finds
@@ -26,16 +28,19 @@ module Edgeway
     class Build
       def self.run(args)
         env = "development"
+        release = false
         OptionParser.new do |o|
-          o.banner = "Usage: edgeway build [--env ENV]"
+          o.banner = "Usage: edgeway build [--env ENV] [--release]"
           o.on("--env ENV", "environment (default: development)") { |v| env = v }
+          o.on("--release", "build as one unit, without --incremental (for deploying)") { release = true }
         end.parse!(args)
-        new(Dir.pwd, env).run
+        new(Dir.pwd, env, release:).run
       end
 
-      def initialize(root, env)
+      def initialize(root, env, release: false)
         @root = root
         @env = env
+        @release = release
       end
 
       def run
@@ -88,6 +93,7 @@ module Edgeway
       def compile
         spinel = Toolchain.spinel || raise(Error, "no Spinel compiler found (install it with mise, or set SPINEL=/path/to/spinel)")
         cmd = [spinel, "-I", File.join(CLI.gem_dir, "lib"), "--target=wasm32-wasi", "build/main.rb", "-o", "build/app.wasm"]
+        cmd << "--incremental" unless @release
         puts cmd.join(" ")
         system(*cmd, chdir: @root) || raise(Error, "spinel failed")
       end

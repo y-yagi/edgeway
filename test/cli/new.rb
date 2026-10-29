@@ -23,7 +23,7 @@ Dir.mktmpdir do |dir|
   # pnpm everywhere, npm/npx nowhere
   puts "package.json: #{File.read(File.join(app, "package.json"))[/"packageManager"/].inspect}"
   puts "mise.toml: #{File.read(File.join(app, "mise.toml")).lines.grep(/^(node|pnpm) =/).join.gsub("\n", "; ")}"
-  puts File.read(File.join(app, "bin/deploy")).lines.last(2)
+  puts File.read(File.join(app, "bin/deploy")).lines.last(3)
   npm = files.select { |f| File.read(File.join(app, f)).match?(/\bnpm\b|\bnpx\b/) }
   puts "mentions npm/npx: #{npm.inspect}"
   puts File.read(File.join(app, ".github/workflows/ci.yml")).lines.grep(/run:/)
