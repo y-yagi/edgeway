@@ -5,11 +5,13 @@
 //   export default createWorker(app);
 //
 // build/edgeway/config.js is written by `edgeway build` from
-// config/database.yml: the environment name and the D1 binding.
+// config/database.yml: the environment name, the D1 binding, and the bindings
+// that use D1 Sessions.
 import { runCgi } from "./runtime.js";
 import config from "./config.js";
 import { jwtImports } from "./jwt.js";
 import { withCors } from "./cors.js";
+import { BOOKMARK_HEADER, D1Sessions } from "./cloudflare-d1-sessions.js";
 
 // D1's transient errors, which are worth a retry by the client
 // (developers.cloudflare.com/d1/observability/debug-d1/). D1 retries read-only
@@ -92,7 +94,7 @@ export function rowOf(row) {
 // META is {"rows_read": n, "rows_written": n, "duration": ms, "served_by_region": "...",
 // "served_by_primary": bool}; a batch's sums the statements'.
 // An error is {"error": "message"} (no meta), with "unavailable": true when it is transient.
-export function d1Imports(env, getInstance) {
+export function d1Imports(env, getInstance, sessions = new D1Sessions(env)) {
   const mem = () => new Uint8Array(getInstance().exports.memory.buffer);
   const cstr = (p) => {
     const b = mem();
@@ -107,7 +109,7 @@ export function d1Imports(env, getInstance) {
     let res;
     try {
       const name = cstr(bindingPtr) || config.d1Binding;
-      const db = env[name];
+      const db = sessions.database(name);
       if (!db) throw new Error(`no D1 binding ${name}`);
       res = await fn(db, ...ptrs);
     } catch (e) {
@@ -170,14 +172,23 @@ export function varsOf(env) {
   return vars;
 }
 
+export function corsOptions(sessionBindings) {
+  const names = sessionBindings.length > 0 ? [BOOKMARK_HEADER] : [];
+  return { exposeHeaders: names, allowHeaders: names };
+}
+
 // appModule: the WebAssembly.Module that `import app from "...app.wasm"` gives.
 export function createWorker(appModule) {
   return {
-    fetch: withCors((request, env) => runCgi(appModule, request, {
-      extraEnv: { EDGEWAY_ENV: config.env, ...varsOf(env) },
-      // Both modules are always supplied, whether or not the app uses them:
-      // the wasm instance needs every import it declares.
-      imports: (getInstance) => ({ ...d1Imports(env, getInstance), ...jwtImports(env, getInstance) }),
-    })),
+    fetch: withCors(async (request, env) => {
+      const sessions = new D1Sessions(env, request, config.sessions ?? []);
+      const response = await runCgi(appModule, request, {
+        extraEnv: { EDGEWAY_ENV: config.env, ...varsOf(env) },
+        // Both modules are always supplied, whether or not the app uses them:
+        // the wasm instance needs every import it declares.
+        imports: (getInstance) => ({ ...d1Imports(env, getInstance, sessions), ...jwtImports(env, getInstance) }),
+      });
+      return sessions.annotate(response);
+    }, corsOptions(config.sessions ?? [])),
   };
 }

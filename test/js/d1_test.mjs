@@ -14,6 +14,7 @@ WebAssembly.Suspending = class { constructor(fn) { this.fn = fn; } };
 const dir = mkdtempSync(join(tmpdir(), "edgeway-js-"));
 cpSync(join(dirname(fileURLToPath(import.meta.url)), "../../js"), dir, { recursive: true });
 writeFileSync(join(dir, "config.js"), 'export default { env: "test", d1Binding: "DB" };\n');
+const { D1Sessions, parseBookmarks } = await import(pathToFileURL(join(dir, "cloudflare-d1-sessions.js")));
 const { d1Imports, isTransientD1Error, TRANSIENT_D1_ERRORS } = await import(pathToFileURL(join(dir, "cloudflare.js")));
 
 let count = 0;
@@ -42,7 +43,10 @@ function fakeD1() {
   return db;
 }
 async function call(env, name, ...strings) {
-  const imports = d1Imports(env, () => ({ exports: { memory } })).edgeway_d1;
+  return callWith(new D1Sessions(env), env, name, ...strings);
+}
+async function callWith(sessions, env, name, ...strings) {
+  const imports = d1Imports(env, () => ({ exports: { memory } }), sessions).edgeway_d1;
   const bytes = new Uint8Array(memory.buffer);
   let at = 16;
   const ptrs = strings.map((s) => {
@@ -183,6 +187,129 @@ await test("isTransientD1Error matches the transient messages only", () => {
   for (const m of ["exceeded its CPU time limit", "memory limit", "timeout", "UNIQUE constraint failed: t.a"]) {
     assert.equal(isTransientD1Error(m), false);
   }
+});
+
+function sessionDb(label, log) {
+  const db = fakeD1();
+  db.withSession = (start) => {
+    log.push([label, start]);
+    const session = fakeD1();
+    session.getBookmark = () => `bm-${label}`;
+    db.session = session;
+    return session;
+  };
+  return db;
+}
+const requestWith = (method, bookmarkHeader) =>
+  new Request("http://x/a", { method, headers: bookmarkHeader ? { "X-D1-Bookmark": bookmarkHeader } : {} });
+const sessionsFor = (env, request, names = Object.keys(env)) => new D1Sessions(env, request, names);
+
+await test("a session binding starts first-unconstrained for GET and HEAD, first-primary otherwise", async () => {
+  for (const [method, constraint] of [["GET", "first-unconstrained"], ["HEAD", "first-unconstrained"], ["POST", "first-primary"], ["DELETE", "first-primary"]]) {
+    const log = [];
+    const env = { DB: sessionDb("DB", log) };
+    await callWith(sessionsFor(env, requestWith(method)), env, "query", "DB", "SELECT 1", "[]");
+    assert.deepEqual(log, [["DB", constraint]]);
+  }
+});
+
+await test("the bookmark the request sent starts the session", async () => {
+  const log = [];
+  const env = { DB: sessionDb("DB", log), ANALYTICS: sessionDb("ANALYTICS", log) };
+  const sessions = sessionsFor(env, requestWith("GET", "ANALYTICS=abc, DB = 0def "));
+  await callWith(sessions, env, "query", "DB", "SELECT 1", "[]");
+  await callWith(sessions, env, "query", "ANALYTICS", "SELECT 1", "[]");
+  assert.deepEqual(log, [["DB", "0def"], ["ANALYTICS", "abc"]]);
+});
+
+await test("the session is created once per request and used by query, execute and batch", async () => {
+  const log = [];
+  const env = { DB: sessionDb("DB", log) };
+  const sessions = sessionsFor(env, requestWith("POST"));
+  env.DB.withSession = ((withSession) => (start) => {
+    const session = withSession(start);
+    session.prepare = () => ({ bind() { return this; }, async all() { return { results: [{ id: "session" }], meta: {} }; }, async run() { return { meta: { changes: 5 } }; } });
+    return session;
+  })(env.DB.withSession);
+  assert.equal((await callWith(sessions, env, "execute", "DB", "UPDATE t SET a = 1", "[]")).changes, 5);
+  assert.deepEqual((await callWith(sessions, env, "query", "DB", "SELECT 1", "[]")).rows, [{ id: "session" }]);
+  const res = await callWith(sessions, env, "batch", "DB", JSON.stringify([["UPDATE t SET a = ?", [1]]]));
+  assert.equal(log.length, 1);
+  assert.deepEqual(res.results, [{ changes: 1, last_insert_id: 10 }]);
+  assert.deepEqual(env.DB.batches, [], "the batch ran on the session, not on the binding");
+  assert.equal(env.DB.session.batches.length, 1);
+});
+
+await test("a binding that is not a session binding is used directly", async () => {
+  const log = [];
+  const env = { DB: sessionDb("DB", log), PLAIN: sessionDb("PLAIN", log) };
+  const sessions = sessionsFor(env, requestWith("GET", "PLAIN=zzz"), ["DB"]);
+  await callWith(sessions, env, "batch", "DB", "[]");
+  await callWith(sessions, env, "batch", "PLAIN", "[]");
+  assert.deepEqual(log, [["DB", "first-unconstrained"]]);
+  assert.equal(env.PLAIN.batches.length, 1);
+  assert.equal(sessions.header(), "DB=bm-DB");
+});
+
+await test("a bookmark for an unknown binding or garbage is ignored", async () => {
+  const log = [];
+  const env = { DB: sessionDb("DB", log) };
+  const sessions = sessionsFor(env, requestWith("GET", "NOPE=1,,=a,DB=,junk, ,DB"));
+  await callWith(sessions, env, "batch", "DB", "[]");
+  assert.deepEqual(log, [["DB", "first-unconstrained"]]);
+});
+
+await test("a bookmark that does not look like D1's is ignored and not echoed", async () => {
+  for (const bad of ["ABC-DEF", "zzzz-garbage", "a".repeat(129), "00000000 00000001", "<script>"]) {
+    const log = [];
+    const env = { DB: sessionDb("DB", log) };
+    const sessions = sessionsFor(env, requestWith("GET", `DB=${bad}`));
+    assert.equal(sessions.header(), "");
+    await callWith(sessions, env, "batch", "DB", "[]");
+    assert.deepEqual(log, [["DB", "first-unconstrained"]]);
+  }
+});
+
+await test("a binding name that is not an identifier is ignored", async () => {
+  assert.deepEqual(parseBookmarks("my-db=0a, 1DB=0b, DB_2=0c"), { DB_2: "0c" });
+});
+
+await test("the response header lists the used sessions as BINDING=bookmark pairs", async () => {
+  const env = { DB: sessionDb("DB", []), ANALYTICS: sessionDb("ANALYTICS", []), IDLE: sessionDb("IDLE", []) };
+  const sessions = sessionsFor(env, requestWith("GET"));
+  assert.equal(sessions.header(), "");
+  await callWith(sessions, env, "batch", "DB", "[]");
+  assert.equal(sessions.header(), "DB=bm-DB");
+  await callWith(sessions, env, "batch", "ANALYTICS", "[]");
+  const response = sessions.annotate(new Response("ok"));
+  assert.equal(response.headers.get("x-d1-bookmark"), "DB=bm-DB, ANALYTICS=bm-ANALYTICS");
+});
+
+await test("the header keeps the sent bookmark of a session binding the request did not use", async () => {
+  const env = { DB: sessionDb("DB", []), ANALYTICS: sessionDb("ANALYTICS", []) };
+  const sessions = sessionsFor(env, requestWith("GET", "ANALYTICS=b, DB=a, OTHER=c"), ["DB", "ANALYTICS"]);
+  await callWith(sessions, env, "batch", "DB", "[]");
+  assert.equal(sessions.header(), "DB=bm-DB, ANALYTICS=b");
+  const untouched = sessionsFor(env, requestWith("GET", "DB=a, ANALYTICS=b, OTHER=c"), ["DB", "ANALYTICS"]);
+  assert.equal(untouched.header(), "DB=a, ANALYTICS=b");
+});
+
+await test("a response varies on the bookmark header when sessions are configured", async () => {
+  const env = { DB: sessionDb("DB", []) };
+  const vary = (names, existing) => sessionsFor(env, requestWith("GET"), names)
+    .annotate(new Response("ok", { headers: existing ? { Vary: existing } : {} })).headers.get("vary");
+  assert.equal(vary(["DB"]), "X-D1-Bookmark");
+  assert.equal(vary(["DB"], "Accept-Encoding"), "Accept-Encoding, X-D1-Bookmark");
+  assert.equal(vary([]), null);
+});
+
+await test("a session without a bookmark adds no header, and an unused one neither", async () => {
+  const env = { DB: sessionDb("DB", []) };
+  const sessions = sessionsFor(env, requestWith("GET"));
+  assert.equal(sessions.annotate(new Response("ok")).headers.get("x-d1-bookmark"), null);
+  await callWith(sessions, env, "batch", "DB", "[]");
+  sessions.sessions.get("DB").getBookmark = () => null;
+  assert.equal(sessions.annotate(new Response("ok")).headers.get("x-d1-bookmark"), null);
 });
 
 rmSync(dir, { recursive: true, force: true });

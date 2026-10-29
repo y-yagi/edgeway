@@ -11,7 +11,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const dir = mkdtempSync(join(tmpdir(), "edgeway-js-"));
 cpSync(join(dirname(fileURLToPath(import.meta.url)), "../../js"), dir, { recursive: true });
 writeFileSync(join(dir, "config.js"), 'export default { env: "test", d1Binding: "DB" };\n');
-const { varsOf } = await import(pathToFileURL(join(dir, "cloudflare.js")));
+const { varsOf, corsOptions } = await import(pathToFileURL(join(dir, "cloudflare.js")));
 
 let count = 0;
 function test(name, fn) {
@@ -37,6 +37,11 @@ test("other variables and secrets stay out", () => {
 
 test("bindings (non-strings) stay out even under APP_", () => {
   assert.deepEqual(varsOf({ APP_DB: { prepare() {} }, APP_N: 1, APP_S: "s" }), { APP_S: "s" });
+});
+
+test("CORS exposes and allows the bookmark header only with session bindings", () => {
+  assert.deepEqual(corsOptions([]), { exposeHeaders: [], allowHeaders: [] });
+  assert.deepEqual(corsOptions(["DB"]), { exposeHeaders: ["X-D1-Bookmark"], allowHeaders: ["X-D1-Bookmark"] });
 });
 
 rmSync(dir, { recursive: true, force: true });

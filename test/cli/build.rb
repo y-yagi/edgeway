@@ -73,6 +73,68 @@ puts "--"
 end
 
 puts "--"
+def config_js_for(root, env, database_yml)
+  write(root, "config/database.yml", database_yml)
+  config = Edgeway::CLI::Build::AppConfig.load(root, env)
+  Edgeway::CLI::Build.new(root, env).send(:config_js, config).lines.last
+end
+
+yml = <<~YML
+  development:
+    adapter: d1
+    binding: DB
+    sessions: true
+    databases:
+      analytics:
+        binding: ANALYTICS
+        sessions: true
+      audit_log:
+        binding: AUDIT
+        sessions: false
+  production:
+    adapter: d1
+    databases:
+      analytics:
+        binding: ANALYTICS
+        sessions: true
+  test:
+    adapter: memory
+    sessions: true
+YML
+Dir.mktmpdir do |root|
+  write(root, "config/routes.rb")
+  %w[development production test].each { |env| puts config_js_for(root, env, yml) }
+end
+
+puts "--"
+["sessions: yes please", "sessions: 1", "sessions: ~"].each do |line|
+  [
+    "development:\n  adapter: d1\n  #{line}\n",
+    "development:\n  adapter: d1\n  databases:\n    analytics:\n      binding: A\n      #{line}\n"
+  ].each do |text|
+    Dir.mktmpdir do |root|
+      write(root, "config/routes.rb")
+      begin
+        config_js_for(root, "development", text)
+      rescue Edgeway::CLI::Error => e
+        puts e.message
+      end
+    end
+  end
+end
+
+puts "--"
+yml = "development:\n  adapter: d1\n  binding: DB\n  sessions: true\n  databases:\n    reports:\n      binding: DB\n"
+Dir.mktmpdir do |root|
+  write(root, "config/routes.rb")
+  begin
+    config_js_for(root, "development", yml)
+  rescue Edgeway::CLI::Error => e
+    puts e.message
+  end
+end
+
+puts "--"
 # a path that needs quoting stays one string in the generated Ruby
 Dir.mktmpdir do |root|
   write(root, 'app/models/we"ird #{x}.rb')

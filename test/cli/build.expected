@@ -52,6 +52,19 @@ config/database.yml: databases.analytics in development has no binding:
 config/database.yml: databases.analytics in development has no binding:
 config/database.yml: databases.analytics in development has no binding:
 --
+export default {"env":"development","d1Binding":"DB","sessions":["DB","ANALYTICS"]};
+export default {"env":"production","d1Binding":"DB","sessions":["ANALYTICS"]};
+export default {"env":"test","d1Binding":"DB","sessions":[]};
+--
+config/database.yml: sessions in the development section must be true or false
+config/database.yml: sessions in databases.analytics in development must be true or false
+config/database.yml: sessions in the development section must be true or false
+config/database.yml: sessions in databases.analytics in development must be true or false
+config/database.yml: sessions in the development section must be true or false
+config/database.yml: sessions in databases.analytics in development must be true or false
+--
+config/database.yml: the development section and databases.reports share binding DB but differ in sessions
+--
 require_relative "../app/models/we\"ird \#{x}"
 ../app/models/we"ird #{x}
 --
