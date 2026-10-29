@@ -64,6 +64,7 @@ module Edgeway
         lines << 'require "edgeway/service/cloudflare/jwt"'
         lines << ""
         lines << connection_line(config)
+        config.databases.each { |name, binding_name| lines << connect_line(config, name, binding_name) }
         lines << "Edgeway::Auth.verifier = Edgeway::Cloudflare::JWTVerifier.new"
         lines << ""
         views = ViewCompiler.new(@root).compile
@@ -75,9 +76,17 @@ module Edgeway
       end
 
       def connection_line(config)
+        "Edgeway::Model.connection = #{adapter_expression(config, config.binding_name)}"
+      end
+
+      def connect_line(config, name, binding_name)
+        "Edgeway::Model.connect(#{name.inspect}, #{adapter_expression(config, binding_name)})"
+      end
+
+      def adapter_expression(config, binding_name)
         case config.adapter
-        when "d1" then %(Edgeway::Model.connection = Edgeway::Cloudflare::D1Adapter.new(binding: #{config.binding_name.inspect}))
-        else "Edgeway::Model.connection = Edgeway::DB::MemoryAdapter.new"
+        when "d1" then "Edgeway::Cloudflare::D1Adapter.new(binding: #{binding_name.inspect})"
+        else "Edgeway::DB::MemoryAdapter.new"
         end
       end
 

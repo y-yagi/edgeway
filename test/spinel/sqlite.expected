@@ -123,4 +123,8 @@ false
 a Hash bind must be {"$blob" => base64}: {"other" => 1}
 a Hash bind must be {"$blob" => base64}: {"$blob" => "!!"}
 3
+1
+1
+[{"n" => 0}]
+no such table: visits
 [{"n" => 0}]

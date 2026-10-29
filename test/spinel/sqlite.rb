@@ -316,6 +316,27 @@ rescue ArgumentError => e
 end
 p Document.count
 
+class Visit < ApplicationModel
+  self.database = :stats
+  attribute :path, :string
+end
+
+stats_db = Edgeway::DB::SQLiteAdapter.new(":memory:")
+stats_db.load_schema("CREATE TABLE visits (id INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT)")
+Edgeway::Model.connect(:stats, stats_db)
+p Visit.create!(path: "/a").id
+p Visit.where(path: "/a").count
+Edgeway::Model.batch do
+  Visit.where(path: "/a").delete_all
+end
+p Edgeway::Model.select_all("SELECT COUNT(*) AS n FROM visits", [], database: :stats)
+begin
+  db.select_all("SELECT * FROM visits", [])
+rescue Edgeway::DatabaseError => e
+  puts e.message
+end
+stats_db.close
+
 # a second database is separate
 db2 = Edgeway::DB::SQLiteAdapter.new(":memory:")
 db2.load_schema("CREATE TABLE t (id INTEGER PRIMARY KEY)")

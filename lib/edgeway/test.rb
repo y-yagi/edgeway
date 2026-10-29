@@ -28,19 +28,40 @@ module Edgeway
   # What a model test needs: a fresh in-memory SQLite database per test
   # (SQLiteAdapter), with the app's db/migrations applied in file name order,
   # so a test can check what was stored (Todo.find, db.select_all) and read
-  # db.log for the SQL. Edgeway's own tests use MemoryAdapter instead, which
-  # stores nothing.
+  # db.log for the SQL. A database under databases: in config/database.yml
+  # gets its own, with db/NAME/migrations, read with db(:name). Edgeway's own
+  # tests use MemoryAdapter instead, which stores nothing.
   class UnitTest < SpinelTest::Unit::TestCase
-    attr_reader :db
-
     def setup
-      @db = Edgeway::DB::SQLiteAdapter.new(":memory:")
-      @db.apply_migrations(File.join(Edgeway::TEST_APP_ROOT, "db/migrations"))
-      Edgeway::Model.connection = @db
+      @databases = {}
+      open_database(Edgeway::Model::PRIMARY, "db/migrations")
+      Edgeway::TEST_DATABASES.each { |name| open_extra_database(name) }
     end
 
     def teardown
-      @db.close
+      @databases.each do |name, database|
+        database.close
+        Edgeway::Model.disconnect(name)
+      end
+    end
+
+    def db(name = Edgeway::Model::PRIMARY) = @databases.fetch(name.to_s)
+
+    private
+
+    def open_extra_database(name)
+      migrations = "db/#{name}/migrations"
+      unless File.directory?(File.join(Edgeway::TEST_APP_ROOT, migrations))
+        raise Edgeway::ConfigurationError, "database #{name} (config/database.yml) has no #{migrations} directory"
+      end
+      open_database(name, migrations)
+    end
+
+    def open_database(name, migrations)
+      database = Edgeway::DB::SQLiteAdapter.new(":memory:")
+      database.apply_migrations(File.join(Edgeway::TEST_APP_ROOT, migrations))
+      Edgeway::Model.connect(name, database)
+      @databases[name] = database
     end
   end
 

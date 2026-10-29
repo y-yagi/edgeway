@@ -76,3 +76,8 @@ Edgeway::Model.connection = stats_db
 run("/health")
 stats_db.record_meta(JSON.parse('{"rows_read":3,"rows_written":1,"duration":2,"served_by_region":"WEUR","served_by_primary":true}'))
 run("/health")
+analytics_stats_db = Edgeway::DB::MemoryAdapter.new
+Edgeway::Model.connect(:analytics, analytics_stats_db)
+run("/health")
+analytics_stats_db.record_meta(JSON.parse('{"rows_read":5,"rows_written":0,"duration":1.5,"served_by_region":"WEUR","served_by_primary":true}'))
+run("/health")

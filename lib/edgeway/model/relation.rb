@@ -86,12 +86,12 @@ module Edgeway
         return @records unless @records.nil?
         return eager_records unless @eager.empty?
         sql, binds = select(@model.columns.join(", "), true)
-        Model.connection.select_all(sql, binds).map { |row| @model.instantiate(row) }
+        @model.connection.select_all(sql, binds).map { |row| @model.instantiate(row) }
       end
 
       def count
         sql, binds = select("1", false)
-        Model.connection.select_all("SELECT COUNT(*) AS n FROM (#{sql})", binds)[0]["n"].to_i
+        @model.connection.select_all("SELECT COUNT(*) AS n FROM (#{sql})", binds)[0]["n"].to_i
       end
 
       def exists? = limit(1).count > 0
@@ -100,14 +100,14 @@ module Edgeway
         name = @model.column(col)
         type = @model.type_of(name)
         sql, binds = select(name, true)
-        Model.connection.select_all(sql, binds).map { |row| Model.cast(type, row[name]) }
+        @model.connection.select_all(sql, binds).map { |row| Model.cast(type, row[name]) }
       end
 
       def first = (@order.empty? ? order(:id) : self).limit(1).to_a.first
 
       def delete_all
         raise ArgumentError, "delete_all doesn't support limit/offset" if @limit || @offset
-        Model.write("DELETE FROM #{@model.table_name}#{where_clause}", @binds)["changes"]
+        Model.write("DELETE FROM #{@model.table_name}#{where_clause}", @binds, database: @model.database)["changes"]
       end
 
       def destroy_all
@@ -165,6 +165,7 @@ module Edgeway
         @eager.each_with_index do |name, i|
           many_flags << eager_many?(name)
           other = Edgeway::Model::Base.model_named(name, @model.name)
+          check_same_database(name, other)
           theirs = "eager_#{name}"
           joins << " LEFT JOIN #{other.table_name} AS #{theirs} ON #{eager_on(name, other, theirs)}"
           cols = cols + other.columns.map { |c| "#{theirs}.#{c} AS c#{i}_#{c}" }
@@ -179,7 +180,7 @@ module Edgeway
         children = []
         position = {}
         seen = {}
-        Model.connection.select_all(sql, binds).each do |row|
+        @model.connection.select_all(sql, binds).each do |row|
           id = row["p_id"]
           i = position[id]
           if i.nil?
@@ -214,6 +215,11 @@ module Edgeway
           end
         end
         records
+      end
+
+      def check_same_database(name, other)
+        return if other.database == @model.database
+        raise ArgumentError, "eager_load :#{name} joins #{other.name} (database #{other.database}) to #{@model.name} (database #{@model.database}); a JOIN can't cross databases"
       end
 
       def eager_many?(name)

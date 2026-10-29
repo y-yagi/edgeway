@@ -31,6 +31,48 @@ Dir.mktmpdir do |root|
 end
 
 puts "--"
+yml = <<~YML
+  development:
+    adapter: d1
+    binding: DB
+    databases:
+      analytics:
+        binding: ANALYTICS
+      audit_log:
+        binding: AUDIT
+  test:
+    adapter: memory
+    databases:
+      analytics:
+        binding: ANALYTICS
+YML
+Dir.mktmpdir do |root|
+  write(root, "config/routes.rb")
+  %w[development test].each do |env|
+    puts main_for(root, env, yml).lines.grep(/Model\.connect|Model\.connection/)
+  end
+end
+
+puts "--"
+[
+  ["Analytics", "{ binding: A }"],
+  ["primary", "{ binding: A }"],
+  ["analytics", "{}"],
+  ["analytics", "{ binding: '' }"],
+  ["analytics", "nope"]
+].each do |name, entry|
+  yml = "development:\n  adapter: d1\n  databases:\n    #{name}: #{entry}\n"
+  Dir.mktmpdir do |root|
+    write(root, "config/routes.rb")
+    begin
+      main_for(root, "development", yml)
+    rescue Edgeway::CLI::Error => e
+      puts e.message
+    end
+  end
+end
+
+puts "--"
 # a path that needs quoting stays one string in the generated Ruby
 Dir.mktmpdir do |root|
   write(root, 'app/models/we"ird #{x}.rb')
