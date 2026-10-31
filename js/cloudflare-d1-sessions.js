@@ -30,6 +30,10 @@ export class D1Sessions {
     this.sessions = new Map();
   }
 
+  uses(name) {
+    return this.names.has(name);
+  }
+
   database(name) {
     const binding = this.env[name];
     if (!binding || !this.names.has(name)) return binding;

@@ -379,16 +379,17 @@ BATCH 2
 UPDATE todos SET done = ? WHERE id = ? | [1,1]
 DELETE FROM comments WHERE todo_id = ? | [1]
 1
-too many bind parameters: 101 (D1 allows 100)
+too many bind parameters: 101 (at most 100)
 , ?, ?, ?, ?) LIMIT 1 OFFSET 2
-too many bind parameters: 101 (D1 allows 100)
-too many bind parameters: 101 (D1 allows 100)
+too many bind parameters: 101 (at most 100)
+too many bind parameters: 101 (at most 100)
 2
 true
 db=0 rows_read=0 rows_written=0 db_ms=0.00
 0
 [2, 7, 1, 2.456, "ENAM", true]
 db=2 rows_read=7 rows_written=1 db_ms=2.46
+[3, "ENAM", true]
 db=1 rows_read=30 rows_written=3 db_ms=1.50
 db=2 rows_read=2147483647+ rows_written=10 db_ms=2.00
 [0, 1, 255, 0, 128]
@@ -449,6 +450,15 @@ DELETE FROM events | []
 DELETE FROM events WHERE id = ? | [1]
 DELETE FROM events | []
 []
+nil
+nil
+[["CREATE TABLE a (id)\nINSERT INTO a VALUES (1) | []"], ["DROP TABLE a | []"]]
+Model.exec can't run inside Model.batch
+[["CREATE TABLE a (id)\nINSERT INTO a VALUES (1) | []"], ["DROP TABLE a | []"]]
+D1_EXEC_ERROR: syntax error
+Model.exec needs SQL text
+Model.exec needs SQL text
+Model.exec needs SQL text
 p
 SELECT id, note, todo_id FROM impressions ORDER BY id ASC LIMIT 1 | []
 SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT 1 | [7]
@@ -456,10 +466,10 @@ BATCH 2
 UPDATE events SET name = ? WHERE id = ? | ["one",1]
 DELETE FROM events | []
 []
-Model.batch spans databases (analytics and primary); D1 batches are per database
+Model.batch spans databases (analytics and primary); a batch runs on one database
 false
 [[], []]
-Model.batch spans databases (primary and analytics); D1 batches are per database
+Model.batch spans databases (primary and analytics); a batch runs on one database
 [[], []]
 eager_load :todo joins Todo (database primary) to Impression (database analytics); a JOIN can't cross databases
 [[], []]

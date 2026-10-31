@@ -21,6 +21,10 @@ module Edgeway
         raise Error, "#{self.class} does not define execute"
       end
 
+      def exec(sql)
+        raise Error, "#{self.class} does not define exec"
+      end
+
       def batch(statements)
         raise Error, "#{self.class} does not define batch"
       end
@@ -41,7 +45,7 @@ module Edgeway
 
       def check_binds(binds)
         return if binds.size <= MAX_BINDS
-        raise ArgumentError, "too many bind parameters: #{binds.size} (D1 allows #{MAX_BINDS})"
+        raise ArgumentError, "too many bind parameters: #{binds.size} (at most #{MAX_BINDS})"
       end
 
       def fail_with(message)

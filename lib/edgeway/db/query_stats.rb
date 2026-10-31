@@ -1,6 +1,6 @@
 module Edgeway
   module DB
-    # What the database reported for one request (D1's result metadata).
+    # What the database reported for one request.
     class QueryStats
       MAX_COUNT = 2147483647
 
@@ -22,8 +22,8 @@ module Edgeway
         @rows_read = rows_read
         @rows_written = rows_written
         @duration_ms = duration_ms
-        @served_by_region = meta["served_by_region"].to_s
-        @served_by_primary = meta["served_by_primary"] != false
+        @served_by_region = meta["served_by_region"].to_s if meta.key?("served_by_region")
+        @served_by_primary = meta["served_by_primary"] != false if meta.key?("served_by_primary")
         @queries = capped_sum(@queries, 1)
       end
 

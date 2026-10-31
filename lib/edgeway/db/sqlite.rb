@@ -117,17 +117,15 @@ module Edgeway
         { "changes" => SQLiteFFI.sqlite3_changes(@db), "last_insert_id" => last_insert_id_of(SQLiteFFI.sqlite3_last_insert_rowid(@db)) }
       end
 
+      def exec(sql)
+        @log << "#{sql} | []"
+        in_transaction { sql.split("\n").each { |line| run_script(line) unless line.strip.empty? } }
+      end
+
       def batch(statements)
         @log << "BATCH #{statements.size}"
-        run_script("BEGIN")
         results = []
-        begin
-          statements.each { |s| results << execute(s[0], s[1]) }
-        rescue => e
-          run_script("ROLLBACK")
-          raise e
-        end
-        run_script("COMMIT")
+        in_transaction { statements.each { |s| results << execute(s[0], s[1]) } }
         results
       end
 
@@ -145,6 +143,17 @@ module Edgeway
       end
 
       private
+
+      def in_transaction
+        run_script("BEGIN")
+        begin
+          yield
+        rescue => e
+          run_script("ROLLBACK")
+          raise e
+        end
+        run_script("COMMIT")
+      end
 
       def run_script(sql_text)
         rc = SQLiteFFI.sqlite3_exec(@db, sql_text, nil, nil, nil)

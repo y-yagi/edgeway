@@ -992,7 +992,6 @@ end
 p results
 show(db)
 
-# D1 allows 100 bound parameters per statement
 db.log.clear
 Todo.where(id: (1..100).to_a).to_a
 p db.log.size
@@ -1032,6 +1031,8 @@ stats_db.record_meta(JSON.parse('{"rows_read":4,"rows_written":0,"duration":0.45
 stats = stats_db.query_stats
 puts [stats.queries, stats.rows_read, stats.rows_written, stats.duration_ms, stats.served_by_region, stats.served_by_primary].inspect
 puts stats.log_text
+stats_db.record_meta(JSON.parse('{"rows_read":0,"rows_written":0,"duration":0.5}'))
+puts [stats_db.query_stats.queries, stats_db.query_stats.served_by_region, stats_db.query_stats.served_by_primary].inspect
 batch_db = Edgeway::DB::MemoryAdapter.new
 batch_db.record_meta(JSON.parse('{"rows_read":30,"rows_written":3,"duration":1.5,"served_by_region":"","served_by_primary":true}'))
 puts batch_db.query_stats.log_text
@@ -1165,6 +1166,33 @@ event.destroy
 Event.delete_all
 show(analytics_db)
 p db.log
+
+db.log.clear
+analytics_db.log.clear
+p Edgeway::Model.exec("CREATE TABLE a (id)\nINSERT INTO a VALUES (1)")
+p Edgeway::Model.exec("DROP TABLE a", database: :analytics)
+p [db.log, analytics_db.log]
+begin
+  Edgeway::Model.batch { Edgeway::Model.exec("DROP TABLE a") }
+rescue ArgumentError => e
+  puts e.message
+end
+p [db.log, analytics_db.log]
+db.fail_next("D1_EXEC_ERROR: syntax error")
+begin
+  Edgeway::Model.exec("NOPE")
+rescue Edgeway::DatabaseError => e
+  puts e.message
+end
+["", "  \n", nil].each do |sql|
+  begin
+    Edgeway::Model.exec(sql)
+  rescue ArgumentError => e
+    puts e.message
+  end
+end
+db.log.clear
+analytics_db.log.clear
 
 analytics_db.queue([{ "id" => 1, "note" => "n", "todo_id" => 7 }])
 impression = Impression.first
