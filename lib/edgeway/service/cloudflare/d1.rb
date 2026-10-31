@@ -20,7 +20,7 @@ module Edgeway
     #                "served_by_region": "...", "served_by_primary": bool}
     #               (a batch's is the sum over its statements)
     #   BLOB        a bind or a column value that is a BLOB is {"$blob": "<base64>"}
-    #               (raw bytes can't cross: JSON.generate cuts a String at a NUL)
+    #               (raw bytes can't cross: JSON text holds no arbitrary bytes)
     #   last_insert_id  is a number; a rowid beyond 32 bits is a Bignum here,
     #               which last_insert_id_of turns into its decimal String
     #   any         {"error": "message"} when D1 failed

@@ -45,6 +45,7 @@ end
   - [Database errors](#database-errors)
   - [Ordering and deleting](#ordering-and-deleting)
   - [Queries](#queries)
+  - [Query stats](#query-stats)
   - [Batch](#batch)
   - [Associations](#associations)
   - [Eager loading](#eager-loading)
@@ -100,7 +101,7 @@ end
   In a request body the value is that base64 String, so a GET then PATCH round trip is stable: params assigned through `permit` are decoded,
   and invalid base64 fails validation ("is invalid"). `{"$blob": ...}` objects are not supported in a request body (nested objects are dropped).
   `presence` counts a binary String blank only when empty, and `length` counts bytes.
-  A BLOB crosses between wasm and JS as `{"$blob": "<base64>"}`, as raw bytes would be cut at a NUL.
+  A BLOB crosses between wasm and JS as `{"$blob": "<base64>"}`: binds and rows cross as JSON text, which can't hold arbitrary bytes.
   In raw SQL (`Model.select_all`, `Model.execute`, `where("...", value)`) bind a BLOB with `Edgeway::Model.blob(bytes)`,
   and a BLOB column comes back as `{"$blob" => base64}`.
 - `Model.execute` answers `"last_insert_id"` as an Integer, or as a decimal String when the rowid is beyond 32 bits.
@@ -501,8 +502,14 @@ Edgeway needs a Spinel newer than the 2026.09.12 release
   and only `Authorization: Bearer` is read (see [Authentication](#authentication)).
 - Tests run natively, not in wasm: D1 and JSPI (`Edgeway::Cloudflare::JWTVerifier`) are not covered by them,
   and the production wasm never loads the SQLite adapter (see [Testing an app](#testing-an-app)).
-- Not verified on a production Cloudflare deploy yet: CPU and wall time on a cold start and on a JWKS cache miss.
-  Everything was checked under `wrangler dev`.
+- Not verified on a production Cloudflare deploy yet: CPU and wall time on a cold start and on a JWKS cache miss,
+  and read replication with real replicas (local D1 has none, and D1 itself accepts any bookmark there). Everything was checked under `wrangler dev`.
+- Integers are 32 bits in a wasm build: use `:bigint` for larger ones and pass them as Strings,
+  and keep them below 2^53, as D1 hands rows over as JavaScript numbers (see [Attribute types](#attribute-types)).
+- A `Model.batch` runs on one database: there is no transaction across databases ([Multiple databases](#multiple-databases)).
+- `Model.exec` does not work on a database with `sessions: true`: a D1 session has no `exec()` ([Queries](#queries)).
+- Spinel can't build a Range of Times: use ISO 8601 Strings or a SQL fragment in `where` ([Queries](#queries)).
+- `first()` and `raw()` are not used and `dump()` is not supported; Time Travel and export/import are `wrangler d1` commands ([D1 API coverage](#d1-api-coverage)).
 
 ## Configuration
 
