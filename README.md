@@ -340,10 +340,10 @@ production:
 `sessions:` must be `true` or `false` (anything else fails the build), and does nothing with the `memory` adapter.
 Every query and `Model.batch` of such a database then goes through `env.DB.withSession(...)`, created on first use and kept for the request.
 
-- A `GET` or `HEAD` starts `first-unconstrained`, so it may read a replica. Other methods start `first-primary`.
+- A `GET` or `HEAD` starts from the bookmark the client sent, else `first-unconstrained`, so it may read a replica. Other methods always start `first-primary` and ignore the sent bookmark.
 - The response has `X-D1-Bookmark: DB=<bookmark>, ANALYTICS=<bookmark>`: a `BINDING=bookmark` pair for each session the request used (also with one database).
-- A client that sends that header back as it is on its next request starts that session from the bookmark and so reads its own writes. A binding that is not in the header starts from the constraint above. A bookmark is D1's and opaque; one that does not look like it (not lowercase hex and `-`, or over 128 characters) is ignored, and not echoed.
-- A database the request did not use keeps the bookmark the client sent for it in the response, so the client just stores the latest header value whole and sends it back.
+- A client that sends that header back as it is on its next request starts that session from the bookmark and so reads its own writes (`GET` and `HEAD` only). On a `GET` or `HEAD`, a binding that is not in the header starts `first-unconstrained`. A bookmark is D1's and opaque; one that does not look like it (not lowercase hex and `-`, or over 128 characters) is ignored, and not echoed.
+- A database the request did not use keeps the bookmark the client sent for it in the response (on any method), so the client just stores the latest header value whole and sends it back.
 - Responses of an app with sessions get `Vary: X-D1-Bookmark`.
 - With CORS on, `X-D1-Bookmark` is exposed to the page and allowed in preflights (no need to add it to `CORS_HEADERS` or `CORS_EXPOSE_HEADERS`).
 - `Edgeway::Model.query_stats(:analytics)` has `served_by_primary` and `served_by_region` of the last query, to see which one answered (`true` and `""` in `wrangler dev`, which has no replicas).

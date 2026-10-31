@@ -241,6 +241,29 @@ await test("the bookmark the request sent starts the session", async () => {
   assert.deepEqual(log, [["DB", "0def"], ["ANALYTICS", "abc"]]);
 });
 
+await test("a write ignores the bookmark the request sent and starts first-primary", async () => {
+  for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+    const log = [];
+    const env = { DB: sessionDb("DB", log) };
+    await callWith(sessionsFor(env, requestWith(method, "DB=0def")), env, "query", "DB", "SELECT 1", "[]");
+    assert.deepEqual(log, [["DB", "first-primary"]]);
+  }
+});
+
+await test("a write still echoes the sent bookmark of a session binding it did not use", async () => {
+  const env = { DB: sessionDb("DB", []), ANALYTICS: sessionDb("ANALYTICS", []) };
+  const sessions = sessionsFor(env, requestWith("POST", "ANALYTICS=b, DB=a"));
+  await callWith(sessions, env, "batch", "DB", "[]");
+  assert.equal(sessions.header(), "DB=bm-DB, ANALYTICS=b");
+});
+
+await test("a HEAD starts from the bookmark the request sent", async () => {
+  const log = [];
+  const env = { DB: sessionDb("DB", log) };
+  await callWith(sessionsFor(env, requestWith("HEAD", "DB=0def")), env, "query", "DB", "SELECT 1", "[]");
+  assert.deepEqual(log, [["DB", "0def"]]);
+});
+
 await test("the session is created once per request and used by query, execute and batch", async () => {
   const log = [];
   const env = { DB: sessionDb("DB", log) };
