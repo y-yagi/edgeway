@@ -33,7 +33,7 @@ module Edgeway
     end
 
     # Runs the block with writes queued instead of executed, then sends them
-    # all as one atomic batch (D1 batch(): one SQL transaction, all or none).
+    # all as one atomic batch (one SQL transaction, all or none).
     # A batch belongs to the database of its first write.
     def self.batch
       if @batch_queue
@@ -76,7 +76,7 @@ module Edgeway
       if current.nil?
         @batch_database = name
       elsif current != name
-        raise ArgumentError, "Model.batch spans databases (#{current} and #{name}); D1 batches are per database"
+        raise ArgumentError, "Model.batch spans databases (#{current} and #{name}); a batch runs on one database"
       end
     end
 
@@ -86,6 +86,13 @@ module Edgeway
 
     def self.execute(sql, binds = [], database: PRIMARY)
       write(sql, binds.map { |b| database_value(b) }, database: database)
+    end
+
+    def self.exec(sql, database: PRIMARY)
+      raise ArgumentError, "Model.exec can't run inside Model.batch" if batching?
+      raise ArgumentError, "Model.exec needs SQL text" unless sql.is_a?(String) && !sql.strip.empty?
+      connection_for(database).exec(sql)
+      nil
     end
 
     def self.to_int(v)

@@ -50,6 +50,7 @@ end
   - [Eager loading](#eager-loading)
   - [Multiple databases](#multiple-databases)
   - [Read replication (Sessions)](#read-replication-sessions)
+  - [D1 API coverage](#d1-api-coverage)
 - [Views](#views)
 - [Usage](#usage)
   - [Generators](#generators)
@@ -188,6 +189,7 @@ Todo.where("done = 1")
 Todo.find_by_sql("SELECT * FROM todos WHERE done = ?", [true])   # records
 Edgeway::Model.select_all("SELECT COUNT(*) AS n FROM todos", [])  # row Hashes
 Edgeway::Model.execute("DELETE FROM todos WHERE done = ?", [true]) # {"changes" => n, "last_insert_id" => id}
+Edgeway::Model.exec("DELETE FROM tags\nDELETE FROM todos")        # nil
 ```
 
 - `where(column: value)` is `=`, `IS NULL` for `nil`. Every form chains, and works with `order`, `limit`, `count`, `delete_all`, `eager_load` and `todo.comments.where(...)`.
@@ -203,6 +205,11 @@ Edgeway::Model.execute("DELETE FROM todos WHERE done = ?", [true]) # {"changes" 
 - `find_by_sql` makes records of the rows, so select the model's columns (`SELECT *` or each of them): a missing one is `nil`.
 - `Model.select_all` and `Model.execute` take `?` placeholders. Booleans are bound as 1/0, and a Time as ISO 8601 UTC (`2026-10-28T05:00:00.000Z`, as timestamps are stored), also in `where` values.
   `execute` is a write, so inside `Model.batch` it is queued (and answers 0 counts).
+- `Model.exec` is D1's `exec()`: one or more statements with no binds, and it answers `nil`. Meant for one-off maintenance, as D1 says.
+  A statement must fit on one line (D1 splits the text at newlines); `a; b` on one line also works. Empty SQL raises `ArgumentError`.
+  When a statement fails, none of them stay applied (seen on local D1; the SQLite adapter in tests does the same).
+  D1's error message names the first line, not the one that failed.
+  It can't run inside `Model.batch` (`ArgumentError`), and fails on a database with `sessions: true` (`DatabaseError`): a D1 session has no `exec()`.
 - D1 allows 100 bound parameters per statement: more raises `ArgumentError`, in every adapter (`limit` and `offset` are literals, not binds).
   `where(id: ids)` with over 100 ids needs chunking.
 
@@ -339,6 +346,21 @@ Every query and `Model.batch` of such a database then goes through `env.DB.withS
 - Responses of an app with sessions get `Vary: X-D1-Bookmark`.
 - With CORS on, `X-D1-Bookmark` is exposed to the page and allowed in preflights (no need to add it to `CORS_HEADERS` or `CORS_EXPOSE_HEADERS`).
 - `Edgeway::Model.query_stats(:analytics)` has `served_by_primary` and `served_by_region` of the last query, to see which one answered (`true` and `""` in `wrangler dev`, which has no replicas).
+
+### D1 API coverage
+
+| D1 Worker API | In Edgeway |
+| --- | --- |
+| `prepare().bind().all()` | every query, `find_by_sql`, `Model.select_all`, and inserts (`INSERT ... RETURNING id`) |
+| `prepare().bind().run()` | updates and deletes, `Model.execute` |
+| `batch()` | `Model.batch` (and `destroy` with dependents) |
+| `exec()` | `Model.exec` |
+| `withSession()`, `getBookmark()` | `sessions: true` ([Read replication](#read-replication-sessions)) |
+| `result.meta` | `Model.query_stats` and the `db=…` log line |
+| `first()`, `raw()` | not used: `find_by`/`first` send `LIMIT 1` through `all()`, which also keeps `meta`; `raw()` made the JSON smaller but rebuilding the rows in Ruby cost as much as it saved |
+| `dump()` | not supported (alpha databases only) |
+
+Time Travel, export/import and migrations are `wrangler d1` commands, outside the Worker API.
 
 ## Views
 

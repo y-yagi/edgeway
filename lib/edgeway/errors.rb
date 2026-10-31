@@ -65,7 +65,7 @@ module Edgeway
   # in the app. The message goes to the log only.
   class CheckViolation < DatabaseError; end
 
-  # A transient D1 failure or overload (a lost connection, a reset object...):
+  # A transient database failure or overload (a lost connection, a reset object...):
   # 503 with "Retry-After: 1" and a fixed body. The message goes to the log
   # only. Edgeway never retries it. A write that fails this way may still have
   # been applied, so only an idempotent request is safe to retry.

@@ -89,11 +89,16 @@ export function rowOf(row) {
 // answers the byte length of its JSON result; take() copies it out.
 //   query(binding, sql, binds)   -> {"rows": [...], "meta": META}
 //   execute(binding, sql, binds) -> {"changes": n, "last_insert_id": id, "meta": META}
+//   exec(binding, sql)           -> {"count": n, "meta": META}
+//                                   (sql: statements separated by newlines, no binds; an error on a database with sessions)
 //   batch(binding, statements)   -> {"results": [{"changes": n, "last_insert_id": id}, ...], "meta": META}
 //                                   (statements: [[sql, binds], ...], one atomic D1 batch)
 // META is {"rows_read": n, "rows_written": n, "duration": ms, "served_by_region": "...",
-// "served_by_primary": bool}; a batch's sums the statements'.
+// "served_by_primary": bool}; a batch's sums the statements'. exec's has only
+// rows_read, rows_written and duration.
 // An error is {"error": "message"} (no meta), with "unavailable": true when it is transient.
+const SESSION_EXEC_ERROR = "exec() is not available on a database with sessions: true (a D1 session has no exec)";
+
 export function d1Imports(env, getInstance, sessions = new D1Sessions(env)) {
   const mem = () => new Uint8Array(getInstance().exports.memory.buffer);
   const cstr = (p) => {
@@ -105,10 +110,11 @@ export function d1Imports(env, getInstance, sessions = new D1Sessions(env)) {
   let pending = new Uint8Array(0);
 
   // fn(db, ...pointers) answers the result object; a failure is {error}.
-  const suspending = (fn) => new WebAssembly.Suspending(async (bindingPtr, ...ptrs) => {
+  const suspending = (fn, { withoutSessions = false } = {}) => new WebAssembly.Suspending(async (bindingPtr, ...ptrs) => {
     let res;
     try {
       const name = cstr(bindingPtr) || config.d1Binding;
+      if (withoutSessions && sessions.uses(name)) throw new Error(SESSION_EXEC_ERROR);
       const db = sessions.database(name);
       if (!db) throw new Error(`no D1 binding ${name}`);
       res = await fn(db, ...ptrs);
@@ -133,6 +139,10 @@ export function d1Imports(env, getInstance, sessions = new D1Sessions(env)) {
         const meta = (await statement.run()).meta;
         return { changes: meta.changes ?? 0, last_insert_id: meta.last_row_id ?? 0, meta: metaOf(meta) };
       }),
+      exec: suspending(async (db, sqlPtr) => {
+        const result = await db.exec(cstr(sqlPtr));
+        return { count: result.count ?? 0, meta: { rows_read: 0, rows_written: 0, duration: result.duration ?? 0 } };
+      }, { withoutSessions: true }),
       // db.batch() is one transaction: a failing statement rejects it and
       // none of the statements stay applied.
       batch: suspending(async (db, statementsPtr) => {

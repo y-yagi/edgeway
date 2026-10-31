@@ -146,6 +146,25 @@ await test("meta fields that D1 leaves out get defaults", async () => {
   assert.deepEqual(res.meta, { rows_read: 3, rows_written: 0, duration: 0, served_by_region: "", served_by_primary: true });
 });
 
+await test("exec runs the SQL text and answers D1's count and duration", async () => {
+  const sqls = [];
+  const db = { async exec(sql) { sqls.push(sql); return { count: 2, duration: 0.75 }; } };
+  const res = await call({ DB: db }, "exec", "DB", "CREATE TABLE t (a)\nINSERT INTO t VALUES (1)");
+  assert.deepEqual(sqls, ["CREATE TABLE t (a)\nINSERT INTO t VALUES (1)"]);
+  assert.deepEqual(res, { count: 2, meta: { rows_read: 0, rows_written: 0, duration: 0.75 } });
+});
+
+await test("exec answers an error when D1 rejects it", async () => {
+  const db = { async exec() { throw new Error("D1_EXEC_ERROR: syntax error"); } };
+  assert.deepEqual(await call({ DB: db }, "exec", "DB", "NOPE"), { error: "D1_EXEC_ERROR: syntax error" });
+});
+
+await test("exec answers a transient D1 error as unavailable", async () => {
+  const error = TRANSIENT_D1_ERRORS[0];
+  const db = { async exec() { throw new Error(error); } };
+  assert.deepEqual(await call({ DB: db }, "exec", "DB", "NOPE"), { error, unavailable: true });
+});
+
 await test("batch answers an error when D1 rejects it", async () => {
   const db = fakeD1();
   db.fail = "D1_ERROR: UNIQUE constraint failed: tags.name: SQLITE_CONSTRAINT";
@@ -310,6 +329,19 @@ await test("a session without a bookmark adds no header, and an unused one neith
   await callWith(sessions, env, "batch", "DB", "[]");
   sessions.sessions.get("DB").getBookmark = () => null;
   assert.equal(sessions.annotate(new Response("ok")).headers.get("x-d1-bookmark"), null);
+});
+
+await test("exec on a database with sessions answers an error", async () => {
+  const log = [];
+  const execs = [];
+  const env = { DB: sessionDb("DB", log) };
+  env.DB.exec = async (sql) => { execs.push(sql); return { count: 1, duration: 0 }; };
+  const sessions = sessionsFor(env, requestWith("POST"));
+  const res = await callWith(sessions, env, "exec", "DB", "DROP TABLE t");
+  assert.match(res.error, /exec\(\) is not available on a database with sessions: true/);
+  assert.deepEqual(execs, []);
+  assert.deepEqual(log, []);
+  assert.equal(sessions.header(), "");
 });
 
 rmSync(dir, { recursive: true, force: true });

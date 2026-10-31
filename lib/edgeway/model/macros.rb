@@ -12,7 +12,7 @@ module Edgeway
         define_method("#{name}=") { |v| write_attribute(name.to_s, v) }
       end
 
-      # created_at / updated_at, as ISO 8601 text: SQLite (so D1) has no datetime
+      # created_at / updated_at, as ISO 8601 text: SQLite has no datetime
       # column type, the migrations declare them TEXT.
       def timestamps
         attribute :created_at, :datetime

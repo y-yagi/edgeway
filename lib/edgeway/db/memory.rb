@@ -32,8 +32,8 @@ module Edgeway
       end
 
       # Makes the next query or execute whose SQL contains `containing` (any,
-      # by default) fail with this database message, after logging it, as D1
-      # would: "UNIQUE constraint failed: t.c" is a RecordNotUnique.
+      # by default) fail with this database message, after logging it, as the
+      # database would: "UNIQUE constraint failed: t.c" is a RecordNotUnique.
       def fail_next(message, containing = "")
         @failure = message
         @failure_on = containing
@@ -53,6 +53,10 @@ module Edgeway
         id = @next_id
         @next_id += 1
         { "changes" => @changes, "last_insert_id" => id }
+      end
+
+      def exec(sql)
+        record(sql, [])
       end
 
       def batch(statements)

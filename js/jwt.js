@@ -245,7 +245,7 @@ export function jwtVerifier(env, { fetch = globalThis.fetch, now = Date.now, cac
 //   verify(token) -> {"header": {...}, "payload": {...}}
 //                  | {"error": "message"}                      the token is bad
 //                  | {"error": "message", "unavailable": true}  it can't be checked
-// Like D1, a call answers the byte length of the result and take() copies it
+// Like the other imports, a call answers the byte length of the result and take() copies it
 // out; verify is wrapped in WebAssembly.Suspending (the WebCrypto and fetch
 // Promises are awaited with the wasm stack suspended).
 export function jwtImports(env, getInstance, options = {}) {

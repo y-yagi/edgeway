@@ -7,12 +7,14 @@ require_relative "../../db/adapter"
 module Edgeway
   module Cloudflare
     # The imports as Ruby methods: d1_query and d1_execute take the binding
-    # name, the SQL and the binds (JSON text); d1_batch takes the binding name
+    # name, the SQL and the binds (JSON text); d1_exec takes the binding name
+    # and SQL text of one or more statements; d1_batch takes the binding name
     # and the statements ([[sql, binds], ...], JSON text), and answer the result as JSON
     # text:
     #
     #   d1_query    {"rows": [...], "meta": META}
     #   d1_execute  {"changes": n, "last_insert_id": id, "meta": META}
+    #   d1_exec     {"count": n, "meta": META}
     #   d1_batch    {"results": [{"changes": n, "last_insert_id": id}, ...], "meta": META}
     #   META        {"rows_read": n, "rows_written": n, "duration": ms,
     #                "served_by_region": "...", "served_by_primary": bool}
@@ -25,9 +27,9 @@ module Edgeway
     #   any         {"error": "message", "unavailable": true} when it failed
     #               in a transient way (DatabaseUnavailable)
     #
-    # An import can't hand a string to wasm, so a call is two: query/execute
-    # runs the statement and answers the byte length of its result, and
-    # take(buf) copies the result into buf. JS wraps query and execute in
+    # An import can't hand a string to wasm, so a call is two: each import
+    # runs the statement(s) and answers the byte length of its result, and
+    # take(buf) copies the result into buf. JS wraps each import in
     # WebAssembly.Suspending: the D1 Promise is awaited with the wasm stack
     # suspended (JSPI), so they read like blocking calls here.
     module D1Imports
@@ -38,6 +40,7 @@ module Edgeway
 
         D1_IMPORT("query")   int  js_d1_query(const char *binding, const char *sql, const char *binds);
         D1_IMPORT("execute") int  js_d1_execute(const char *binding, const char *sql, const char *binds);
+        D1_IMPORT("exec")    int  js_d1_exec(const char *binding, const char *sql);
         D1_IMPORT("batch")   int  js_d1_batch(const char *binding, const char *statements);
         D1_IMPORT("take")    void js_d1_take(char *buf);
 
@@ -67,12 +70,17 @@ module Edgeway
           return take_result(js_d1_execute(binding, sql, binds));
         }
 
+        const char *d1_exec(const char *binding, const char *sql) {
+          return take_result(js_d1_exec(binding, sql));
+        }
+
         const char *d1_batch(const char *binding, const char *statements) {
           return take_result(js_d1_batch(binding, statements));
         }
       C
       ffi_func :d1_query, [:str, :str, :str], :str
       ffi_func :d1_execute, [:str, :str, :str], :str
+      ffi_func :d1_exec, [:str, :str], :str
       ffi_func :d1_batch, [:str, :str], :str
     end
 
@@ -91,6 +99,10 @@ module Edgeway
         check_binds(binds)
         res = result(D1Imports.d1_execute(@binding_name, sql, JSON.generate(binds)))
         write_result(res)
+      end
+
+      def exec(sql)
+        result(D1Imports.d1_exec(@binding_name, sql))
       end
 
       # One D1 batch(): the statements run as a single transaction, so any

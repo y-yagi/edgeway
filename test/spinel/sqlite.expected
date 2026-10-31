@@ -23,6 +23,10 @@ db error: no such table: nowhere false
 not null: NOT NULL constraint failed: labels.name
 check: CHECK constraint failed: stars BETWEEN 1 AND 5
 1
+[{"name" => "a"}]
+exec unique: UNIQUE constraint failed: tags.name
+[{"name" => "a"}]
+[{"name" => "a"}, {"name" => "c"}, {"name" => "d"}]
 2
 ["x", "b1", "b2"]
 rolled back: UNIQUE constraint failed: labels.name
@@ -76,8 +80,8 @@ nil
 11
 0
 3
-too many bind parameters: 101 (D1 allows 100)
-too many bind parameters: 101 (D1 allows 100)
+too many bind parameters: 101 (at most 100)
+too many bind parameters: 101 (at most 100)
 11
 ["e0", "e1", "e2"]
 ["e0", "e3"]

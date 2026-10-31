@@ -111,6 +111,17 @@ rescue Edgeway::CheckViolation => e
 end
 p Label.count
 
+Edgeway::Model.exec("CREATE TABLE tags (name TEXT UNIQUE)\nINSERT INTO tags VALUES ('a')")
+p Edgeway::Model.select_all("SELECT name FROM tags", [])
+begin
+  Edgeway::Model.exec("INSERT INTO tags VALUES ('b')\nINSERT INTO tags VALUES ('a')")
+rescue Edgeway::RecordNotUnique => e
+  puts "exec unique: #{e.message}"
+end
+p Edgeway::Model.select_all("SELECT name FROM tags", [])
+Edgeway::Model.exec("INSERT INTO tags VALUES ('c')\r\nINSERT INTO tags VALUES ('d')\r\n")
+p Edgeway::Model.select_all("SELECT name FROM tags", [])
+
 # batch
 res = db.batch([["INSERT INTO labels (name) VALUES (?)", ["b1"]], ["INSERT INTO labels (name) VALUES (?)", ["b2"]]])
 p res.size
