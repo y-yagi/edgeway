@@ -160,7 +160,7 @@ end
 # Raw params (or params.require without permit) given to a model: a 500 with
 # the fixed body; .permit works.
 class MassController < ApplicationController
-  def raw = render(json: Todo.create!(params), status: :created)
+  def unpermitted = render(json: Todo.create!(params), status: :created)
 
   def required = render(json: Todo.create!(params.require(:todo)), status: :created)
 
@@ -213,7 +213,7 @@ class Draw
       r.post "/taken", to: "taken#create"
       r.get "/down", to: "down#show"
       r.get "/busy", to: "busy#show"
-      r.post "/mass/raw", to: "mass#raw"
+      r.post "/mass/raw", to: "mass#unpermitted"
       r.post "/mass/required", to: "mass#required"
       r.post "/mass/raw_update/:id", to: "mass#raw_update"
       r.post "/mass/permitted", to: "mass#permitted"

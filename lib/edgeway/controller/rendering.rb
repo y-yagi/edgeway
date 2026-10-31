@@ -41,13 +41,17 @@ module Edgeway
         end
       end
 
+      def self.html_content(value)
+        value.is_a?(View::SafeHTML) ? value.to_s : View.escape(value)
+      end
+
       def render(template = nil, json: UNSET, html: UNSET, status: 200, layout: true)
         code = Rendering.status_code(status)
         if !json.equal?(UNSET)
           body = JSON.generate(Rendering.json_value(json)) + "\n"
           @headers["Content-Type"] = "application/json"
         else
-          content = html.equal?(UNSET) ? nil : html.to_s
+          content = html.equal?(UNSET) ? nil : Rendering.html_content(html)
           if content.nil?
             name = template.nil? ? @action_name : template.to_s
             content = _render_view(name)
