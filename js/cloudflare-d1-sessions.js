@@ -25,7 +25,7 @@ export class D1Sessions {
   constructor(env, request, names = []) {
     this.env = env;
     this.names = new Set(names);
-    this.constraint = isRead(request) ? "first-unconstrained" : "first-primary";
+    this.readRequest = isRead(request);
     this.bookmarks = parseBookmarks(request?.headers.get(BOOKMARK_HEADER));
     this.sessions = new Map();
   }
@@ -42,7 +42,12 @@ export class D1Sessions {
   }
 
   start(binding, name) {
-    return binding.withSession(this.bookmarks[name] ?? this.constraint);
+    return binding.withSession(this.startPoint(name));
+  }
+
+  startPoint(name) {
+    if (!this.readRequest) return "first-primary";
+    return this.bookmarks[name] ?? "first-unconstrained";
   }
 
   header() {

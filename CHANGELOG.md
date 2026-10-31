@@ -18,7 +18,7 @@
   - Several databases: `databases:` in `config/database.yml` and `self.database = :name`; `database:` for `select_all`/`execute`,
     `query_stats(:name)`, and `db(:name)` in tests ([#9](https://github.com/y-yagi/edgeway/pull/9)).
   - Read replication through the Sessions API: `sessions: true`, with the bookmark in an `X-D1-Bookmark` header
-    (added to `Vary` and, with CORS, to the allowed and exposed headers) ([#10](https://github.com/y-yagi/edgeway/pull/10)).
+    (added to `Vary` and, with CORS, to the allowed and exposed headers); only `GET`/`HEAD` start from it, other methods always start `first-primary` ([#10](https://github.com/y-yagi/edgeway/pull/10)).
   - `Edgeway::Model.exec` for D1's `exec()` ([#11](https://github.com/y-yagi/edgeway/pull/11)).
 
 ### Changed
