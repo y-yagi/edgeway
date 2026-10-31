@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.2.0
+
 ### Added
 
 - Views: ERB templates in `app/views`. `<%= %>` escapes unless the value is `raw(text)` / `text.html_safe`, and `render html:` escapes anything but a `SafeHTML`. An action that renders nothing renders its template when there is one (else 204 as before), and `render` raises `Edgeway::MissingTemplate` when its template is missing ([#1](https://github.com/y-yagi/edgeway/pull/1)).
