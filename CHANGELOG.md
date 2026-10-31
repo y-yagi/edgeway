@@ -4,7 +4,7 @@
 
 ### Added
 
-- Views: ERB templates in `app/views`. An action that renders nothing renders its template when there is one (else 204 as before), and `render` raises `Edgeway::MissingTemplate` when its template is missing ([#1](https://github.com/y-yagi/edgeway/pull/1)).
+- Views: ERB templates in `app/views`. `<%= %>` escapes unless the value is `raw(text)` / `text.html_safe`, and `render html:` escapes anything but a `SafeHTML`. An action that renders nothing renders its template when there is one (else 204 as before), and `render` raises `Edgeway::MissingTemplate` when its template is missing ([#1](https://github.com/y-yagi/edgeway/pull/1)).
 - `edgeway generate scaffold`: a model, its migration, a JSON API controller and their tests, and `r.resources` added to `config/routes.rb`.
   `generate model` and `scaffold` stop if the table's create migration exists ([#2](https://github.com/y-yagi/edgeway/pull/2)).
 - Apps made by `edgeway new` get `bin/test`, a GitHub Actions workflow and a `.ruby-version`.

@@ -9,7 +9,7 @@ module Edgeway
       NON_ACTIONS = ["render", "head", "headers", "params", "request", "performed?", "to_response",
                      "action?", "run_before_actions", "rescue_with_handler",
                      "authenticate!", "current_claims", "authenticated?",
-                     "action_name", "action_name="]
+                     "action_name", "action_name=", "raw"]
 
       def self.before_action(name, only: [], except: [])
         @own_before_actions ||= []
@@ -69,6 +69,8 @@ module Edgeway
         return false if name.start_with?("_view_") || name.start_with?("_render_")
         respond_to?(name.to_sym) && !NON_ACTIONS.include?(name)
       end
+
+      def raw(text) = View::SafeHTML.new(text)
 
       def _render_view(action) = nil
 

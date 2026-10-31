@@ -41,7 +41,7 @@ module Edgeway
         if content.nil?
           controller.head(:no_content)
         else
-          controller.render(html: content)
+          controller.render(html: View::SafeHTML.new(content))
         end
       end
     end

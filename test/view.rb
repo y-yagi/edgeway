@@ -8,12 +8,28 @@ puts Edgeway::View.escape(nil).inspect
 puts Edgeway::View.escape(42)
 puts Edgeway::View.escape("plain")
 puts Edgeway::View.escape("&&<<>>\"\"''")
+puts Edgeway::View.escape("<b>".html_safe)
+puts Edgeway::View.escape(Edgeway::View::SafeHTML.new("<i>"))
+puts "<b>".html_safe.to_s
+buffer = +"<b>"
+marked_buffer = buffer.html_safe
+buffer << "</b>"
+puts marked_buffer.to_s
+puts Edgeway::View::SafeHTML.new(nil).to_s.inspect
 
 class ApplicationController < Edgeway::Controller::Base
   def _render_layout(content)
     out = +""
     out << "<main>" << content << "</main>"
     out
+  end
+end
+
+class FramedController < ApplicationController
+  def show = render(html: "<p>body</p>".html_safe)
+
+  def _render_layout(content)
+    "<div>" + Edgeway::View.escape(raw("<hr>")) + content + "</div>"
   end
 end
 
@@ -37,9 +53,13 @@ class PostsController < ApplicationController
     render "index", layout: false
   end
 
-  def plain = render(html: "<p>hi</p>", status: :created)
+  def plain = render(html: "<p>hi</p>".html_safe, status: :created)
 
-  def raw = render(html: "<p>raw</p>", layout: false)
+  def bare = render(html: "<script>alert(1)</script>", layout: false)
+
+  def marked = render(html: "<b>ok</b>".html_safe, layout: false)
+  def wrapped = render(html: raw("<i>ok</i>"), layout: false)
+  def raw_in_layout = render(html: raw("<u>ok</u>"))
 
   def bad = render(:nope)
 
@@ -117,11 +137,16 @@ Edgeway.application.routes.draw do |r|
   r.get "/posts/named", to: "posts#named"
   r.get "/posts/bare", to: "posts#index_bare"
   r.get "/posts/plain", to: "posts#plain"
+  r.get "/posts/bare_html", to: "posts#bare"
+  r.get "/posts/marked", to: "posts#marked"
+  r.get "/posts/wrapped", to: "posts#wrapped"
+  r.get "/posts/raw_in_layout", to: "posts#raw_in_layout"
   r.get "/posts/raw", to: "posts#raw"
   r.get "/posts/bad", to: "posts#bad"
   r.get "/posts/gone", to: "posts#gone"
   r.get "/posts/_view_posts_index", to: "posts#_view_posts_index"
   r.get "/posts/_render_view", to: "posts#_render_view"
+  r.get "/framed", to: "framed#show"
   r.get "/notes/shared", to: "notes#shared"
   r.get "/notes/mine", to: "notes#mine"
   r.get "/notes/nope", to: "notes#nope"
@@ -142,7 +167,12 @@ call("/posts/show")
 call("/posts/named")
 call("/posts/bare")
 call("/posts/plain")
+call("/posts/bare_html")
+call("/posts/marked")
+call("/posts/wrapped")
+call("/posts/raw_in_layout")
 call("/posts/raw")
+call("/framed")
 # a template that doesn't exist: a 500 with the fixed body
 call("/posts/bad")
 # no template for an action that renders nothing: 204

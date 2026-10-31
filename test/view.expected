@@ -3,12 +3,22 @@
 42
 plain
 &amp;&amp;&lt;&lt;&gt;&gt;&quot;&quot;&#39;&#39;
+<b>
+<i>
+<b>
+<b>
+""
 GET /posts -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<main><ul>\n<li>a&lt;b</li>\n<li>c&amp;d</li>\n</ul>\n</main>"
 GET /posts/show -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<main><h1>T</h1></main>"
 GET /posts/named -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<main><ul>\n<li>n</li>\n</ul>\n</main>"
 GET /posts/bare -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<ul>\n<li>b</li>\n</ul>\n"
 GET /posts/plain -> 201 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<main><p>hi</p></main>"
-GET /posts/raw -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<p>raw</p>"
+GET /posts/bare_html -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "&lt;script&gt;alert(1)&lt;/script&gt;"
+GET /posts/marked -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<b>ok</b>"
+GET /posts/wrapped -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<i>ok</i>"
+GET /posts/raw_in_layout -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<main><u>ok</u></main>"
+GET /posts/raw -> 404 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} "{\"error\":\"not found\"}\n"
+GET /framed -> 200 {"Content-Type" => "text/html; charset=utf-8", "X-Content-Type-Options" => "nosniff"} "<div><hr><p>body</p></div>"
 GET /posts/bad -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} "{\"error\":\"internal error\"}\n"
 GET /posts/gone -> 204 {} ""
 GET /posts/_view_posts_index -> 404 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} "{\"error\":\"not found\"}\n"

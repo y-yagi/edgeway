@@ -388,10 +388,14 @@ Spinel has no `eval`, so `edgeway build` (and `edgeway test`) compile `app/views
 (`build/views.rb`, `tmp/views.rb`): each template becomes a method of its controller,
 so it sees the action's `@variables`, `params` and the controller's methods.
 
-- `<%= expr %>` is HTML-escaped (`Edgeway::View.escape`), `<%== expr %>` is not.
+- `<%= expr %>` is HTML-escaped (`Edgeway::View.escape`) unless the value is `raw(text)` or `text.html_safe`
+  (an `Edgeway::View::SafeHTML`); `<%== expr %>` is never escaped.
+  Safety is not kept across string operations (`"<b>".html_safe + x` is not defined): build the HTML in a template,
+  or escape the pieces with `Edgeway::View.escape` and mark the result.
   `<% code %>`, `<%# comment %>`, `<%%` (a literal `<%`) and `-%>` (drops the newline after the tag) work as in ERB.
+- The public methods of `Edgeway::Controller::Base` (`render`, `head`, `params`, `raw`, ...) are not actions; a route to one is a 404.
 - An action that renders nothing renders its template, or answers 204 when it has none.
-- `render :name` / `render "name"` renders another template of the controller, `render html: text` a string;
+- `render :name` / `render "name"` renders another template of the controller, `render html: value` a string (HTML-escaped; a `SafeHTML` is output as is);
   both take `status:` and `layout: false`.
   A name with no template raises `Edgeway::MissingTemplate` (a 500).
 - `app/views/layouts/application.html.erb` wraps every HTML response, at `<%= yield %>`. `edgeway new` writes one.
