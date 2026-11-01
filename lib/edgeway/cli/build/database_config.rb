@@ -17,6 +17,10 @@ module Edgeway
           section
         end
 
+        def section?(env)
+          File.exist?(path) && sections[env].is_a?(Hash)
+        end
+
         def databases_in(section, env)
           entries = section["databases"] || {}
           raise Error, "config/database.yml: databases in #{env} must be a Hash" unless entries.is_a?(Hash)

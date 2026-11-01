@@ -416,7 +416,7 @@ edgeway new myapp
 # mise, bundle, pnpm and the local D1 migrations
 cd myapp && bin/setup
 
-# the app's tests, natively (needs libsqlite3-dev, see "Testing an app")
+# the app's tests, as wasm on a local D1 (see "Testing an app")
 bundle exec edgeway test        # or bin/test [FILE...] in a generated app
 
 # edgeway build: writes build/app.wasm and build/edgeway/ (the JS).
@@ -443,7 +443,7 @@ Before `bin/deploy`:
 `bin/setup` prints these steps when they are missing.
 
 - A generated app's Gemfile takes `edgeway` and `spinel_test-unit` from RubyGems.
-- A generated app's `.github/workflows/ci.yml` installs libsqlite3-dev, Ruby (from `.ruby-version`, which `edgeway new` writes with the Ruby that ran it), and mise's tools, then runs `bin/test` and `bin/build --release`.
+- A generated app's `.github/workflows/ci.yml` installs Ruby (from `.ruby-version`, which `edgeway new` writes with the Ruby that ran it), mise's tools and wrangler, then runs `bin/test` and `bin/build --release`.
 - An app uses [pnpm](https://pnpm.io/) for wrangler (`package.json`, `bin/setup`, `mise.toml`);
   `edgeway new` names it in one place (`Edgeway::CLI::PackageManager`).
 - `SPINEL=/path/to/spinel bin/build` uses a Spinel other than the one on `PATH`.
@@ -520,7 +520,7 @@ Edgeway needs a Spinel newer than the 2026.09.12 release
 Two files configure the database, each for its own side:
 
 - `config/database.yml` is Edgeway's: for each environment (`edgeway build --env ENV`),
-  the adapter (`d1`, or `memory` for tests) and the name of the D1 binding the app uses. It is compiled into the wasm.
+  the adapter (`d1`, or `memory`, which stores nothing) and the name of the D1 binding the app uses. It is compiled into the wasm.
 - `wrangler.toml` is Cloudflare's: which D1 database the binding is (`database_name`, `database_id`),
   the migrations, and the Worker. `binding` in it must match `binding` in `config/database.yml`.
 
@@ -643,6 +643,9 @@ bin/test [FILE...]                # in a generated app: the same, all of test/ w
 ```
 
 `edgeway test` is the only supported way to run an app's tests.
+`config/database.yml` decides how: with `adapter: d1` in its `test:` section (what `edgeway new` writes)
+the tests are compiled to wasm32-wasi and run on a local D1, as in production; with any other adapter
+(`memory`) they are a native build with an in-memory SQLite database (see "SQLite").
 
 - `spinel_test-unit` is the test framework (on RubyGems;
   `edgeway new` puts `gem "spinel_test-unit", "~> 0.1", group: :test` in the Gemfile).
@@ -657,13 +660,35 @@ bin/test [FILE...]                # in a generated app: the same, all of test/ w
 - `Edgeway::IntegrationTest` inherits it and adds `get`/`post`/..., `json` and `assert_response`.
 - Both inherit `SpinelTest::Unit::TestCase`.
 
-Each test runs against a real in-memory SQLite database (`Edgeway::DB::SQLiteAdapter`, through Spinel's FFI)
-with `db/migrations/*.sql` applied in file name order, so requests really write and read rows.
-Each database under `databases:` (in any environment) gets its own, with `db/NAME/migrations`; `db(:analytics)` answers it, and `db` the primary.
+Each test starts from an empty database with `db/migrations/*.sql` applied in file name order
+(so the migrations' seed rows are there), and requests really write and read rows.
+Each database under `databases:` gets its own, with `db/NAME/migrations`; `db(:analytics)` answers it, and `db` the primary.
+`db.log` has the SQL the test ran.
 
-### SQLite
+### Local D1 (`adapter: d1` in `test:`)
 
-Running the tests requires SQLite (sqlite3). This needs the SQLite library at link time:
+The tests are built like the app (`--target=wasm32-wasi`, with `--incremental`; the wasm is `tmp/test_app.wasm`) and run by Node.js
+(`js/cloudflare-test-runner.js`, copied to `tmp/edgeway/` with the other `js/` files) on the D1 that wrangler's `getPlatformProxy` starts,
+the one `wrangler dev` uses, but in memory (`persist: false`): `.wrangler/state` is never touched.
+
+- Before each test every table and view is dropped (except `sqlite_*`, `_cf_*` and `d1_migrations`) and the migrations are applied again,
+  so a test cannot see another's rows and the ids start from 1.
+  Foreign keys are enforced as in D1.
+- The bindings are the `binding:` of `test:` and of its `databases:`, which must exist in `wrangler.toml`.
+  Give each its own `database_id`: bindings with the same id are the same local database.
+  Databases that share a binding are one database: it is emptied once and the migrations of each are applied, the primary's first.
+  Only the databases in `test:` exist in the tests (not those of other environments).
+- The Worker variables of `wrangler.toml` (`JWT_*`, `APP_*`) are the app's settings, as in production.
+- Needs Node.js 24 or later (`edgeway test` passes `--experimental-wasm-jspi --experimental-wasm-exnref` to Node.js 24, which needs them),
+  wrangler in `node_modules` (`pnpm install`, or `bin/setup`), `wrangler.toml`, the WASI SDK (`WASI_SDK`) and Spinel.
+  It stops with the fix when one is missing.
+- The first build of an app takes a while; later ones reuse Spinel's cached C units.
+
+### SQLite (`adapter: memory` in `test:`)
+
+The tests are a native build with a real in-memory SQLite database per test (`Edgeway::DB::SQLiteAdapter`, through Spinel's FFI).
+Every database under `databases:` (in any environment) gets one.
+This needs the SQLite library at link time:
 `libsqlite3-dev` on Debian/Ubuntu, `sqlite-devel` on Fedora (preinstalled on macOS).
 
 - `edgeway test` first tries to link `-lsqlite3` with `$CC` (or `cc`/`gcc`/`clang`) and stops with the fix if that fails.
@@ -674,11 +699,21 @@ Edgeway's own tests use `MemoryAdapter`, which stores nothing; `SQLiteAdapter` i
 
 ### Differences from production
 
-The tests are native builds, while production is wasm32-wasi on Workers.
+With a local D1 the tests are wasm on a D1 as in production, and JSPI and `Edgeway::Cloudflare::D1Adapter` are exercised.
+What differs:
+
+- It is wrangler's local D1 (miniflare), not Cloudflare's: its limits and timing are not reproduced, and neither is read replication
+  (`sessions: true` is passed on, but there is one local replica).
+- The app is called directly (`get`, `post`), not through `js/cloudflare.js` and the Worker: no CORS, no `X-D1-Bookmark`.
+- A JWT's signature is checked only when the test sets `Edgeway::Auth.verifier = Edgeway::Cloudflare::JWTVerifier.new`
+  (`JWT_SECRET` and the like come from the Worker variables, `.dev.vars` included); otherwise use `Edgeway::Auth::StubVerifier`.
+- `db.log` has the SQL the test ran, but not the migrations'.
+
+With SQLite the tests are native builds, while production is wasm32-wasi on Workers.
 
 - D1 (`Edgeway::Cloudflare::D1Adapter`) and JSPI are not exercised,
   and neither is a JWT's signature check (use `Edgeway::Auth::StubVerifier`).
-- `SQLiteAdapter` is loaded only by `edgeway/test`: `edgeway build` never requires `edgeway/db/sqlite`,
+- `SQLiteAdapter` is loaded only by `edgeway test`: `edgeway build` never requires `edgeway/db/sqlite`,
   because libsqlite3 can't be linked into the wasm.
 - SQLite and D1 (itself SQLite) take the same SQL, but D1's own limits
   (such as the number of bound parameters) are not reproduced.
@@ -689,7 +724,7 @@ The tests are native builds, while production is wasm32-wasi on Workers.
 # mise install (Spinel, the WASI SDK) and bundle install
 bin/setup
 
-# needs libsqlite3-dev (test/spinel/sqlite.rb);
+# needs libsqlite3-dev (test/spinel/sqlite.rb) and, for the Node.js tests, node;
 # runs test/*.rb under CRuby and as Spinel native builds, and compares with .expected
 bundle exec rake test
 

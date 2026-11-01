@@ -19,7 +19,7 @@ bundle exec edgeway routes
 
 Without mise, set `SPINEL` to the Spinel compiler and `WASI_SDK` to the WASI SDK.
 
-Tests (`test/`) run with `bin/test [FILE...]` (all of `test/` when no file is given; it runs `bundle exec edgeway test`). Always use it rather than `spinel_test-unit` directly: it rewrites `tmp/test_app.rb` (git-ignored) from `app/` on every run, so new files are picked up. Each test gets a fresh in-memory SQLite database with `db/migrations/*.sql` applied, so running the tests requires SQLite (sqlite3): its development library has to be installed to link (`apt install libsqlite3-dev` on Debian/Ubuntu, `dnf install sqlite-devel` on Fedora; macOS has it).
+Tests (`test/`) run with `bin/test [FILE...]` (all of `test/` when no file is given; it runs `bundle exec edgeway test`). Always use it rather than `spinel_test-unit` directly: it rewrites `tmp/test_app.rb` (git-ignored) from `app/` on every run, so new files are picked up. The tests are compiled to wasm like the app and run by node on wrangler's local D1 (in memory, so `.wrangler/state` is not touched); each test gets an emptied database with `db/migrations/*.sql` applied. This needs the tools of `bin/setup` (Spinel, the WASI SDK, Node.js and wrangler).
 
 `.github/workflows/ci.yml` runs `bin/test` and `bin/build --release` on GitHub Actions for pushes to main and pull requests.
 

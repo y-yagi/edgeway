@@ -173,3 +173,10 @@ begin
 rescue Edgeway::CLI::Error => e
   puts e.message.sub(/ in .*/, "")
 end
+
+puts "--"
+Dir.mktmpdir do |root|
+  Edgeway::CLI::Build::JsFiles.copy(root, "")
+  puts Dir.children(root).grep(/-test/).inspect
+  puts Dir.children(root).include?("cloudflare.js")
+end

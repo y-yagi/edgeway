@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Changed
+
+- `edgeway test` runs the tests as wasm32-wasi on a local D1 (wrangler's `getPlatformProxy`, in memory) when the `test:` section of `config/database.yml` has `adapter: d1`;
+  each test drops every table and applies the migrations again. Other adapters keep the native build with SQLite.
+  Needs Node.js 24 or later and wrangler in `node_modules`.
+- Apps made by `edgeway new` use `adapter: d1` for `test:`, and their CI installs wrangler instead of libsqlite3-dev.
+
 ## v0.2.0
 
 ### Added

@@ -1,7 +1,12 @@
 # The database of each environment (edgeway build --env ENV), compiled into
 # the wasm. adapter: d1 uses the D1 binding named by binding:, which must
 # match a binding in wrangler.toml (wrangler.toml says which D1 database it
-# is); memory is for tests.
+# is); memory is a database that stores nothing (as the test: adapter it
+# means native tests on SQLite instead; see the README's "Testing an app").
+#
+# `edgeway test` runs the tests on a local D1 (in memory, like `wrangler dev`)
+# with adapter: d1, each test starting from the migrations (db/migrations and
+# db/<name>/migrations).
 #
 # Another database goes under databases:, which a model picks with
 # `self.database = :analytics` (see the README's "Multiple databases").
@@ -28,4 +33,5 @@ production:
   binding: DB
 
 test:
-  adapter: memory
+  adapter: d1
+  binding: DB

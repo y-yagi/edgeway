@@ -22,9 +22,10 @@ database_name = "<%= @name %>-db"
 database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "db/migrations"
 
-# A second database (config/database.yml's databases:) is another binding:
+# A second database (config/database.yml's databases:) is another binding,
+# with an id of its own: the same id is the same local database:
 # [[d1_databases]]
 # binding = "ANALYTICS"
 # database_name = "<%= @name %>-analytics"
-# database_id = "00000000-0000-0000-0000-000000000000"
+# database_id = "00000000-0000-0000-0000-000000000001"
 # migrations_dir = "db/analytics/migrations"

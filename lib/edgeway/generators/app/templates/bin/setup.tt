@@ -3,8 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# Spinel and the WASI SDK, from mise.toml. `edgeway test` also links libsqlite3
-# (libsqlite3-dev on Debian/Ubuntu; part of macOS).
+# Spinel, the WASI SDK and Node.js, from mise.toml.
 if command -v mise >/dev/null 2>&1; then
   mise trust --quiet
   mise install
@@ -15,7 +14,7 @@ fi
 
 bundle install
 
-# wrangler, from package.json.
+# wrangler, from package.json (`edgeway test` runs the tests on its local D1).
 if ! command -v <%= PackageManager.name %> >/dev/null 2>&1; then
   echo "bin/setup: <%= PackageManager.name %> is not installed; install it to get wrangler." >&2
   exit 1

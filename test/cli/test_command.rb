@@ -66,3 +66,27 @@ Dir.mktmpdir do |root|
     puts e.message
   end
 end
+
+puts "--"
+# test: adapter: d1 -> wasm on a local D1: another loader and runtime
+Dir.mktmpdir do |root|
+  write(root, "config/routes.rb")
+  File.write(File.join(root, "config/database.yml"), <<~YML)
+    test:
+      adapter: d1
+      binding: MAIN
+      databases:
+        analytics:
+          binding: ANALYTICS
+  YML
+  database = Edgeway::CLI::Build::DatabaseConfig.new(root)
+  puts database.section?("test"), database.section?("production")
+  puts Edgeway::CLI::CloudflareTest.handles?(database)
+  test = Edgeway::CLI::CloudflareTest.new(root)
+  test.write_test_app
+  puts File.read(File.join(root, "tmp/test_app.rb")).lines.first(8)
+  test.send(:write_runtime)
+  runtime = File.join(root, "tmp/edgeway")
+  puts File.read(File.join(runtime, "config.js")).sub(root, "ROOT").gsub(root, "ROOT")
+  puts Dir.children(runtime).sort.grep(/cloudflare-test|package/)
+end
