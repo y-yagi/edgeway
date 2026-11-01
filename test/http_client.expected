@@ -1,0 +1,42 @@
+200
+true
+{"content-type" => "application/json", "x-id" => "7"}
+"{\"items\":[1,2]}"
+[1, 2]
+201
+"created"
+404
+false
+302
+false
+"https://api.example/items"
+"café 日本"
+7
+Edgeway::HTTP::Error: connection refused
+Edgeway::HTTP::Timeout: request timed out
+true
+true
+Edgeway::HTTP::UnstubbedRequest: no stub for GET https://api.example/unknown (add stub_http to the test)
+0: timeout must be 0.001 to 300 seconds
+-1: timeout must be 0.001 to 300 seconds
+0.0004: timeout must be 0.001 to 300 seconds
+301: timeout must be 0.001 to 300 seconds
+5000000: timeout must be 0.001 to 300 seconds
+300000
+1
+GET https://api.example/items "" {} 10000
+POST https://api.example/items "{\"name\":\"a\"}" {"Authorization" => "Bearer t"} 10000
+GET https://api.example/missing "" {} 10000
+GET https://api.example/moved "" {} 10000
+GET https://api.example/text "" {} 10000
+GET https://api.example/down "" {} 10000
+GET https://api.example/slow "" {} 2000
+GET https://api.example/unknown "" {} 10000
+DELETE https://api.example/items "" {} 300000
+DELETE https://api.example/items "" {} 1
+PUT "x" 3000
+PATCH "" 10000
+no HTTP transport is set
+/partner -> 500 {"error":"internal error"}
+/partner/slow -> 500 {"error":"internal error"}
+/partner/items -> 200 {"items":[1,2]}

@@ -33,6 +33,7 @@ require "edgeway"
 require "edgeway/db/memory"
 require "edgeway/service/cloudflare/test_databases"
 require "edgeway/service/cloudflare/jwt"
+require "edgeway/service/fetch"
 module Edgeway; TEST_DATABASES = ["analytics"]; end
 module Edgeway; TEST_BINDINGS = {"primary" => "MAIN", "analytics" => "ANALYTICS"}; end
 

@@ -63,6 +63,7 @@ end
 - [Logging](#logging)
 - [Authentication](#authentication)
 - [CORS](#cors)
+- [Outbound HTTP](#outbound-http)
 - [Testing an app](#testing-an-app)
 - [Development](#development)
 - [License](#license)
@@ -688,6 +689,34 @@ Settings are Worker variables in `wrangler.toml`:
 
 Serving the frontend from the same origin as the API (see [Static assets](#static-assets)) avoids CORS altogether.
 
+## Outbound HTTP
+
+```ruby
+response = Edgeway::HTTP.get("https://api.example/items", headers: { "Authorization" => "Bearer #{token}" })
+response = Edgeway::HTTP.post("https://api.example/items", body: JSON.generate({ "name" => "a" }),
+                              headers: { "Content-Type" => "application/json" }, timeout: 5)
+response.status     # Integer
+response.success?   # 2xx
+response.headers    # Hash, names in lower case
+response.body       # String
+response.json       # the body parsed
+```
+
+- `get` and `delete` take `headers:`; `post`, `put` and `patch` also take `body:` (a String, empty by default).
+  All take `timeout:` in seconds (default 10; from 0.001 to 300, otherwise `ArgumentError`).
+  A `body:` must be UTF-8 text; binary uploads are not supported.
+- The answer is an `Edgeway::HTTP::ClientResponse`. A non-2xx status does not raise.
+- Redirects are not followed: a 3xx comes back as it is, with its `location` header.
+- Of repeated response headers only the last `Set-Cookie` is kept; other repeated headers are joined with ", ".
+- The URL must be `https` (`http` only for `localhost`, `127.0.0.1`, `[::1]`); any other is an error.
+- The response body is at most 1 MB; a larger one is an error. A binary body keeps its bytes but is labelled UTF-8 (`body.b` has the bytes).
+- `Edgeway::HTTP::Error` is raised for a network failure, a refused URL and a response that is too large;
+  `Edgeway::HTTP::Timeout` (a subclass) when the timeout passes. Unrescued they are a 500, with the message only in the log.
+- A Worker can make 50 subrequests per invocation on the Free plan and 10,000 by default on Paid,
+  and has at most 6 connections open at once.
+- Like D1 and the JWT check, this needs JSPI.
+- In tests, `stub_http` (see "Writing tests") stands in for the network, so no test makes a request.
+
 ## Testing an app
 
 ```sh
@@ -712,6 +741,19 @@ the tests are compiled to wasm32-wasi and run on a local D1, as in production; w
 - Model tests inherit `Edgeway::UnitTest` (the database, no requests).
 - `Edgeway::IntegrationTest` inherits it and adds `get`/`post`/..., `json` and `assert_response`.
 - Both inherit `SpinelTest::Unit::TestCase`.
+
+Outgoing HTTP (see [Outbound HTTP](#outbound-http)) never reaches the network in a test:
+
+```ruby
+stub_http(:get, "https://api.example/items", status: 200, body: '{"items":[]}', headers: { "Content-Type" => "application/json" })
+stub_http_error(:post, "https://api.example/items", "connection refused")          # raises Edgeway::HTTP::Error
+stub_http_error(:post, "https://api.example/items", "timed out", timeout: true)    # raises Edgeway::HTTP::Timeout
+http_requests   # the requests sent, in order: Hashes with "method", "url", "headers", "body" and "timeout_ms"
+```
+
+- A request is matched on its method and exact URL; one without a stub raises `Edgeway::HTTP::UnstubbedRequest`.
+- The stubs and the recorded requests start empty in every test.
+- This is plain Ruby, so it works in the native and the wasm builds alike.
 
 Each test starts from an empty database with `db/migrations/*.sql` applied in file name order
 (so the migrations' seed rows are there), and requests really write and read rows.

@@ -84,7 +84,7 @@ Dir.mktmpdir do |root|
   puts Edgeway::CLI::CloudflareTest.handles?(database)
   test = Edgeway::CLI::CloudflareTest.new(root)
   test.write_test_app
-  puts File.read(File.join(root, "tmp/test_app.rb")).lines.first(8)
+  puts File.read(File.join(root, "tmp/test_app.rb")).lines.first(9)
   test.send(:write_runtime)
   runtime = File.join(root, "tmp/edgeway")
   puts File.read(File.join(runtime, "config.js")).sub(root, "ROOT").gsub(root, "ROOT")

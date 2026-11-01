@@ -10,6 +10,7 @@
 # "cannot find tmp/test_app" (the message cannot be customised at compile time).
 require "spinel_test/unit"
 require "edgeway"
+require "edgeway/http/stub_transport"
 require "tmp/test_app"
 
 module Edgeway
@@ -34,6 +35,8 @@ module Edgeway
   class UnitTest < SpinelTest::Unit::TestCase
     def setup
       @databases = {}
+      @http = Edgeway::HTTP::StubTransport.new
+      Edgeway::HTTP.client = @http
       Edgeway::TestDatabases.reset
       open_database(Edgeway::Model::PRIMARY)
       Edgeway::TEST_DATABASES.each { |name| open_database(name) }
@@ -47,6 +50,16 @@ module Edgeway
     end
 
     def db(name = Edgeway::Model::PRIMARY) = @databases.fetch(name.to_s)
+
+    def stub_http(verb, url, status: 200, body: "", headers: {})
+      @http.stub(verb, url, status, body, headers)
+    end
+
+    def stub_http_error(verb, url, message = "connection failed", timeout: false)
+      @http.stub_error(verb, url, message, timeout)
+    end
+
+    def http_requests = @http.requests
 
     private
 

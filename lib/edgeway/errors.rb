@@ -71,6 +71,16 @@ module Edgeway
   # been applied, so only an idempotent request is safe to retry.
   class DatabaseUnavailable < DatabaseError; end
 
+  module HTTP
+    # An outgoing request that failed (a network error, a URL that is refused,
+    # a response over the size limit): 500. The message goes to the log only.
+    class Error < Edgeway::Error; end
+
+    # An outgoing request that did not finish within its timeout: 500. The
+    # message goes to the log only.
+    class Timeout < Error; end
+  end
+
   # A record that failed its validations: 422 with {"errors": [...]}.
   class RecordInvalid < Error
     attr_reader :errors
