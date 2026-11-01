@@ -1023,23 +1023,23 @@ db.log.clear
 Edgeway::Model.freeze_time(nil)
 puts Edgeway::Model.now.match?(/\A\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z\z/)
 
-puts Edgeway::Model.query_stats.log_text
+puts JSON.generate(Edgeway::Model.query_stats.log_fields)
 puts Edgeway::Model.query_stats.queries
 stats_db = Edgeway::DB::MemoryAdapter.new
 stats_db.record_meta(JSON.parse('{"rows_read":3,"rows_written":1,"duration":2,"served_by_region":"WEUR","served_by_primary":false}'))
 stats_db.record_meta(JSON.parse('{"rows_read":4,"rows_written":0,"duration":0.456,"served_by_region":"ENAM","served_by_primary":true}'))
 stats = stats_db.query_stats
 puts [stats.queries, stats.rows_read, stats.rows_written, stats.duration_ms, stats.served_by_region, stats.served_by_primary].inspect
-puts stats.log_text
+puts JSON.generate(stats.log_fields)
 stats_db.record_meta(JSON.parse('{"rows_read":0,"rows_written":0,"duration":0.5}'))
 puts [stats_db.query_stats.queries, stats_db.query_stats.served_by_region, stats_db.query_stats.served_by_primary].inspect
 batch_db = Edgeway::DB::MemoryAdapter.new
 batch_db.record_meta(JSON.parse('{"rows_read":30,"rows_written":3,"duration":1.5,"served_by_region":"","served_by_primary":true}'))
-puts batch_db.query_stats.log_text
+puts JSON.generate(batch_db.query_stats.log_fields)
 big_db = Edgeway::DB::MemoryAdapter.new
 big_db.record_meta(JSON.parse('{"rows_read":2147483647,"rows_written":5,"duration":1}'))
 big_db.record_meta(JSON.parse('{"rows_read":10,"rows_written":5,"duration":1}'))
-puts big_db.query_stats.log_text
+puts JSON.generate(big_db.query_stats.log_fields)
 
 # binary and bigint
 raw = [0, 1, 255, 0, 128].pack("C*")
@@ -1237,7 +1237,7 @@ end
 p [db.log, analytics_db.log]
 
 analytics_db.record_meta(JSON.parse('{"rows_read":2,"rows_written":0,"duration":1,"served_by_region":"WEUR","served_by_primary":true}'))
-puts Edgeway::Model.query_stats(:analytics).log_text
+puts JSON.generate(Edgeway::Model.query_stats(:analytics).log_fields)
 puts Edgeway::Model.database_names.inspect
 
 class Venue < ApplicationModel

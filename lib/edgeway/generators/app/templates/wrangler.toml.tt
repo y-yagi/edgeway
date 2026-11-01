@@ -2,6 +2,11 @@ name = "<%= @name %>"
 main = "src/worker.js"
 compatibility_date = "2026-10-01"
 
+# Workers Logs records what the app logs (Edgeway.logger), one entry per line,
+# with its fields indexed (see the README's "Logging").
+[observability]
+enabled = true
+
 # CORS, for a frontend on another origin (see the README's "CORS"): the
 # origins allowed, comma-separated and compared exactly (no trailing slash).
 # Unset, CORS is off. CORS_HEADERS defaults to "Authorization, Content-Type",

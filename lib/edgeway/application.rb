@@ -29,27 +29,27 @@ module Edgeway
       elsif e.is_a?(InvalidToken)
         # The reason (e.message) goes to the log only; the client gets a fixed
         # body and challenge, so a probe learns nothing from the wording.
-        Edgeway.logger.info "401 #{e.message}"
+        Edgeway.logger.info(e.message, status: 401)
         unauthorized("invalid token", 'Bearer error="invalid_token"')
       elsif e.is_a?(Unauthorized)
-        Edgeway.logger.info "401 #{e.message}"
+        Edgeway.logger.info(e.message, status: 401)
         unauthorized("authentication required", "Bearer")
       elsif e.is_a?(RecordNotUnique)
         # The message names the table and columns: the log only.
-        Edgeway.logger.info "409 #{e.message}"
+        Edgeway.logger.info(e.message, status: 409)
         message(409, "record not unique")
       elsif e.is_a?(DatabaseUnavailable)
-        Edgeway.logger.error "503 #{e.message}"
+        Edgeway.logger.error(e.message, status: 503)
         response = message(503, "database unavailable")
         response.headers["Retry-After"] = "1"
         response
       elsif e.is_a?(RoutingError) || e.is_a?(RecordNotFound)
         # The message can hold the path or an id from the request: the log only.
-        Edgeway.logger.info "404 #{e.message}"
+        Edgeway.logger.info(e.message, status: 404)
         message(404, "not found")
       else
-        # The details go to the log (stderr), never to the client.
-        Edgeway.logger.error "#{e.class}: #{e.message}"
+        # The details go to the log, never to the client.
+        Edgeway.logger.error("#{e.class}: #{e.message}", status: 500)
         message(500, "internal error")
       end
     end

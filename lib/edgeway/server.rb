@@ -17,8 +17,9 @@ module Edgeway
     def self.log_database_stats(name)
       stats = Model.query_stats(name)
       return unless stats.queries > 0
-      prefix = name == Model::PRIMARY ? "" : "database=#{name} "
-      Edgeway.logger.info(prefix + stats.log_text)
+      fields = stats.log_fields
+      fields["database"] = name.to_s unless name == Model::PRIMARY
+      Edgeway.logger.info("query stats", fields)
     end
   end
 end

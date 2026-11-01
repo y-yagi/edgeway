@@ -6,12 +6,20 @@
 
 - Static assets: apps made by `edgeway new` serve `public/` as Cloudflare Workers Static Assets (`[assets]` in `wrangler.toml`),
   and get `public/.assetsignore`. See "Static assets" in the README.
+- `Edgeway.logger` has `debug`, `info`, `warn` and `error`, each `(message, fields = {})`, and writes one JSON line per call to stderr.
+  `LOG_LEVEL` (default `info`) sets the lowest level written.
+- The runtime sends each log line to `console.<level>` as an object, so Workers Logs records one entry per line at its level, with the fields indexed
+  and `ray` added. Other stderr text goes to `console.error` line by line.
+- `wrangler.toml` of new apps has `[observability]` with `enabled = true`.
 
 ### Changed
 
+- `Edgeway.logger` writes JSON lines instead of `[edgeway] ...` text.
+- The application's error logs and the query stats have fields (`status`; `queries`, `rows_read`, `rows_written`, `db_ms`, `database`).
+  A custom logger set with `Edgeway.logger=` must take `(message, fields = {})`.
 - `edgeway test` runs the tests as wasm32-wasi on a local D1 (wrangler's `getPlatformProxy`, in memory) when the `test:` section of `config/database.yml` has `adapter: d1`;
   each test drops every table and applies the migrations again. Other adapters keep the native build with SQLite.
-  Needs Node.js 24 or later and wrangler in `node_modules`.
+  Needs Node.js 24 or later and wrangler in `node_modules`. Structured log lines are printed as text.
 - Apps made by `edgeway new` use `adapter: d1` for `test:`, and their CI installs wrangler instead of libsqlite3-dev.
 
 ## v0.2.0

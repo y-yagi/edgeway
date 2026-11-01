@@ -62,12 +62,12 @@ end
 end
 
 class StatsLogger
-  def info(message)
-    puts "info #{message}"
+  def info(message, fields = {})
+    puts "info #{message} #{JSON.generate(fields)}"
   end
 
-  def error(message)
-    puts "error #{message}"
+  def error(message, fields = {})
+    puts "error #{message} #{JSON.generate(fields)}"
   end
 end
 Edgeway.logger = StatsLogger.new
