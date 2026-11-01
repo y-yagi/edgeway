@@ -9,6 +9,7 @@ require_relative "cli/toolchain"
 require_relative "cli/build"
 require_relative "cli/precheck"
 require_relative "cli/test"
+require_relative "cli/cloudflare_test"
 require_relative "cli/routes"
 require_relative "cli/package_manager"
 require_relative "cli/generate"
@@ -24,6 +25,7 @@ module Edgeway
                                  compile the app to build/app.wasm (ENV: development);
                                    --release builds for deploying (no --incremental)
         test [ARGS]              regenerate tmp/test_app.rb, run test/ with spinel_test-unit
+                                   (natively, or as wasm on the platform's local database, by database.yml's test:)
         generate, g KIND NAME    generate a model (NAME field:type ...), a controller (NAME action ...)
                                    or a scaffold (NAME field:type ...)
         routes                   print the routes

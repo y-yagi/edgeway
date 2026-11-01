@@ -74,3 +74,6 @@ require_relative "../config/routes"
 true
 app/views/ghosts/ has no controller: app/controllers/ghosts_controller.rb does not exist
 no config/routes.rb
+--
+[]
+true

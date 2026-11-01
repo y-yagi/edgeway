@@ -36,7 +36,7 @@ bin/build --release
 pnpm exec wrangler d1 migrations apply my_app-db --remote
 pnpm exec wrangler deploy "$@"
 mentions npm/npx: []
-        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+        run: pnpm install
         run: bin/test
         run: bin/build --release
 .ruby-version: true

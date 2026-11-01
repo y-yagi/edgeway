@@ -19,6 +19,11 @@ module Edgeway
         find_on_path("spinel") || mise_which("spinel")
       end
 
+      def self.wasi_sdk
+        dir = [ENV["WASI_SDK"], ENV["WASI_SDK_PATH"]].find { |value| !value.to_s.empty? } || "/opt/wasi-sdk"
+        File.directory?(dir) ? dir : nil
+      end
+
       def self.find_on_path(name)
         ENV["PATH"].to_s.split(File::PATH_SEPARATOR).map { |d| File.join(d, name) }
                    .find { |f| File.file?(f) && File.executable?(f) }
