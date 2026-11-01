@@ -1,0 +1,62 @@
+-- expires_in
+GET /expiry {} -> 200 {"Cache-Control" => "max-age=0, private"} ""
+GET /expiry {} -> 200 {"Cache-Control" => "max-age=60, public"} ""
+GET /expiry {} -> 200 {"Cache-Control" => "max-age=3600, private, must-revalidate"} ""
+GET /expiry {} -> 200 {"Cache-Control" => "max-age=3600, public, must-revalidate"} ""
+GET /bad_expiry {} -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} "{\"error\":\"internal error\"}"
+GET /bad_expiry {} -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} "{\"error\":\"internal error\"}"
+GET /bad_expiry_type {} -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} "{\"error\":\"internal error\"}"
+GET /store {} -> 200 {"Cache-Control" => "no-store"} ""
+-- etag
+format: true
+model is stable: true
+same string, same etag: true
+different string, different etag: true
+model differs from its list: true
+different updated_at, different etag: true
+different id, different etag: true
+list is not a flat list: true
+list order matters: true
+-- last_modified
+GET /modified_only {} -> 200 {"Last-Modified" => "Sun, 01 Nov 2026 09:05:03 GMT", "Cache-Control" => "max-age=0, private, must-revalidate", "Content-Type" => "application/json"} "{\"ok\":true}"
+GET /bad_last_modified {} -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} "{\"error\":\"internal error\"}"
+GET /bad_last_modified {} -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} "{\"error\":\"internal error\"}"
+-- cache control
+GET /shared {} -> 200 {"ETag" => "W/\"2d711642b726b04401627ca9fbac32f5\"", "Cache-Control" => "max-age=0, public, must-revalidate", "Content-Type" => "application/json"} "{\"ok\":true}"
+GET /preset {} -> 200 {"Cache-Control" => "max-age=60, public", "ETag" => "W/\"2d711642b726b04401627ca9fbac32f5\"", "Content-Type" => "application/json"} "{\"ok\":true}"
+-- if-none-match
+GET /show {"If-None-Match" => "W/\"8d73a5535dd513dec622aff541ee0c30\""} -> 304 {"ETag" => "W/\"8d73a5535dd513dec622aff541ee0c30\"", "Last-Modified" => "Sun, 01 Nov 2026 09:05:03 GMT", "Cache-Control" => "max-age=0, private, must-revalidate"} ""
+GET /show {"If-None-Match" => "\"8d73a5535dd513dec622aff541ee0c30\""} -> 304 {"ETag" => "W/\"8d73a5535dd513dec622aff541ee0c30\"", "Last-Modified" => "Sun, 01 Nov 2026 09:05:03 GMT", "Cache-Control" => "max-age=0, private, must-revalidate"} ""
+GET /show {"If-None-Match" => "W/\"other\", W/\"8d73a5535dd513dec622aff541ee0c30\""} -> 304 {"ETag" => "W/\"8d73a5535dd513dec622aff541ee0c30\"", "Last-Modified" => "Sun, 01 Nov 2026 09:05:03 GMT", "Cache-Control" => "max-age=0, private, must-revalidate"} ""
+GET /show {"If-None-Match" => "*"} -> 304 {"ETag" => "W/\"8d73a5535dd513dec622aff541ee0c30\"", "Last-Modified" => "Sun, 01 Nov 2026 09:05:03 GMT", "Cache-Control" => "max-age=0, private, must-revalidate"} ""
+GET /show {"If-None-Match" => "W/\"other\""} -> 200 {"ETag" => "W/\"8d73a5535dd513dec622aff541ee0c30\"", "Last-Modified" => "Sun, 01 Nov 2026 09:05:03 GMT", "Cache-Control" => "max-age=0, private, must-revalidate", "Content-Type" => "application/json"} "{\"id\":5,\"title\":\"t\",\"created_at\":\"2026-01-01T00:00:00.000Z\",\"updated_at\":\"2026-11-01T09:05:03.123Z\"}"
+GET /modified_only {"If-None-Match" => "*"} -> 200 {"Last-Modified" => "Sun, 01 Nov 2026 09:05:03 GMT", "Cache-Control" => "max-age=0, private, must-revalidate", "Content-Type" => "application/json"} "{\"ok\":true}"
+GET /show {"If-None-Match" => "W/\"other\"", "If-Modified-Since" => "Sun, 01 Nov 2026 09:05:03 GMT"} -> 200 {"ETag" => "W/\"8d73a5535dd513dec622aff541ee0c30\"", "Last-Modified" => "Sun, 01 Nov 2026 09:05:03 GMT", "Cache-Control" => "max-age=0, private, must-revalidate", "Content-Type" => "application/json"} "{\"id\":5,\"title\":\"t\",\"created_at\":\"2026-01-01T00:00:00.000Z\",\"updated_at\":\"2026-11-01T09:05:03.123Z\"}"
+HEAD /show {"If-None-Match" => "W/\"8d73a5535dd513dec622aff541ee0c30\""} -> 304 {"ETag" => "W/\"8d73a5535dd513dec622aff541ee0c30\"", "Last-Modified" => "Sun, 01 Nov 2026 09:05:03 GMT", "Cache-Control" => "max-age=0, private, must-revalidate"} ""
+-- if-modified-since
+GET /modified_only {"If-Modified-Since" => "Sun, 01 Nov 2026 09:05:03 GMT"} -> 304 {"Last-Modified" => "Sun, 01 Nov 2026 09:05:03 GMT", "Cache-Control" => "max-age=0, private, must-revalidate"} ""
+GET /modified_only {"If-Modified-Since" => "Sun, 01 Nov 2026 09:05:04 GMT"} -> 304 {"Last-Modified" => "Sun, 01 Nov 2026 09:05:03 GMT", "Cache-Control" => "max-age=0, private, must-revalidate"} ""
+GET /modified_only {"If-Modified-Since" => "Sun, 01 Nov 2026 09:05:02 GMT"} -> 200 {"Last-Modified" => "Sun, 01 Nov 2026 09:05:03 GMT", "Cache-Control" => "max-age=0, private, must-revalidate", "Content-Type" => "application/json"} "{\"ok\":true}"
+GET /modified_only {"If-Modified-Since" => "garbage"} -> 200 {"Last-Modified" => "Sun, 01 Nov 2026 09:05:03 GMT", "Cache-Control" => "max-age=0, private, must-revalidate", "Content-Type" => "application/json"} "{\"ok\":true}"
+GET /show {"If-Modified-Since" => "Sun, 01 Nov 2026 09:05:03 GMT"} -> 304 {"ETag" => "W/\"8d73a5535dd513dec622aff541ee0c30\"", "Last-Modified" => "Sun, 01 Nov 2026 09:05:03 GMT", "Cache-Control" => "max-age=0, private, must-revalidate"} ""
+GET /etag_only {"If-Modified-Since" => "Sun, 01 Nov 2026 09:05:03 GMT"} -> 200 {"Cache-Control" => "max-age=0, private, must-revalidate", "Content-Type" => "application/json"} "{\"ok\":true}"
+-- 304 headers, relation, HEAD, no validators
+GET /typed {"If-None-Match" => "*"} -> 304 {"ETag" => "W/\"2d711642b726b04401627ca9fbac32f5\"", "Cache-Control" => "max-age=0, private, must-revalidate"} ""
+GET /typed {} -> 200 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff", "ETag" => "W/\"2d711642b726b04401627ca9fbac32f5\"", "Cache-Control" => "max-age=0, private, must-revalidate"} "{\"ok\":true}"
+GET /lowercase_cache_control {} -> 200 {"cache-control" => "max-age=5", "ETag" => "W/\"2d711642b726b04401627ca9fbac32f5\"", "Content-Type" => "application/json"} "{\"ok\":true}"
+GET /plain_model {} -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} "{\"error\":\"internal error\"}"
+GET /local_time {} -> 200 {"Last-Modified" => "Sun, 01 Nov 2026 09:05:03 GMT", "Cache-Control" => "max-age=0, private, must-revalidate", "Content-Type" => "application/json"} "{\"before\":\"32400 18\",\"after\":\"32400 18\"}"
+HEAD /show {} -> 200 {"ETag" => "W/\"8d73a5535dd513dec622aff541ee0c30\"", "Last-Modified" => "Sun, 01 Nov 2026 09:05:03 GMT", "Cache-Control" => "max-age=0, private, must-revalidate", "Content-Type" => "application/json"} "{\"id\":5,\"title\":\"t\",\"created_at\":\"2026-01-01T00:00:00.000Z\",\"updated_at\":\"2026-11-01T09:05:03.123Z\"}"
+GET /unvalidated {"If-None-Match" => "*"} -> 200 {"Cache-Control" => "max-age=0, private, must-revalidate", "Content-Type" => "application/json"} "{\"ok\":true}"
+relation etag is the list's: true
+relation etag: true
+GET /relation {"If-None-Match" => "W/\"b2c64854f452fdb71530797c24b18037\""} -> 304 {"ETag" => "W/\"b2c64854f452fdb71530797c24b18037\"", "Cache-Control" => "max-age=0, private, must-revalidate"} ""
+-- other methods and return value
+POST /create {"If-None-Match" => "*"} -> 200 {"ETag" => "W/\"2d711642b726b04401627ca9fbac32f5\"", "Cache-Control" => "max-age=0, private, must-revalidate", "Content-Type" => "application/json"} "{\"ok\":true}"
+GET /returns {} -> 200 {"ETag" => "W/\"2d711642b726b04401627ca9fbac32f5\"", "Cache-Control" => "max-age=0, private, must-revalidate", "Content-Type" => "application/json"} "{\"fresh\":false}"
+GET /returns {"If-None-Match" => "*"} -> 200 {"ETag" => "W/\"2d711642b726b04401627ca9fbac32f5\"", "Cache-Control" => "max-age=0, private, must-revalidate", "Content-Type" => "application/json"} "{\"fresh\":true}"
+-- not routable
+GET /fresh_when {} -> 404 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} "{\"error\":\"not found\"}"
+GET /stale {} -> 404 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} "{\"error\":\"not found\"}"
+GET /expires_in {} -> 404 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} "{\"error\":\"not found\"}"
+GET /no_store {} -> 404 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} "{\"error\":\"not found\"}"

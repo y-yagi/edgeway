@@ -5,11 +5,13 @@ module Edgeway
       include Rescuable
       include Rendering
       include Authentication
+      include Caching
 
       NON_ACTIONS = ["render", "head", "headers", "params", "request", "performed?", "to_response",
                      "action?", "run_before_actions", "rescue_with_handler",
                      "authenticate!", "current_claims", "authenticated?",
-                     "action_name", "action_name=", "raw"]
+                     "action_name", "action_name=", "raw",
+                     "expires_in", "no_store", "fresh_when", "stale?"]
 
       def self.before_action(name, only: [], except: [])
         @own_before_actions ||= []

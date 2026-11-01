@@ -4,6 +4,8 @@
 
 ### Added
 
+- HTTP caching helpers in controllers: `stale?` and `fresh_when` (`etag:`, `last_modified:`, `public:`; answer 304 for a matching `If-None-Match` /
+  `If-Modified-Since` on GET and HEAD), `expires_in` and `no_store`. See "HTTP caching" in the README.
 - Outbound HTTP: `Edgeway::HTTP.get`, `post`, `put`, `patch` and `delete` call an external API and answer an `Edgeway::HTTP::ClientResponse`
   (`status`, `headers`, `body`, `json`, `success?`). `https` only (`http` for localhost), 10 second timeout (`timeout:`), no redirect followed,
   response body at most 1 MB. `Edgeway::HTTP::Error` and `Edgeway::HTTP::Timeout` are a 500 unless rescued.

@@ -63,6 +63,7 @@ end
 - [Logging](#logging)
 - [Authentication](#authentication)
 - [CORS](#cors)
+- [HTTP caching](#http-caching)
 - [Outbound HTTP](#outbound-http)
 - [Testing an app](#testing-an-app)
 - [Development](#development)
@@ -688,6 +689,54 @@ Settings are Worker variables in `wrangler.toml`:
   and a token that `fetch` puts in `Authorization` does not need it.
 
 Serving the frontend from the same origin as the API (see [Static assets](#static-assets)) avoids CORS altogether.
+
+## HTTP caching
+
+```ruby
+class TodosController < ApplicationController
+  def show
+    todo = Todo.find(params["id"])
+    render json: todo if stale?(etag: todo, last_modified: todo.updated_at)
+  end
+
+  def index
+    todos = Todo.order(:id)
+    render json: todos if stale?(etag: todos)
+  end
+
+  def settings
+    expires_in 300, public: true
+    render json: { "theme" => "dark" }
+  end
+end
+```
+
+- `stale?(etag:, last_modified:, public: false)` sets the validators and answers `304 Not Modified` (empty body; `Content-Type` is dropped)
+  when the request's `If-None-Match` / `If-Modified-Since` match; it returns `false` then, so the action stops. `fresh_when` is the same
+  and returns `true` when it answered 304.
+- `etag:` takes a model (its class, `id` and `updated_at`; a model without `updated_at` raises `ArgumentError`), a `Relation` or an Array of them (each element counts, in order),
+  or anything else (its `to_s`). The header is a weak `ETag: W/"<32 hex digits>"` (a proxy may recompress the body and weaken a strong one).
+- The ETag depends only on what you pass, not on the JSON an action renders. When a deploy changes what an action renders for the same record,
+  add a version to the source (`stale?(etag: [todo, "v2"], ...)`), or clients keep the old shape through 304 until the record changes.
+- Cross-origin JavaScript that handles ETags itself needs `If-None-Match` in `CORS_HEADERS` and `ETag` in `CORS_EXPOSE_HEADERS`
+  (see [CORS](#cors)); the browser's own cache revalidation needs neither.
+- `last_modified:` takes a `Time` or an ISO 8601 String (a model's `updated_at`); anything else is an `ArgumentError`.
+- Freshness: when `If-None-Match` is present it alone decides (weak comparison; a list, or `*` when the action has an ETag) and
+  `If-Modified-Since` is ignored; otherwise the response is fresh when `Last-Modified` is not later than `If-Modified-Since`
+  (HTTP-date only; one that does not parse is stale). Only GET and HEAD are answered 304; other methods get the headers only.
+- Only the validators you give are used; Edgeway does not derive an ETag from the body.
+- Unless the action set `Cache-Control` already (`expires_in`, `no_store` or `headers["Cache-Control"]`), `fresh_when` sets
+  `max-age=0, private, must-revalidate` (`public` with `public: true`). Without a `Cache-Control`, a shared cache may keep the response by heuristic.
+- `expires_in(seconds, public: false, must_revalidate: false)` sets `Cache-Control: max-age=N, private` (or `public`, and `, must-revalidate`);
+  `seconds` must be a non-negative Integer. `no_store` sets `Cache-Control: no-store`.
+
+Cloudflare's Workers Cache (opt-in: `[cache] enabled = true` in `wrangler.toml`, wrangler 4.69.0 or later) sits in front of the Worker.
+Edgeway does not enable it. If you do:
+
+- A `public` response with `max-age` is served from the cache without running the app, so `before_action :authenticate!` does not run for it.
+  A request with an `Authorization` header bypasses the cache unless the response is `public`, `must-revalidate` or has `s-maxage`.
+- `private` and `no-store` responses bypass it.
+- A response with no `Cache-Control` is cached by heuristic (a 200 for 2 hours).
 
 ## Outbound HTTP
 
