@@ -16,6 +16,7 @@ config/routes.rb
 db/migrations/.keep
 mise.toml
 package.json
+public/.assetsignore
 src/worker.js
 test/controllers/health_test.rb
 test/test_helper.rb
