@@ -11,6 +11,14 @@ compatibility_date = "2026-10-01"
 # [vars]
 # CORS_ORIGINS = "http://localhost:3000, https://app.example"
 
+# Files in public/ are served as is, without starting the app, so they are
+# always public: `before_action :authenticate!` never sees them. A file takes
+# its path from the app for every method (other than GET/HEAD it is 405):
+# public/index.html answers `/`, public/todos.html `/todos`. Anything else goes
+# to the app. For an SPA, see Edgeway's README, "Static assets".
+[assets]
+directory = "./public"
+
 # Simulated locally by `wrangler dev`. Create tables with
 # `<%= PackageManager.exec %> wrangler d1 migrations apply <%= @name %>-db --local`.
 # database_id is a placeholder (all zeros): that is enough for --local and

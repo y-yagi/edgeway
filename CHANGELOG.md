@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- Static assets: apps made by `edgeway new` serve `public/` as Cloudflare Workers Static Assets (`[assets]` in `wrangler.toml`),
+  and get `public/.assetsignore`. See "Static assets" in the README.
+
 ### Changed
 
 - `edgeway test` runs the tests as wasm32-wasi on a local D1 (wrangler's `getPlatformProxy`, in memory) when the `test:` section of `config/database.yml` has `adapter: d1`;

@@ -53,6 +53,7 @@ end
   - [Read replication (Sessions)](#read-replication-sessions)
   - [D1 API coverage](#d1-api-coverage)
 - [Views](#views)
+- [Static assets](#static-assets)
 - [Usage](#usage)
   - [Generators](#generators)
   - [Building](#building)
@@ -406,6 +407,32 @@ so it sees the action's `@variables`, `params` and the controller's methods.
 
 Not supported yet: partials (`render partial:`), layouts other than `application`, and templates other than `.html.erb`.
 
+## Static assets
+
+`public/` is served by Cloudflare as Workers Static Assets (`[assets]` in `wrangler.toml`).
+A request that matches a file is answered without starting the wasm (no CPU time for the app); the others go to the app.
+
+- The files are public: authentication in the app does not apply to them.
+- A file takes its path from the app, for every method. With the default `html_handling` (`auto-trailing-slash`),
+  `public/todos.html` answers `GET /todos`, and `POST /todos` is an empty 405; `public/index.html` answers `/`.
+- The Worker does not run for them, so CORS and the app's headers do not apply (Cloudflare reads headers for them from `public/_headers`).
+- `public/.assetsignore` (`.gitignore` syntax) lists files not to upload. `edgeway new` writes it, which also keeps `public/` in git
+  (wrangler fails without the directory).
+- `edgeway test` calls the app directly, so tests do not see `public/`.
+
+For a single-page app, `not_found_handling = "single-page-application"` serves `index.html` for unknown paths.
+With a `compatibility_date` of 2025-04-01 or later it also answers browser navigations (`Sec-Fetch-Mode: navigate`)
+with assets before the Worker runs, so the app's HTML views are hidden and a browser that opens an API URL gets `index.html`.
+List the app's paths in `run_worker_first` (patterns support `*` and `!` negation; needs wrangler 4.20.0 or later).
+It replaces that navigation detection, so every app path must be listed: one that is not gets `index.html`, even from `fetch`.
+
+```toml
+[assets]
+directory = "./public"
+not_found_handling = "single-page-application"
+run_worker_first = ["/health", "/todos", "/todos/*"]
+```
+
 ## Usage
 
 ```sh
@@ -630,10 +657,11 @@ Settings are Worker variables in `wrangler.toml`:
   `Access-Control-Allow-Methods` (`GET, HEAD, POST, PUT, PATCH, DELETE`), `Access-Control-Allow-Headers` and `Access-Control-Max-Age`.
 - A preflight from another origin is 403 `{"error":"origin not allowed"}`.
 - Other responses get `Access-Control-Allow-Origin` when the `Origin` is allowed, and `Origin` is added to `Vary`.
+- Files in `public/` are answered before the Worker, so they get no CORS headers and a preflight to one is 405 (see [Static assets](#static-assets)).
 - Cookies (credentials) are not supported: `Access-Control-Allow-Credentials` is never sent,
   and a token that `fetch` puts in `Authorization` does not need it.
 
-Serving the frontend from the same origin as the API avoids CORS altogether.
+Serving the frontend from the same origin as the API (see [Static assets](#static-assets)) avoids CORS altogether.
 
 ## Testing an app
 
