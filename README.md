@@ -60,6 +60,7 @@ end
   - [Spinel version](#spinel-version)
   - [Known limitations](#known-limitations)
 - [Configuration](#configuration)
+- [Logging](#logging)
 - [Authentication](#authentication)
 - [CORS](#cors)
 - [Testing an app](#testing-an-app)
@@ -221,14 +222,15 @@ Edgeway::Model.exec("DELETE FROM tags\nDELETE FROM todos")        # nil
 (a wasm instance serves one request, so it starts at zero):
 
 - `queries`: the number of successful D1 calls (a `Model.batch` is one). A failed call and its time are not counted.
-- `rows_read`, `rows_written`: the sums of D1's `meta`, capped at 2147483647 (32-bit; the log line shows a capped count with a trailing `+`).
+- `rows_read`, `rows_written`: the sums of D1's `meta`, capped at 2147483647 (32-bit).
 - `duration_ms` (Float): the sum of D1's `meta.duration`.
 - `served_by_region` and `served_by_primary`: from the last call (`""` and `true` when D1 doesn't say, as in `wrangler dev`).
 
-When a request ran any query, `Edgeway::Server` logs one line after it, also for a request that raised and was rescued:
+When a request ran any query, `Edgeway::Server` logs one `query stats` line after it ([Logging](#logging)), also for a request that raised and was rescued.
+Its fields are `queries`, `rows_read`, `rows_written`, `db_ms` and, for a database other than the primary, `database`:
 
-```
-[edgeway] db=3 rows_read=12 rows_written=1 db_ms=2.46
+```json
+{"level":"info","message":"query stats","queries":3,"rows_read":12,"rows_written":1,"db_ms":2.46}
 ```
 
 The Memory and SQLite adapters report zeros and log nothing.
@@ -574,13 +576,36 @@ which the app reads with `Edgeway.config("NAME")`.
 
 Not every Worker variable reaches the app. Only these are passed into the wasm:
 
-- the framework's own settings (`JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_LEEWAY`, `JWT_ALGORITHMS`, `JWT_JWKS_URL`)
+- the framework's own settings (`JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_LEEWAY`, `JWT_ALGORITHMS`, `JWT_JWKS_URL`, `LOG_LEVEL`)
 - the variables whose name starts with `APP_`
 
 Name your own settings `APP_...` (`APP_PAGE_SIZE = "20"` in `[vars]`, `Edgeway.config("APP_PAGE_SIZE", "20")` in Ruby),
 and likewise your secrets (`wrangler secret put APP_NAME`).
 Anything else, such as a key the Worker holds for another purpose, is never visible to the app.
 `JWT_SECRET` is never passed.
+
+## Logging
+
+```ruby
+Edgeway.logger.info("order placed", order_id: 42, total: 12.5)
+Edgeway.logger.error("payment failed", order_id: 42)
+```
+
+- `debug`, `info`, `warn` and `error` take a message and optional fields (a Hash, or `key: value`).
+- Each call writes one line to stderr, a JSON object: `{"level":"info","message":"order placed","order_id":42,"total":12.5}`.
+  Field names are Strings or Symbols; values are Strings, numbers, `true`/`false`, `nil`, or Arrays/Hashes of them.
+  `level` and `message` can't be fields.
+- `LOG_LEVEL` (`debug`, `info`, `warn`, `error`; default `info`) is the lowest level written. An unknown value counts as `info`.
+  Set it in `[vars]` of `wrangler.toml`.
+- The runtime sends each line to `console.<level>` as an object, so every line is one Workers Logs entry at its level, with its fields indexed.
+  It adds `ray` (the `cf-ray` header, when there is one). A field of the same name that the app logs wins over it.
+- Other stderr text (Spinel's runtime messages, a trap) goes out as text at error level.
+- Turn Workers Logs on with `[observability]` `enabled = true` in `wrangler.toml` (`edgeway new` writes it).
+  It records at most 256 KB of log data per request; nothing beyond that is kept.
+- `Edgeway::Application` logs the rescued errors (401, 404, 409 at `info`, 503 and 500 at `error`) with a `status` field.
+- `edgeway test` with a local D1 prints a structured line as text, `[edgeway] INFO order placed order_id=42 total=12.5`.
+  A native build (`adapter: memory`) writes the JSON lines as they are.
+- `Edgeway.logger =` replaces the logger (an object with the four methods, each `(message, fields = {})`), as the framework's tests do.
 
 ## Authentication
 
@@ -610,7 +635,7 @@ Without a valid `Authorization: Bearer <token>`, the request is answered 401 wit
 - a bad token: `{"error":"invalid token"}` with `WWW-Authenticate: Bearer error="invalid_token"` (`Edgeway::InvalidToken`)
 
 `rescue_from` them to answer differently.
-The reason ("token expired", "unknown kid", ...) is only in the log (stderr), never the token,
+The reason ("token expired", "unknown kid", ...) is only in the log, never the token,
 so a client learns nothing from the wording.
 
 Settings are Worker variables in `wrangler.toml`, and the secret is a Worker secret (`.dev.vars` locally):

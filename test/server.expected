@@ -43,15 +43,15 @@ Status: 200
 Content-Type: application/json
 
 {"status":"ok","q":null}
-info db=1 rows_read=3 rows_written=1 db_ms=2.00
+info query stats {"queries":1,"rows_read":3,"rows_written":1,"db_ms":2.0}
 Status: 200
 Content-Type: application/json
 
 {"status":"ok","q":null}
-info db=1 rows_read=3 rows_written=1 db_ms=2.00
+info query stats {"queries":1,"rows_read":3,"rows_written":1,"db_ms":2.0}
 Status: 200
 Content-Type: application/json
 
 {"status":"ok","q":null}
-info db=1 rows_read=3 rows_written=1 db_ms=2.00
-info database=analytics db=1 rows_read=5 rows_written=0 db_ms=1.50
+info query stats {"queries":1,"rows_read":3,"rows_written":1,"db_ms":2.0}
+info query stats {"queries":1,"rows_read":5,"rows_written":0,"db_ms":1.5,"database":"analytics"}

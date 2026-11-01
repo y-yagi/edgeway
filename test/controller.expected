@@ -38,23 +38,23 @@ POST /echo/1 -> 400 {"Content-Type" => "application/json", "X-Content-Type-Optio
 GET /todos/4294967297 -> 404 {"X-Log" => "in", "Content-Type" => "application/json"} {"error":"gone: todos 4294967297 not found"}
 GET /todos -> 400 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"bad limit: 99999999999"}
 POST /todos -> 409 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"record not unique"}
-info 409 D1_ERROR: UNIQUE constraint failed: todos.title: SQLITE_CONSTRAINT
+info D1_ERROR: UNIQUE constraint failed: todos.title: SQLITE_CONSTRAINT status=409
 POST /todos -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
-error Edgeway::DatabaseError: D1_ERROR: no such table: todos: SQLITE_ERROR
+error Edgeway::DatabaseError: D1_ERROR: no such table: todos: SQLITE_ERROR status=500
 POST /taken -> 422 {"X-Log" => "in", "Content-Type" => "application/json"} {"error":"name taken"}
 POST /todos -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
-error Edgeway::NotNullViolation: D1_ERROR: NOT NULL constraint failed: todos.title: SQLITE_CONSTRAINT
+error Edgeway::NotNullViolation: D1_ERROR: NOT NULL constraint failed: todos.title: SQLITE_CONSTRAINT status=500
 POST /todos -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
-error Edgeway::InvalidForeignKey: D1_ERROR: FOREIGN KEY constraint failed: SQLITE_CONSTRAINT
+error Edgeway::InvalidForeignKey: D1_ERROR: FOREIGN KEY constraint failed: SQLITE_CONSTRAINT status=500
 POST /todos -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
-error Edgeway::CheckViolation: D1_ERROR: CHECK constraint failed: stars: SQLITE_CONSTRAINT
+error Edgeway::CheckViolation: D1_ERROR: CHECK constraint failed: stars: SQLITE_CONSTRAINT status=500
 GET /down -> 503 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff", "Retry-After" => "1"} {"error":"database unavailable"}
-error 503 d1: Network connection lost
+error d1: Network connection lost status=503
 GET /busy -> 429 {"X-Log" => "in", "Content-Type" => "application/json"} {"error":"busy"}
 POST /mass/raw -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
-error Edgeway::ForbiddenAttributes: Todo: params must go through permit
+error Edgeway::ForbiddenAttributes: Todo: params must go through permit status=500
 POST /mass/required -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
-error Edgeway::ForbiddenAttributes: Todo: params must go through permit
+error Edgeway::ForbiddenAttributes: Todo: params must go through permit status=500
 POST /mass/raw_update/1 -> 500 {"Content-Type" => "application/json", "X-Content-Type-Options" => "nosniff"} {"error":"internal error"}
-error Edgeway::ForbiddenAttributes: Todo: params must go through permit
+error Edgeway::ForbiddenAttributes: Todo: params must go through permit status=500
 POST /mass/permitted -> 201 {"X-Log" => "in", "Content-Type" => "application/json"} {"id":9,"title":"p","done":false}

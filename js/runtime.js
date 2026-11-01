@@ -44,6 +44,41 @@ async function readBody(request) {
   return concatBytes(chunks);
 }
 
+const LOG_LEVELS = ["debug", "info", "warn", "error"];
+
+export function parseLogLine(line) {
+  if (!line.startsWith("{")) return null;
+  let entry;
+  try {
+    entry = JSON.parse(line);
+  } catch {
+    return null;
+  }
+  const isObject = entry !== null && typeof entry === "object" && !Array.isArray(entry);
+  return isObject && LOG_LEVELS.includes(entry.level) && typeof entry.message === "string" ? entry : null;
+}
+
+export function logLine(line, logFields = {}, sink = console) {
+  const entry = parseLogLine(line);
+  if (entry) sink[entry.level]({ ...logFields, ...entry });
+  else sink.error(line);
+}
+
+export function lineSplitter(onLine) {
+  let pending = "";
+  return {
+    push(text) {
+      const lines = (pending + text).split(/\r?\n/);
+      pending = lines.pop();
+      for (const line of lines) if (line !== "") onLine(line);
+    },
+    flush() {
+      if (pending !== "") onLine(pending);
+      pending = "";
+    },
+  };
+}
+
 function internalError() {
   return new Response('{"error":"internal error"}\n', {
     status: 500,
@@ -55,23 +90,24 @@ function internalError() {
 // Response.
 //   extraEnv: more CGI environment variables (strings), such as the app's
 //             settings and EDGEWAY_ENV.
+//   logFields: fields added to every structured log line the app writes.
 //   imports:  (getInstance) => { moduleName: { name: fn } }, the wasm import
 //             modules besides WASI. A function wrapped in
 //             WebAssembly.Suspending may await (JSPI).
-export async function runCgi(appModule, request, { extraEnv = {}, imports = () => ({}) } = {}) {
+export async function runCgi(appModule, request, { extraEnv = {}, imports = () => ({}), logFields = {} } = {}) {
   const body = request.method === "GET" || request.method === "HEAD"
     ? new Uint8Array(0)
     : await readBody(request);
   if (body === null) return payloadTooLarge();
 
   const out = [];
-  let err = "";
+  const stderr = lineSplitter((line) => logLine(line, logFields));
   const wasi = new WASI({
     args: ["app"],
     env: { ...extraEnv, ...cgiEnv(request, body), SPINEL_GC_SLAB_MB: SLAB_MB },
     stdin: body,
     onStdoutBytes: (b) => out.push(b),
-    onStderr: (s) => (err += s),
+    onStderr: (text) => stderr.push(text),
   });
   // Whatever goes wrong inside the app (a trap, a non-zero exit) is logged
   // and answered with a fixed body: stderr and error messages never reach
@@ -86,10 +122,11 @@ export async function runCgi(appModule, request, { extraEnv = {}, imports = () =
     });
     status = await wasi.startAsync(instance);
   } catch (e) {
-    console.error("app trapped:", e, err);
+    stderr.flush();
+    console.error("app trapped:", e);
     return internalError();
   }
-  if (err) console.error(err);
+  stderr.flush();
   if (status !== 0) {
     console.error(`app exited with ${status}`);
     return internalError();

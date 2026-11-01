@@ -27,15 +27,11 @@ module Edgeway
         @queries = capped_sum(@queries, 1)
       end
 
-      def log_text
-        "db=#{@queries} rows_read=#{count_text(@rows_read)} rows_written=#{count_text(@rows_written)} db_ms=#{format("%.2f", @duration_ms)}"
+      def log_fields
+        { "queries" => @queries, "rows_read" => @rows_read, "rows_written" => @rows_written, "db_ms" => @duration_ms.round(2) }
       end
 
       private
-
-      def count_text(count)
-        count == MAX_COUNT ? "#{count}+" : count.to_s
-      end
 
       def capped_sum(total, count)
         return MAX_COUNT if count.to_i > MAX_COUNT - total

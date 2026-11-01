@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import config from "./config.js";
 import { WASI } from "./wasi-shim.js";
+import { lineSplitter, parseLogLine } from "./runtime.js";
 import { d1Imports, varsOf } from "./cloudflare.js";
 import { jwtImports } from "./jwt.js";
 import { D1Sessions } from "./cloudflare-d1-sessions.js";
@@ -20,13 +21,21 @@ function requireJspi() {
   throw new Error("this Node.js has no WebAssembly JSPI; Node.js 24 needs --experimental-wasm-jspi (`edgeway test` passes it)");
 }
 
+function logText(line) {
+  const { level, message, ...fields } = parseLogLine(line) ?? {};
+  if (level === undefined) return line;
+  const pairs = Object.entries(fields).map(([name, value]) => ` ${name}=${typeof value === "string" ? value : JSON.stringify(value)}`);
+  return `[edgeway] ${level.toUpperCase()} ${message}${pairs.join("")}`;
+}
+
 async function runTests(wasmPath, args, env) {
   const migrations = loadMigrations(config.databases);
+  const stderr = lineSplitter((line) => process.stderr.write(`${logText(line)}\n`));
   const wasi = new WASI({
     args: ["test", ...args],
     env: { ...varsOf(env), EDGEWAY_ENV: config.env },
     onStdout: (text) => process.stdout.write(text),
-    onStderr: (text) => process.stderr.write(text),
+    onStderr: (text) => stderr.push(text),
   });
   const reset = new WebAssembly.Suspending(() => resetDatabases(env, migrations));
   let instance;
@@ -36,7 +45,11 @@ async function runTests(wasmPath, args, env) {
     ...jwtImports(env, () => instance),
     edgeway_test: { reset },
   });
-  return wasi.startAsync(instance);
+  try {
+    return await wasi.startAsync(instance);
+  } finally {
+    stderr.flush();
+  }
 }
 
 async function main() {

@@ -1,12 +1,40 @@
 module Edgeway
-  # Writes to stderr; the runtime sends it to console.error.
   class Logger
-    def info(message)
-      STDERR.puts "[edgeway] #{message}"
+    LEVELS = ["debug", "info", "warn", "error"]
+
+    def initialize(output = STDERR)
+      @output = output
     end
 
-    def error(message)
-      STDERR.puts "[edgeway] ERROR #{message}"
+    def debug(message, fields = {})
+      write("debug", message, fields)
+    end
+
+    def info(message, fields = {})
+      write("info", message, fields)
+    end
+
+    def warn(message, fields = {})
+      write("warn", message, fields)
+    end
+
+    def error(message, fields = {})
+      write("error", message, fields)
+    end
+
+    private
+
+    def write(level, message, fields)
+      return if LEVELS.index(level) < threshold
+      entry = {}
+      fields.each { |name, value| entry[name.to_s] = value }
+      entry["level"] = level
+      entry["message"] = message
+      @output.puts JSON.generate(entry)
+    end
+
+    def threshold
+      LEVELS.index(Edgeway.config("LOG_LEVEL", "info")) || LEVELS.index("info")
     end
   end
 

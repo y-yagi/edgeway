@@ -103,10 +103,10 @@ Edgeway::InvalidToken < Edgeway::Unauthorized < Edgeway::Error < StandardError
 /me [Bearer old] -> 401 {"error":"invalid token"}  (Bearer error="invalid_token")
 /me [Bearer secret-token-value] -> 401 {"error":"invalid token"}  (Bearer error="invalid_token")
 /me [Bearer down] -> 500 {"error":"internal error"}
-info 401 authentication required
-info 401 token expired
-info 401 signature is not valid
-error Edgeway::ConfigurationError: jwt: cannot fetch the JWKS: down
+info authentication required status=401
+info token expired status=401
+info signature is not valid status=401
+error Edgeway::ConfigurationError: jwt: cannot fetch the JWKS: down status=500
 -- the app has no issuer or audience
 /me [Bearer good] -> 500 {"error":"internal error"}
 /me [] -> 401 {"error":"authentication required"}  (Bearer)

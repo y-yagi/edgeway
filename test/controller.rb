@@ -179,12 +179,16 @@ class CaptureLogger
     @lines = []
   end
 
-  def info(message)
-    @lines << "info #{message}"
+  def info(message, fields = {})
+    @lines << "info #{message}#{field_text(fields)}"
   end
 
-  def error(message)
-    @lines << "error #{message}"
+  def error(message, fields = {})
+    @lines << "error #{message}#{field_text(fields)}"
+  end
+
+  def field_text(fields)
+    fields.map { |name, value| " #{name}=#{value}" }.join
   end
 
   def take

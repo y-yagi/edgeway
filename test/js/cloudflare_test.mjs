@@ -11,7 +11,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const dir = mkdtempSync(join(tmpdir(), "edgeway-js-"));
 cpSync(join(dirname(fileURLToPath(import.meta.url)), "../../js"), dir, { recursive: true });
 writeFileSync(join(dir, "config.js"), 'export default { env: "test", d1Binding: "DB" };\n');
-const { varsOf, corsOptions } = await import(pathToFileURL(join(dir, "cloudflare.js")));
+const { varsOf, corsOptions, logFieldsOf } = await import(pathToFileURL(join(dir, "cloudflare.js")));
 
 let count = 0;
 function test(name, fn) {
@@ -42,6 +42,15 @@ test("bindings (non-strings) stay out even under APP_", () => {
 test("CORS exposes and allows the bookmark header only with session bindings", () => {
   assert.deepEqual(corsOptions([]), { exposeHeaders: [], allowHeaders: [] });
   assert.deepEqual(corsOptions(["DB"]), { exposeHeaders: ["X-D1-Bookmark"], allowHeaders: ["X-D1-Bookmark"] });
+});
+
+test("LOG_LEVEL reaches the app", () => {
+  assert.deepEqual(varsOf({ LOG_LEVEL: "debug" }), { LOG_LEVEL: "debug" });
+});
+
+test("the ray id is a log field when the request has one", () => {
+  assert.deepEqual(logFieldsOf({ headers: new Headers({ "cf-ray": "abc-NRT" }) }), { ray: "abc-NRT" });
+  assert.deepEqual(logFieldsOf({ headers: new Headers() }), {});
 });
 
 rmSync(dir, { recursive: true, force: true });

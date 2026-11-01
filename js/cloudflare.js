@@ -165,6 +165,7 @@ export function d1Imports(env, getInstance, sessions = new D1Sessions(env)) {
 // out.
 const FRAMEWORK_VARS = new Set([
   "JWT_ISSUER", "JWT_AUDIENCE", "JWT_LEEWAY", "JWT_ALGORITHMS", "JWT_JWKS_URL",
+  "LOG_LEVEL",
 ]);
 
 // The Worker's variables (strings) become CGI environment variables, which
@@ -187,6 +188,13 @@ export function corsOptions(sessionBindings) {
   return { exposeHeaders: names, allowHeaders: names };
 }
 
+// What identifies the request in every log line: the ray id (absent in local
+// development).
+export function logFieldsOf(request) {
+  const ray = request.headers.get("cf-ray");
+  return ray ? { ray } : {};
+}
+
 // appModule: the WebAssembly.Module that `import app from "...app.wasm"` gives.
 export function createWorker(appModule) {
   return {
@@ -194,6 +202,7 @@ export function createWorker(appModule) {
       const sessions = new D1Sessions(env, request, config.sessions ?? []);
       const response = await runCgi(appModule, request, {
         extraEnv: { EDGEWAY_ENV: config.env, ...varsOf(env) },
+        logFields: logFieldsOf(request),
         // Both modules are always supplied, whether or not the app uses them:
         // the wasm instance needs every import it declares.
         imports: (getInstance) => ({ ...d1Imports(env, getInstance, sessions), ...jwtImports(env, getInstance) }),
