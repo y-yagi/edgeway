@@ -4,6 +4,12 @@
 
 ### Added
 
+- Outbound HTTP: `Edgeway::HTTP.get`, `post`, `put`, `patch` and `delete` call an external API and answer an `Edgeway::HTTP::ClientResponse`
+  (`status`, `headers`, `body`, `json`, `success?`). `https` only (`http` for localhost), 10 second timeout (`timeout:`), no redirect followed,
+  response body at most 1 MB. `Edgeway::HTTP::Error` and `Edgeway::HTTP::Timeout` are a 500 unless rescued.
+  The wasm import module is `edgeway_fetch` (`js/fetch.js`). See "Outbound HTTP" in the README.
+- `stub_http`, `stub_http_error` and `http_requests` in `Edgeway::UnitTest` replace the network in tests;
+  a request without a stub raises `Edgeway::HTTP::UnstubbedRequest`.
 - Static assets: apps made by `edgeway new` serve `public/` as Cloudflare Workers Static Assets (`[assets]` in `wrangler.toml`),
   and get `public/.assetsignore`. See "Static assets" in the README.
 - `Edgeway.logger` has `debug`, `info`, `warn` and `error`, each `(message, fields = {})`, and writes one JSON line per call to stderr.

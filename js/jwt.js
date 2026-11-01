@@ -21,6 +21,8 @@
 // (RFC 7515 4.1.11: no extension is understood), and a JWKS key needs a `kid`
 // on the token and, if it has key_ops, "verify" in them.
 
+import { fetchWithTimeout, readCapped, urlAllowed } from "./fetch.js";
+
 const MAX_TOKEN = 8192;
 // A JWKS is kept this long, and re-fetched early (for an unknown kid) at
 // most this often.
@@ -90,45 +92,9 @@ function parseJsonPart(s, what) {
 // await I/O that another request started.
 const sharedCache = new Map();
 
-// Only https, so a JWKS can't be swapped on the way; a local server (tests,
-// `wrangler dev`) may use http.
-function jwksUrlAllowed(url) {
-  let u;
-  try {
-    u = new URL(url);
-  } catch {
-    return false;
-  }
-  if (u.protocol === "https:") return true;
-  return u.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(u.hostname);
-}
-
-// The body of res as text, at most MAX_JWKS bytes (checked on Content-Length
-// when there is one, and again while reading, because a chunked body has none).
 async function limitedText(res) {
-  const declared = res.headers?.get("content-length");
-  if (declared !== null && declared !== undefined && Number(declared) > MAX_JWKS) throw new Error("response is too large");
   if (!res.body) throw new Error("no body");
-  const reader = res.body.getReader();
-  const chunks = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > MAX_JWKS) {
-      await reader.cancel().catch(() => {});
-      throw new Error("response is too large");
-    }
-    chunks.push(value);
-  }
-  const all = new Uint8Array(size);
-  let at = 0;
-  for (const c of chunks) {
-    all.set(c, at);
-    at += c.byteLength;
-  }
-  return new TextDecoder("utf-8", { fatal: true }).decode(all);
+  return new TextDecoder("utf-8", { fatal: true }).decode(await readCapped(res, MAX_JWKS));
 }
 
 export function jwtVerifier(env, { fetch = globalThis.fetch, now = Date.now, cache = sharedCache, timeoutMs = JWKS_TIMEOUT_MS } = {}) {
@@ -141,7 +107,7 @@ export function jwtVerifier(env, { fetch = globalThis.fetch, now = Date.now, cac
     // No stale JWKS: past its TTL (or when a forced refetch fails) a failed
     // fetch is "unavailable", never an old key.
     try {
-      const res = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(timeoutMs) });
+      const res = await fetchWithTimeout(url, {}, timeoutMs, fetch);
       if (res.status !== 200) throw new Error(`status ${res.status}`);
       const keys = JSON.parse(await limitedText(res)).keys;
       if (!Array.isArray(keys)) throw new Error("no keys");
@@ -189,7 +155,7 @@ export function jwtVerifier(env, { fetch = globalThis.fetch, now = Date.now, cac
     }
     const url = env.JWT_JWKS_URL;
     if (!url) throw new JwtError("JWT_JWKS_URL is not set", true);
-    if (!jwksUrlAllowed(url)) throw new JwtError("JWT_JWKS_URL must be https (http only for localhost)", true);
+    if (!urlAllowed(url)) throw new JwtError("JWT_JWKS_URL must be https (http only for localhost)", true);
     if (kid === undefined) throw new JwtError("kid is required");
     let entry = await loadKeys(url, false);
     let jwk = pick(entry, alg, algo, kid);

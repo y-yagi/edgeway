@@ -10,6 +10,7 @@
 import { runCgi } from "./runtime.js";
 import config from "./config.js";
 import { jwtImports } from "./jwt.js";
+import { fetchImports } from "./fetch.js";
 import { withCors } from "./cors.js";
 import { BOOKMARK_HEADER, D1Sessions } from "./cloudflare-d1-sessions.js";
 
@@ -203,9 +204,13 @@ export function createWorker(appModule) {
       const response = await runCgi(appModule, request, {
         extraEnv: { EDGEWAY_ENV: config.env, ...varsOf(env) },
         logFields: logFieldsOf(request),
-        // Both modules are always supplied, whether or not the app uses them:
+        // Every module is always supplied, whether or not the app uses it:
         // the wasm instance needs every import it declares.
-        imports: (getInstance) => ({ ...d1Imports(env, getInstance, sessions), ...jwtImports(env, getInstance) }),
+        imports: (getInstance) => ({
+          ...d1Imports(env, getInstance, sessions),
+          ...jwtImports(env, getInstance),
+          ...fetchImports(getInstance),
+        }),
       });
       return sessions.annotate(response);
     }, corsOptions(config.sessions ?? [])),

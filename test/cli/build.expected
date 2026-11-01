@@ -2,9 +2,11 @@
 require "edgeway"
 require "edgeway/service/cloudflare/d1"
 require "edgeway/service/cloudflare/jwt"
+require "edgeway/service/fetch"
 
 Edgeway::Model.connection = Edgeway::Cloudflare::D1Adapter.new(binding: "MYDB")
 Edgeway::Auth.verifier = Edgeway::Cloudflare::JWTVerifier.new
+Edgeway::HTTP.client = Edgeway::FetchTransport.new
 
 require_relative "../app/jobs/job"
 require_relative "../app/services/application_service"
@@ -23,9 +25,11 @@ Edgeway::Server.run
 require "edgeway"
 require "edgeway/db/memory"
 require "edgeway/service/cloudflare/jwt"
+require "edgeway/service/fetch"
 
 Edgeway::Model.connection = Edgeway::DB::MemoryAdapter.new
 Edgeway::Auth.verifier = Edgeway::Cloudflare::JWTVerifier.new
+Edgeway::HTTP.client = Edgeway::FetchTransport.new
 
 require_relative "../app/jobs/job"
 require_relative "../app/services/application_service"
