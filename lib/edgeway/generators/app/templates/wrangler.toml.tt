@@ -42,3 +42,11 @@ migrations_dir = "db/migrations"
 # database_name = "<%= @name %>-analytics"
 # database_id = "00000000-0000-0000-0000-000000000001"
 # migrations_dir = "db/analytics/migrations"
+
+# The cache (config/cache.yml, `store: kv`; see Edgeway's README, "Caching") keeps
+# its entries in a KV namespace. Simulated locally by `wrangler dev`. Before a
+# deploy, create the namespace (`<%= PackageManager.exec %> wrangler kv namespace create CACHE`)
+# and put the id it prints here.
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "00000000000000000000000000000000"

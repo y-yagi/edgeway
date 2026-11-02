@@ -1,0 +1,228 @@
+nil
+false
+true
+"hello"
+true
+true
+nil
+true
+-- values
+43
+2.5
+true
+false
+nil
+"café 日本"
+[1, "two", 3.5, nil, true, [4]]
+{"name" => "a", "list" => [1, 2], "nested" => {"k" => nil}}
+{"name" => "a", "count" => 2}
+true
+true
+-- invalid values
+invalid UTF-8: ArgumentError: a String to cache must be valid UTF-8 (a binary String is not)
+nested invalid UTF-8: ArgumentError: a String to cache must be valid UTF-8 (a binary String is not)
+binary: ArgumentError: a String to cache must be valid UTF-8 (a binary String is not)
+nested binary: ArgumentError: a String to cache must be valid UTF-8 (a binary String is not)
+"plain"
+Hash with an Integer key: ArgumentError: a Hash to cache needs String or Symbol keys (got Integer)
+Hash with a nil key: ArgumentError: a Hash to cache needs String or Symbol keys (got NilClass)
+Hash with a key as String and Symbol: ArgumentError: a Hash to cache has the same key twice (as a String and a Symbol)
+object: ArgumentError: Object can't be cached (String, Integer, Float, true, false, nil, Array and Hash can)
+model: ArgumentError: Note can't be cached (String, Integer, Float, true, false, nil, Array and Hash can)
+nan: ArgumentError: a Float to cache must be finite
+infinity: ArgumentError: a Float to cache must be finite
+false
+-- envelope
+{"v":{"a":1}}
+0
+{"v":"x","e":1090}
+90
+{"v":null}
+"nil"
+-- expiry
+"x"
+"x"
+nil
+false
+"y"
+"x"
+"y"
+"x"
+nil
+-- expires_in checks
+expires_in 0: ArgumentError: expires_in must be a whole number of seconds, 1 to 31536000
+expires_in -5: ArgumentError: expires_in must be a whole number of seconds, 1 to 31536000
+expires_in 1.5: ArgumentError: expires_in must be a whole number of seconds, 1 to 31536000
+expires_in "60": ArgumentError: expires_in must be a whole number of seconds, 1 to 31536000
+expires_in 31536001: ArgumentError: expires_in must be a whole number of seconds, 1 to 31536000
+default expires_in: ArgumentError: expires_in must be a whole number of seconds, 1 to 31536000
+true
+-- default expires_in
+30
+{"v":1,"e":1030}
+5
+1
+nil
+nil
+-- fetch
+"computed"
+"computed"
+1
+"forced"
+"forced"
+2
+42
+{"n" => 1, "list" => [1, 2.5, "x", nil, true]}
+1
+"forced"
+nil
+"v2"
+5
+-- nil
+nil
+nil
+1
+true
+nil
+false
+"now"
+"now"
+3
+false
+false
+-- keys
+"string"
+"symbol"
+"7"
+"users/7/posts"
+"a/b/c"
+1
+1
+"notes/5-2026-11-01T09:05:03.123Z"
+"feed/notes/5-2026-11-01T09:05:03.123Z"
+true
+false
+model without updated_at: ArgumentError: Plain has no updated_at (add timestamps)
+invalid UTF-8 key: ArgumentError: cache key must be valid UTF-8
+binary key: ArgumentError: cache key must be valid UTF-8
+true
+true
+1
+"café:日本"
+1
+NUL key: ArgumentError: cache key can't contain a NUL byte
+NUL in an Array key: ArgumentError: cache key can't contain a NUL byte
+namespace with NUL: ArgumentError: cache key can't contain a NUL byte
+Float key: ArgumentError: a cache key is a String, Symbol, Integer, model or an Array of them (got Float)
+nil key: ArgumentError: a cache key is a String, Symbol, Integer, model or an Array of them (got NilClass)
+Hash key: ArgumentError: a cache key is a String, Symbol, Integer, model or an Array of them (got Hash)
+Array with a Float: ArgumentError: a cache key is a String, Symbol, Integer, model or an Array of them (got Float)
+blank key: ArgumentError: cache key can't be blank
+blank array key: ArgumentError: cache key can't be blank
+-- namespace
+"v1:key"
+"v1:a/b"
+1
+true
+true
+false
+nil
+-- long keys
+true
+512
+true
+false
+1
+2
+true
+true
+1
+512
+true
+-- foreign and damaged texts
+nil
+false
+false
+false
+1
+-- NullStore
+true
+nil
+false
+"x"
+"y"
+2
+true
+NullStore invalid value: ArgumentError: Object can't be cached (String, Integer, Float, true, false, nil, Array and Hash can)
+-- Edgeway.cache
+"Edgeway::Cache::NullStore"
+"yes"
+nil
+-- failures
+nil
+false
+false
+false
+"computed"
+"computed again"
+2
+read failed (binding CACHE) {}
+read failed (binding CACHE) {}
+write failed (binding CACHE) {}
+delete failed (binding CACHE) {}
+read failed (binding CACHE) {}
+write failed (binding CACHE) {}
+read failed (binding CACHE) {}
+write failed (binding CACHE) {}
+-- fetch without a block
+"forced"
+nil
+force without a block: ArgumentError: missing block
+"forced"
+-- force and skip_nil
+nil
+false
+nil
+"old"
+"new"
+"new"
+-- a call's expires_in over the store's default
+{"v":1,"e":1010}
+{"v":2,"e":1020}
+{"v":3,"e":1100}
+nil
+2
+3
+-- KVStore over a transport
+dot key: ArgumentError: cache key can't be . or ..
+dot dot key: ArgumentError: cache key can't be . or ..
+dot dot delete: ArgumentError: cache key can't be . or ..
+true
+[1, 2]
+true
+true
+true
+get CACHE app:key
+get CACHE app:key
+put CACHE app:key {"v":[1,2],"e":1030} 30
+delete CACHE app:key
+nil
+false
+"computed"
+get CACHE key
+get CACHE key
+get CACHE key
+put CACHE key {"v":"computed","e":1090} 90
+0
+nil
+false
+false
+false
+"computed"
+cache operation failed {"operation":"get","binding":"CACHE","error":"KV GET failed: 500"}
+cache operation failed {"operation":"get","binding":"CACHE","error":"KV GET failed: 500"}
+cache operation failed {"operation":"put","binding":"CACHE","error":"KV PUT failed: 429 Too Many Requests"}
+cache operation failed {"operation":"delete","binding":"CACHE","error":"KV DELETE failed: 500"}
+cache operation failed {"operation":"get","binding":"CACHE","error":"KV GET failed: 500"}
+cache operation failed {"operation":"put","binding":"CACHE","error":"KV PUT failed: 429 Too Many Requests"}
+false

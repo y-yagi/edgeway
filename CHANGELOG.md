@@ -4,6 +4,12 @@
 
 ### Added
 
+- Cache store: `Edgeway.cache` with `read`, `write`, `fetch` (`expires_in:`, `force:`, `skip_nil:`), `delete` and `exist?`, for JSON values.
+  Keys can be Arrays and models (`"<table>/<id>-<updated_at>"`). Stores: `Edgeway::Cache::NullStore` (the default), `MemoryStore`, and
+  `Edgeway::Cloudflare::KVStore` over a KV namespace (wasm import module `edgeway_kv`, `js/cloudflare-kv.js`).
+  `config/cache.yml` (`store: kv | memory | null`, `binding:`, `namespace:`, `expires_in:`) picks one per environment; `edgeway new` writes it and a
+  commented `[[kv_namespaces]]` in `wrangler.toml`. A store failure is logged and read as a miss. `edgeway test` uses a `NullStore`.
+  See "Caching" in the README.
 - HTTP caching helpers in controllers: `stale?` and `fresh_when` (`etag:`, `last_modified:`, `public:`; answer 304 for a matching `If-None-Match` /
   `If-Modified-Since` on GET and HEAD), `expires_in` and `no_store`. See "HTTP caching" in the README.
 - Outbound HTTP: `Edgeway::HTTP.get`, `post`, `put`, `patch` and `delete` call an external API and answer an `Edgeway::HTTP::ClientResponse`

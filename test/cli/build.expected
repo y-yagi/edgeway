@@ -7,6 +7,7 @@ require "edgeway/service/fetch"
 Edgeway::Model.connection = Edgeway::Cloudflare::D1Adapter.new(binding: "MYDB")
 Edgeway::Auth.verifier = Edgeway::Cloudflare::JWTVerifier.new
 Edgeway::HTTP.client = Edgeway::FetchTransport.new
+Edgeway.cache = Edgeway::Cache::NullStore.new
 
 require_relative "../app/jobs/job"
 require_relative "../app/services/application_service"
@@ -30,6 +31,7 @@ require "edgeway/service/fetch"
 Edgeway::Model.connection = Edgeway::DB::MemoryAdapter.new
 Edgeway::Auth.verifier = Edgeway::Cloudflare::JWTVerifier.new
 Edgeway::HTTP.client = Edgeway::FetchTransport.new
+Edgeway.cache = Edgeway::Cache::NullStore.new
 
 require_relative "../app/jobs/job"
 require_relative "../app/services/application_service"
@@ -81,3 +83,30 @@ no config/routes.rb
 --
 []
 true
+--
+Edgeway.cache = Edgeway::Cache::NullStore.new
+development:
+Edgeway.cache = Edgeway::Cache::NullStore.new
+test:
+Edgeway.cache = Edgeway::Cache::MemoryStore.new(namespace: "v1", expires_in: 600)
+production:
+require "edgeway/service/cloudflare/kv"
+Edgeway.cache = Edgeway::Cloudflare::KVStore.new(binding: "CACHE", namespace: "my\"app", expires_in: 3600, transport: Edgeway::Cloudflare::KVImportTransport.new)
+staging:
+Edgeway.cache = Edgeway::Cache::NullStore.new
+--
+config/cache.yml: development must be a Hash
+config/cache.yml must be a Hash of environments
+config/cache.yml: store in development must be one of kv, memory, null (got nil)
+config/cache.yml: store in development must be one of kv, memory, null (got "redis")
+config/cache.yml: development has store: kv but no binding: (the name of a [[kv_namespaces]] binding in wrangler.toml)
+config/cache.yml: development has store: kv but no binding: (the name of a [[kv_namespaces]] binding in wrangler.toml)
+config/cache.yml: binding: in development must be a String
+config/cache.yml: binding: is only for store: kv (in development)
+config/cache.yml: binding: is only for store: kv (in development)
+config/cache.yml: namespace in development must be a non-empty String
+config/cache.yml: namespace in development must be valid UTF-8 without a NUL byte
+config/cache.yml: expires_in in development must be a whole number of seconds, 1 to 31536000
+config/cache.yml: expires_in in development must be a whole number of seconds, 1 to 31536000
+config/cache.yml: expires_in in development must be a whole number of seconds, 1 to 31536000
+config/cache.yml: unknown expire_in in development (one of store, binding, namespace, expires_in)

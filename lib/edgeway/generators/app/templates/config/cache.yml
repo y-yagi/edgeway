@@ -1,0 +1,22 @@
+# The cache store of each environment (edgeway build --env ENV), Edgeway.cache
+# (see the README's "Caching"). Without this file, or a section for the
+# environment, the store is null: it keeps nothing, so Edgeway.cache.fetch
+# always runs its block.
+#
+#   store:       kv, memory or null. kv keeps entries in a Cloudflare KV
+#                namespace; memory keeps them for the one request only.
+#   binding:     the name of a [[kv_namespaces]] binding in wrangler.toml (kv).
+#   namespace:   a prefix for every key (optional).
+#   expires_in:  the seconds an entry lives when the call gives none (optional).
+#
+# `edgeway test` always uses a null store, whatever this file says.
+#   production:
+#     store: kv
+#     binding: CACHE
+#     namespace: myapp
+#     expires_in: 3600
+development:
+  store: null
+
+production:
+  store: null
