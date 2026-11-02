@@ -64,6 +64,7 @@ end
 - [Authentication](#authentication)
 - [CORS](#cors)
 - [HTTP caching](#http-caching)
+- [Caching](#caching)
 - [Outbound HTTP](#outbound-http)
 - [Testing an app](#testing-an-app)
 - [Development](#development)
@@ -738,6 +739,106 @@ Edgeway does not enable it. If you do:
 - `private` and `no-store` responses bypass it.
 - A response with no `Cache-Control` is cached by heuristic (a 200 for 2 hours).
 
+## Caching
+
+`Edgeway.cache` is a cache store like Rails' `Rails.cache`:
+
+```ruby
+class TodosController < ApplicationController
+  def stats
+    stats = Edgeway.cache.fetch("todo-stats", expires_in: 300) do
+      { "open" => Todo.where(done: false).count, "done" => Todo.where(done: true).count }
+    end
+    render json: stats
+  end
+
+  def show
+    todo = Todo.find(params["id"])
+    render json: Edgeway.cache.fetch(todo) { todo.as_json }
+  end
+end
+```
+
+- `read(key)` answers the value, or `nil` for a miss. `write(key, value, expires_in: nil)` and `delete(key)` answer `true`, or `false` when the store failed.
+  `exist?(key)` is true for an entry, also one that holds `nil`.
+- `fetch(key, expires_in: nil, force: false, skip_nil: false) { ... }` answers the cached value, or runs the block, stores its value and answers it.
+  `force: true` always runs the block. A `nil` is cached like any value; with `skip_nil: true` a `nil` from the block is not stored.
+  Without a block, `fetch` is `read` (with `force: true` it raises `ArgumentError`). A `delete` answers `true` also when there was nothing to delete.
+- Values are JSON values: a String (valid UTF-8), Integer, Float (finite), `true`, `false`, `nil`, and Arrays and Hashes of them.
+  Anything else (a Time, a model, a String that is not valid UTF-8, which includes a binary String such as `"\xFF".b`) raises `ArgumentError`; put `todo.as_json` in the cache, not the model.
+  A Hash comes back with String keys.
+- Keys: a String, Symbol or Integer is used as it is (any other type raises `ArgumentError`, and so does a key that is not valid UTF-8 or has a NUL byte); an Array is joined with `/`; a model is `"<table>/<id>-<updated_at>"`, so updating
+  the record makes a new key instead of needing a delete (a model without `updated_at` raises `ArgumentError`).
+  A key must not be blank. A key over 512 bytes is cut and ends with the SHA256 of the whole key, so two long keys that share a start stay apart.
+- `expires_in:` is a whole number of seconds, 1 to 31,536,000 (a year); anything else raises `ArgumentError`. The store checks it on every read, to the second.
+  Without `expires_in:` (and without a default from `config/cache.yml`) an entry stays until it is deleted, or the backend drops it.
+- A store failure never fails the request: it is logged at `warn` (with the binding and the operation, not the key), a read is a miss,
+  and `write` and `delete` answer `false`. An explicit `expires_in: nil` is the same as leaving it out: the store's default from `config/cache.yml` applies (unlike Rails, where it means no expiry).
+- `Edgeway.cache = store` replaces the store.
+
+### Stores
+
+| `store:` | Class | Entries |
+| --- | --- | --- |
+| `null` (the default) | `Edgeway::Cache::NullStore` | not kept: `fetch` always runs its block |
+| `memory` | `Edgeway::Cache::MemoryStore` | in the process: in a Worker, for one request |
+| `kv` | `Edgeway::Cloudflare::KVStore` | in a Cloudflare KV namespace |
+
+### config/cache.yml
+
+For each environment (`edgeway build --env ENV`):
+
+```yaml
+production:
+  store: kv
+  binding: CACHE        # a [[kv_namespaces]] binding in wrangler.toml; required for kv
+  namespace: myapp      # optional: every key starts with "myapp:"
+  expires_in: 3600      # optional: the seconds for a call that gives no expires_in:
+```
+
+Without the file, or a section for the environment, the store is `null`. `store: null` (also written without quotes) is the same.
+`edgeway build` writes the matching `Edgeway.cache = ...` line into `build/main.rb`, and links the KV backend only for `store: kv`.
+
+The binding is declared in `wrangler.toml` (`edgeway new` writes this commented out):
+
+```toml
+[[kv_namespaces]]
+binding = "CACHE"
+id = "<namespace id>"
+```
+
+Create the namespace with `pnpm exec wrangler kv namespace create CACHE`. `wrangler dev` simulates it locally.
+A `kv` store that names a binding the Worker does not have fails every operation (logged, read as a miss).
+
+### KV
+
+- KV drops an entry when its `expirationTtl` passes, and its minimum is 60 seconds. For an `expires_in:` under 60 the store asks KV for 60 and
+  checks the exact time itself on read, so `expires_in: 10` still means 10 seconds.
+- KV is eventually consistent: a write or delete is seen at once in the same location, and in other locations up to 60 seconds later
+  (last write wins). Prefer keys that change with the data (a model as the key, or a version in an Array key) over deleting a key and expecting every location to miss.
+- Writes to the same key are limited to 1 per second (more is a 429, which is logged and answered `false`).
+- The Free plan allows 1,000 writes, 1,000 deletes and 100,000 reads a day, and a Worker invocation can make 1,000 KV operations.
+  Each `fetch` is one read, and one write on a miss; a `delete` counts against the deletes.
+- A key is at most 512 bytes (handled by the store) and a value at most 25 MiB. KV refuses the keys `.` and `..`, so the `kv` store raises `ArgumentError` for them.
+- Like D1, this needs JSPI.
+
+### In tests
+
+`Edgeway.cache` is a `NullStore` in every test (`edgeway test`), whatever `config/cache.yml` says, so tests do not depend on each other.
+A test of caching sets a store itself:
+
+```ruby
+class StatsTest < Edgeway::IntegrationTest
+  def test_second_request_is_cached
+    Edgeway.cache = Edgeway::Cache::MemoryStore.new
+    get "/stats"
+    Todo.create!(title: "new")
+    get "/stats"
+    assert_equal 0, json["open"]
+  end
+end
+```
+
 ## Outbound HTTP
 
 ```ruby
@@ -803,6 +904,7 @@ http_requests   # the requests sent, in order: Hashes with "method", "url", "hea
 - A request is matched on its method and exact URL; one without a stub raises `Edgeway::HTTP::UnstubbedRequest`.
 - The stubs and the recorded requests start empty in every test.
 - This is plain Ruby, so it works in the native and the wasm builds alike.
+- `Edgeway.cache` is a `NullStore` in every test (see [Caching](#caching)); a test of caching sets a `MemoryStore` itself.
 
 Each test starts from an empty database with `db/migrations/*.sql` applied in file name order
 (so the migrations' seed rows are there), and requests really write and read rows.

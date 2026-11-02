@@ -180,3 +180,66 @@ Dir.mktmpdir do |root|
   puts Dir.children(root).grep(/-test/).inspect
   puts Dir.children(root).include?("cloudflare.js")
 end
+
+puts "--"
+def cache_lines_for(root, env, cache_yml)
+  write(root, "config/cache.yml", cache_yml) if cache_yml
+  databases = %w[development test production staging].map { |name| "#{name}:\n  adapter: memory\n" }.join
+  main_for(root, env, databases).lines.grep(/cache|kv/i)
+end
+
+Dir.mktmpdir do |root|
+  write(root, "config/routes.rb")
+  puts cache_lines_for(root, "development", nil)
+end
+
+yml = <<~YML
+  development:
+    store: null
+  staging:
+    store: "null"
+  test:
+    store: memory
+    namespace: v1
+    expires_in: 600
+  production:
+    store: kv
+    binding: CACHE
+    namespace: "my\\"app"
+    expires_in: 3600
+YML
+Dir.mktmpdir do |root|
+  write(root, "config/routes.rb")
+  %w[development test production staging].each do |env|
+    puts "#{env}:", cache_lines_for(root, env, yml)
+  end
+end
+
+puts "--"
+[
+  "development: nope",
+  "- development",
+  "development:\n  binding: CACHE",
+  "development:\n  store: redis",
+  "development:\n  store: kv",
+  "development:\n  store: kv\n  binding: ''",
+  "development:\n  store: kv\n  binding: 5",
+  "development:\n  store: memory\n  binding: CACHE",
+  "development:\n  store: \"null\"\n  binding: CACHE",
+  "development:\n  store: memory\n  namespace: 5",
+  "development:\n  store: memory\n  namespace: \"a\\0b\"",
+  "development:\n  store: memory\n  expires_in: 0",
+  "development:\n  store: memory\n  expires_in: 1.5",
+  "development:\n  store: memory\n  expires_in: 99999999",
+  "development:\n  store: memory\n  expire_in: 5"
+].each do |text|
+  Dir.mktmpdir do |root|
+    write(root, "config/routes.rb")
+    begin
+      cache_lines_for(root, "development", text)
+      puts "no error: #{text.inspect}"
+    rescue Edgeway::CLI::Error => e
+      puts e.message
+    end
+  end
+end

@@ -31,12 +31,15 @@ module Edgeway
   # stored (Todo.find, db.select_all) and read db.log for the SQL. A database
   # under databases: in config/database.yml gets its own, with
   # db/NAME/migrations, read with db(:name). Edgeway's own tests use
-  # MemoryAdapter instead, which stores nothing.
+  # MemoryAdapter instead, which stores nothing. Edgeway.cache is a NullStore in
+  # every test, whatever config/cache.yml says; a test that checks caching sets
+  # `Edgeway.cache = Edgeway::Cache::MemoryStore.new` itself.
   class UnitTest < SpinelTest::Unit::TestCase
     def setup
       @databases = {}
       @http = Edgeway::HTTP::StubTransport.new
       Edgeway::HTTP.client = @http
+      Edgeway.cache = Edgeway::Cache::NullStore.new
       Edgeway::TestDatabases.reset
       open_database(Edgeway::Model::PRIMARY)
       Edgeway::TEST_DATABASES.each { |name| open_database(name) }

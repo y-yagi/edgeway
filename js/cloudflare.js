@@ -11,6 +11,7 @@ import { runCgi } from "./runtime.js";
 import config from "./config.js";
 import { jwtImports } from "./jwt.js";
 import { fetchImports } from "./fetch.js";
+import { kvImports } from "./cloudflare-kv.js";
 import { withCors } from "./cors.js";
 import { BOOKMARK_HEADER, D1Sessions } from "./cloudflare-d1-sessions.js";
 
@@ -210,6 +211,7 @@ export function createWorker(appModule) {
           ...d1Imports(env, getInstance, sessions),
           ...jwtImports(env, getInstance),
           ...fetchImports(getInstance),
+          ...kvImports(env, getInstance),
         }),
       });
       return sessions.annotate(response);
