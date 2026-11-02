@@ -3,6 +3,7 @@
 require "bundler/gem_tasks"
 require "fileutils"
 require "open3"
+require "spinel_test/unit/toolchain"
 require_relative "lib/edgeway/cli/toolchain"
 
 # Tests follow the shape of Spinel's own: test/NAME.rb prints its results and
@@ -20,23 +21,71 @@ require_relative "lib/edgeway/cli/toolchain"
 #   rake test:update           rewrite the .expected files from CRuby's output
 #   SPINEL=/path/to/spinel     the compiler (default: spinel on PATH, then
 #                              `mise which spinel`; see Edgeway::CLI::Toolchain)
+#   JOBS=N                     how many Spinel tests build at once (default: the
+#                              CPU count, honouring cgroup limits; each cc
+#                              peaks around 350MB)
 TESTS = Dir["test/*.rb"].sort
 CLI_TESTS = Dir["test/cli/*.rb"].sort
 # Spinel only (ffi_lib / ffi_source can't be read by CRuby, like d1.rb).
 SPINEL_ONLY_TESTS = Dir["test/spinel/*.rb"].sort
 
-def run_test(name, cmd, expected)
+# Returns [passed, text] without printing, so it can run on a worker thread.
+def check_test(name, cmd, expected)
   out, _err, status = Open3.capture3(*cmd, stdin_data: "")
   if status.success? && out == File.read(expected)
-    puts "ok   #{name}"
-    true
+    [true, "ok   #{name}\n"]
   else
-    puts "FAIL #{name}"
-    File.write("tmp/#{File.basename(name)}.actual", out)
-    diff, _s = Open3.capture2("diff", expected, "tmp/#{File.basename(name)}.actual")
-    puts diff.lines.first(20).join
-    false
+    actual = "tmp/#{File.basename(name)}.actual"
+    File.write(actual, out)
+    diff, _s = Open3.capture2("diff", expected, actual)
+    [false, "FAIL #{name}\n#{diff.lines.first(20).join}"]
   end
+end
+
+def run_test(name, cmd, expected)
+  passed, text = check_test(name, cmd, expected)
+  puts text
+  passed
+end
+
+# Test basenames are unique across test/ and test/spinel/, so parallel builds
+# never share tmp/spinel/<basename> or tmp/<basename>.actual.
+def check_spinel_test(spinel, test)
+  bin = "tmp/spinel/#{File.basename(test, ".rb")}"
+  compile_and_check(spinel, test, bin)
+rescue SystemCallError => e
+  [false, "FAIL spinel #{test} (#{e.class}: #{e.message})\n"]
+end
+
+def compile_and_check(spinel, test, bin)
+  _o, err, status = Open3.capture3(spinel, "-I", "lib", test, "-o", bin)
+  if status.success?
+    check_test("spinel #{test}", [bin], test.sub(/\.rb\z/, ".expected"))
+  else
+    [false, "FAIL spinel #{test} (compile)\n#{err.lines.first(8).join}"]
+  end
+end
+
+def spinel_jobs
+  jobs = ENV.fetch("JOBS", SpinelTest::Unit::Toolchain.cpus).to_i
+  jobs.positive? ? jobs : 1
+end
+
+# Results come back in the order of +tests+, whatever order they finish in.
+def check_spinel_tests(spinel, tests)
+  queue = Queue.new
+  tests.each_index { |index| queue << index }
+  queue.close
+  results = Array.new(tests.size)
+  workers = Array.new([spinel_jobs, tests.size].min) do
+    Thread.new do
+      while (index = queue.pop)
+        results[index] = check_spinel_test(spinel, tests[index])
+      end
+    end
+  end
+  workers.each(&:join)
+  results
 end
 
 namespace :test do
@@ -57,17 +106,9 @@ namespace :test do
       next
     end
     FileUtils.mkdir_p("tmp/spinel")
-    results = (TESTS + SPINEL_ONLY_TESTS).map do |t|
-      bin = "tmp/spinel/#{File.basename(t, ".rb")}"
-      _o, err, status = Open3.capture3(spinel, "-I", "lib", t, "-o", bin)
-      if status.success?
-        run_test("spinel #{t}", [bin], t.sub(/\.rb\z/, ".expected"))
-      else
-        puts "FAIL spinel #{t} (compile)\n#{err.lines.first(8).join}"
-        false
-      end
-    end
-    abort "Spinel leg failed" unless results.all?
+    results = check_spinel_tests(spinel, TESTS + SPINEL_ONLY_TESTS)
+    results.each { |_passed, text| puts text }
+    abort "Spinel leg failed" unless results.all?(&:first)
   end
 
   desc "Rewrite test/*.expected from CRuby's output"
