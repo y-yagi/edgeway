@@ -3,11 +3,13 @@ require "edgeway"
 require "edgeway/service/cloudflare/d1"
 require "edgeway/service/cloudflare/jwt"
 require "edgeway/service/fetch"
+require "edgeway/service/cloudflare/rate_limit"
 
 Edgeway::Model.connection = Edgeway::Cloudflare::D1Adapter.new(binding: "MYDB")
 Edgeway::Auth.verifier = Edgeway::Cloudflare::JWTVerifier.new
 Edgeway::HTTP.client = Edgeway::FetchTransport.new
 Edgeway.cache = Edgeway::Cache::NullStore.new
+Edgeway::Controller.rate_limiter = Edgeway::Cloudflare::RateLimiter.new(transport: Edgeway::Cloudflare::RateLimitImportTransport.new)
 
 require_relative "../app/jobs/job"
 require_relative "../app/services/application_service"
@@ -27,11 +29,13 @@ require "edgeway"
 require "edgeway/db/memory"
 require "edgeway/service/cloudflare/jwt"
 require "edgeway/service/fetch"
+require "edgeway/service/cloudflare/rate_limit"
 
 Edgeway::Model.connection = Edgeway::DB::MemoryAdapter.new
 Edgeway::Auth.verifier = Edgeway::Cloudflare::JWTVerifier.new
 Edgeway::HTTP.client = Edgeway::FetchTransport.new
 Edgeway.cache = Edgeway::Cache::NullStore.new
+Edgeway::Controller.rate_limiter = Edgeway::Cloudflare::RateLimiter.new(transport: Edgeway::Cloudflare::RateLimitImportTransport.new)
 
 require_relative "../app/jobs/job"
 require_relative "../app/services/application_service"
