@@ -4,43 +4,22 @@
 
 ### Added
 
-- Rate limiting over a Cloudflare Rate Limiting binding: `rate_limit "API_LIMITER", by:, name:, retry_after:, only:, except:` in a controller
-  (a `before_action`). A request over the limit raises `Edgeway::TooManyRequests`: 429 with `{"error":"rate limit exceeded"}`, and `Retry-After`
-  with `retry_after:`. The key is per controller and, by default, the JWT `sub` or the client address. A binding the Worker does not have raises `Edgeway::ConfigurationError` (500); an error from the binding lets the request through. A `by:` method is never a route's action. The binding gets a SHA256 digest of the key; an IPv6 client is keyed by its /64.
-  The limit and period are set in `wrangler.toml` (`[[ratelimits]]`; `edgeway new` writes it commented out).
-  `Edgeway::Controller.rate_limiter` (`NullLimiter` by default; `Edgeway::Cloudflare::RateLimiter` in a built app; wasm import module `edgeway_ratelimit`,
-  `js/cloudflare-ratelimit.js`). `stub_rate_limit` and `rate_limit_checks` in `Edgeway::UnitTest`. See "Rate limiting" in the README.
-- Cache store: `Edgeway.cache` with `read`, `write`, `fetch` (`expires_in:`, `force:`, `skip_nil:`), `delete` and `exist?`, for JSON values.
-  Keys can be Arrays and models (`"<table>/<id>-<updated_at>"`). Stores: `Edgeway::Cache::NullStore` (the default), `MemoryStore`, and
-  `Edgeway::Cloudflare::KVStore` over a KV namespace (wasm import module `edgeway_kv`, `js/cloudflare-kv.js`).
-  `config/cache.yml` (`store: kv | memory | null`, `binding:`, `namespace:`, `expires_in:`) picks one per environment; `edgeway new` writes it and a
-  commented `[[kv_namespaces]]` in `wrangler.toml`. A store failure is logged and read as a miss. `edgeway test` uses a `NullStore`.
-  See "Caching" in the README.
-- HTTP caching helpers in controllers: `stale?` and `fresh_when` (`etag:`, `last_modified:`, `public:`; answer 304 for a matching `If-None-Match` /
-  `If-Modified-Since` on GET and HEAD), `expires_in` and `no_store`. See "HTTP caching" in the README.
-- Outbound HTTP: `Edgeway::HTTP.get`, `post`, `put`, `patch` and `delete` call an external API and answer an `Edgeway::HTTP::ClientResponse`
-  (`status`, `headers`, `body`, `json`, `success?`). `https` only (`http` for localhost), 10 second timeout (`timeout:`), no redirect followed,
-  response body at most 1 MB. `Edgeway::HTTP::Error` and `Edgeway::HTTP::Timeout` are a 500 unless rescued.
-  The wasm import module is `edgeway_fetch` (`js/fetch.js`). See "Outbound HTTP" in the README.
-- `stub_http`, `stub_http_error` and `http_requests` in `Edgeway::UnitTest` replace the network in tests;
-  a request without a stub raises `Edgeway::HTTP::UnstubbedRequest`.
-- Static assets: apps made by `edgeway new` serve `public/` as Cloudflare Workers Static Assets (`[assets]` in `wrangler.toml`),
-  and get `public/.assetsignore`. See "Static assets" in the README.
-- `Edgeway.logger` has `debug`, `info`, `warn` and `error`, each `(message, fields = {})`, and writes one JSON line per call to stderr.
-  `LOG_LEVEL` (default `info`) sets the lowest level written.
-- The runtime sends each log line to `console.<level>` as an object, so Workers Logs records one entry per line at its level, with the fields indexed
-  and `ray` added. Other stderr text goes to `console.error` line by line.
-- `wrangler.toml` of new apps has `[observability]` with `enabled = true`.
+- Rate limiting: `rate_limit` in controllers, over a Cloudflare Rate Limiting binding. A request over the limit gets a 429.
+  The limit and period are set in `[[ratelimits]]` of `wrangler.toml` ([#22](https://github.com/y-yagi/edgeway/pull/22)).
+- Cache store: `Edgeway.cache` (`read`, `write`, `fetch`, `delete`, `exist?`) over Workers KV, memory, or nothing,
+  picked per environment in `config/cache.yml` ([#20](https://github.com/y-yagi/edgeway/pull/20)).
+- HTTP caching helpers in controllers: `stale?`, `fresh_when`, `expires_in` and `no_store` ([#19](https://github.com/y-yagi/edgeway/pull/19)).
+- Outbound HTTP: `Edgeway::HTTP.get`, `post`, `put`, `patch` and `delete` ([#18](https://github.com/y-yagi/edgeway/pull/18)).
+- Test helpers in `Edgeway::UnitTest`: `stub_http`, `stub_http_error`, `http_requests`, `stub_rate_limit` and `rate_limit_checks` ([#18](https://github.com/y-yagi/edgeway/pull/18), [#22](https://github.com/y-yagi/edgeway/pull/22)).
+- Static assets: apps made by `edgeway new` serve `public/` as Workers Static Assets ([#16](https://github.com/y-yagi/edgeway/pull/16)).
+- Structured logging: `Edgeway.logger` has `debug`, `info`, `warn` and `error`, and `LOG_LEVEL` sets the lowest level written.
+  Workers Logs records one entry per log line with its fields, and new apps enable `[observability]` ([#17](https://github.com/y-yagi/edgeway/pull/17)).
 
 ### Changed
 
-- `Edgeway.logger` writes JSON lines instead of `[edgeway] ...` text.
-- The application's error logs and the query stats have fields (`status`; `queries`, `rows_read`, `rows_written`, `db_ms`, `database`).
-  A custom logger set with `Edgeway.logger=` must take `(message, fields = {})`.
-- `edgeway test` runs the tests as wasm32-wasi on a local D1 (wrangler's `getPlatformProxy`, in memory) when the `test:` section of `config/database.yml` has `adapter: d1`;
-  each test drops every table and applies the migrations again. Other adapters keep the native build with SQLite.
-  Needs Node.js 24 or later and wrangler in `node_modules`. Structured log lines are printed as text.
-- Apps made by `edgeway new` use `adapter: d1` for `test:`, and their CI installs wrangler instead of libsqlite3-dev.
+- `Edgeway.logger` writes JSON lines instead of `[edgeway] ...` text. A custom logger set with `Edgeway.logger=` must take `(message, fields = {})` ([#17](https://github.com/y-yagi/edgeway/pull/17)).
+- `edgeway test` runs the tests on a local D1 when the `test:` section of `config/database.yml` has `adapter: d1` (needs Node.js 24 or later and wrangler).
+  Apps made by `edgeway new` use it ([#15](https://github.com/y-yagi/edgeway/pull/15)).
 
 ## v0.2.0
 
