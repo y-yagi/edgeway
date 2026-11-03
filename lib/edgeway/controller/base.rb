@@ -6,6 +6,7 @@ module Edgeway
       include Rendering
       include Authentication
       include Caching
+      include RateLimiting
 
       NON_ACTIONS = ["render", "head", "headers", "params", "request", "performed?", "to_response",
                      "action?", "run_before_actions", "rescue_with_handler",
@@ -16,6 +17,18 @@ module Edgeway
       def self.before_action(name, only: [], except: [])
         @own_before_actions ||= []
         @own_before_actions << Callback.new(name, only.map(&:to_s), except.map(&:to_s))
+      end
+
+      def self.rate_limit(binding_name, by: nil, name: nil, retry_after: nil, only: [], except: [])
+        @own_before_actions ||= []
+        @own_before_actions << RateLimiting::Rule.build(binding_name, by, name, retry_after, only, except)
+        (@own_non_actions ||= []) << by.to_s unless by.nil?
+      end
+
+      def self.own_non_actions = (@own_non_actions || [])
+
+      def self.non_action?(name)
+        lineage.any? { |c| c.own_non_actions.include?(name) }
       end
 
       def self.own_before_actions = (@own_before_actions || [])
@@ -69,7 +82,7 @@ module Edgeway
 
       def action?(name)
         return false if name.start_with?("_view_") || name.start_with?("_render_")
-        respond_to?(name.to_sym) && !NON_ACTIONS.include?(name)
+        respond_to?(name.to_sym) && !NON_ACTIONS.include?(name) && !self.class.non_action?(name)
       end
 
       def raw(text) = View::SafeHTML.new(text)

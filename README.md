@@ -66,6 +66,7 @@ end
 - [HTTP caching](#http-caching)
 - [Caching](#caching)
 - [Outbound HTTP](#outbound-http)
+- [Rate limiting](#rate-limiting)
 - [Testing an app](#testing-an-app)
 - [Development](#development)
 - [License](#license)
@@ -679,7 +680,7 @@ Settings are Worker variables in `wrangler.toml`:
 | `CORS_ORIGINS` | allowed origins, comma-separated, compared as exact strings with the request's `Origin` (`https://app.example, http://localhost:3000`; no trailing slash). `*` allows any origin. Unset or empty means CORS is off: nothing is added and `OPTIONS` goes to the app. The origin `null` (sandboxed iframes, `file:` pages) is never allowed, even with `*` |
 | `CORS_HEADERS` | request headers a preflight allows (default `Authorization, Content-Type`). Listed one by one, as `*` does not cover `Authorization`. `X-D1-Bookmark` is added when a database has `sessions: true` |
 | `CORS_MAX_AGE` | seconds a browser may cache a preflight (default `600`). Not a non-negative integer: every request is answered 500, as with a bad JWT setting |
-| `CORS_EXPOSE_HEADERS` | response headers the page may read (`Access-Control-Expose-Headers`, e.g. `X-Total-Count`); none by default, except `X-D1-Bookmark` when a database has `sessions: true` (it is also merged into the app's own `Access-Control-Expose-Headers`) |
+| `CORS_EXPOSE_HEADERS` | response headers the page may read (`Access-Control-Expose-Headers`, e.g. `X-Total-Count`); `Retry-After` (a 429 or 503 answer) is always exposed, and `X-D1-Bookmark` when a database has `sessions: true` (it is also merged into the app's own `Access-Control-Expose-Headers`) |
 
 - A preflight from an allowed origin is answered 204 with `Access-Control-Allow-Origin` (the request's origin),
   `Access-Control-Allow-Methods` (`GET, HEAD, POST, PUT, PATCH, DELETE`), `Access-Control-Allow-Headers` and `Access-Control-Max-Age`.
@@ -867,6 +868,97 @@ response.json       # the body parsed
 - Like D1 and the JWT check, this needs JSPI.
 - In tests, `stub_http` (see "Writing tests") stands in for the network, so no test makes a request.
 
+## Rate limiting
+
+```ruby
+class PostsController < ApplicationController
+  before_action :authenticate!
+  rate_limit "WRITE_LIMITER", only: [:create, :update, :destroy], retry_after: 10
+end
+```
+
+The limit and the period are set on the binding in `wrangler.toml`, where Cloudflare reads them (the period is 10 or 60 seconds only; `namespace_id`
+is a positive integer, as a string, unique in your account):
+
+```toml
+[[ratelimits]]
+name = "WRITE_LIMITER"
+namespace_id = "1001"
+  [ratelimits.simple]
+  limit = 100
+  period = 60
+```
+
+`wrangler dev` enforces the limit locally. `edgeway new` writes this commented out. It needs wrangler 4.36.0 or later (the generated app pins a newer one).
+
+`rate_limit` is a `before_action` (run in declaration order), like Rails' `rate_limit`:
+
+```ruby
+rate_limit "API_LIMITER", by: :rate_limit_key, name: nil, retry_after: nil, only: [...], except: [...]
+```
+
+- The first argument is the binding name. A controller can have several, such as a 10 second and a 60 second binding.
+- A request over the limit raises `Edgeway::TooManyRequests`: the answer is 429 with `{"error":"rate limit exceeded"}`.
+  `rescue_from Edgeway::TooManyRequests` answers otherwise; the error has `retry_after` (0 without `retry_after:`).
+- `Retry-After` is sent only with `retry_after:` (a positive Integer, in seconds): the binding does not tell when the count resets.
+- The key is `"<name>:<by>"`. `name:` defaults to the controller's class name, so every controller has its own count; give several controllers the same `name:` to share one.
+- `by:` is a Symbol naming a controller method (not a lambda) that answers the key's second part, such as `:current_account_id`
+  (a String or anything with a `to_s`, such as an Integer). A method named by `by:` is never a route's action, even if it is public
+  (`private` is still tidier).
+  A value taken from the client (a header, a parameter) is a key the client chooses: it can pick a fresh count with every request.
+  The default is `"user:<sub>"` for a request that passed `authenticate!`,
+  and otherwise `"ip:<client address>"` (`request.remote_addr`, from `CF-Connecting-IP`). An IPv6 address is keyed by its /64 prefix (`2001:db8:1:2::/64`),
+  since one client usually holds a whole /64; an IPv4-mapped address (`::ffff:192.0.2.1`, `::ffff:c000:201`, `0:0:0:0:0:ffff:192.0.2.1`) by its IPv4 address.
+- Order matters: a `rate_limit` declared after `before_action :authenticate!` never sees a request that `authenticate!` rejects (401), so token probing is not counted.
+  Declare an IP-keyed limit before `authenticate!` (it sees every request) and, if wanted, a per-user limit after it:
+
+  ```ruby
+  rate_limit "IP_LIMITER"       # before authenticate!: no user is known yet, so the key is the IP; 401s are counted
+  before_action :authenticate!
+  rate_limit "USER_LIMITER"     # after: the key is the user's sub
+  ```
+
+- An empty key part (no client address, or a `by:` method answering `nil` or `""`) puts every such request in one shared count.
+- The binding gets a SHA256 digest of the key, so the key is never sent as it is, and any bytes are safe in it.
+- `wrangler dev` passes a `CF-Connecting-IP` sent by the client through, so a local test of the IP key can be spoofed; in production Cloudflare sets it.
+- Cloudflare warns that an IP address can be shared by many users (a company, a mobile carrier), and that a limit on it can block them all.
+  Prefer a stable identifier such as a user or an API key.
+- The key is never logged.
+
+Counts are kept per Cloudflare location and are eventually consistent, so they are approximate: a burst can get past the limit,
+and a client in another location has its own count. For a strict limit use a Durable Object. The limit is not shown in the Cloudflare dashboard;
+look for the 429s in the logs.
+
+A binding the Worker does not have (a typo in the name), or a value that has no `limit` function, is a misconfiguration:
+the request raises `Edgeway::ConfigurationError` (500, the details only in the log), like a missing `JWT_ISSUER`, so a typo cannot switch limiting off silently.
+Any error thrown by `limit()` itself lets the request through (fail open), including a binding of another kind that happens to have the name: it logs `rate limit check failed` with the `binding` and the `error`, and the request goes on.
+
+Like D1, this needs JSPI.
+
+### In tests
+
+No test is limited by default. A test turns a limit on for a binding, and reads the checks the app made:
+
+```ruby
+class PostsControllerTest < Edgeway::IntegrationTest
+  def test_over_the_limit
+    stub_rate_limit("WRITE_LIMITER", exceeded: true)
+    post "/posts", json: { post: { title: "a" } }
+    assert_response 429
+    assert_equal "WRITE_LIMITER", rate_limit_checks.first[0]   # [[binding, key], ...]
+  end
+end
+```
+
+The stub and the recorded checks start empty in every test.
+
+A request has no client address unless the test gives one, so the default key is `ip:`; `remote_addr:` sets it for that request only:
+
+```ruby
+get "/posts", remote_addr: "203.0.113.7"
+assert_equal "PostsController:ip:203.0.113.7", rate_limit_checks.first[1]
+```
+
 ## Testing an app
 
 ```sh
@@ -889,7 +981,7 @@ the tests are compiled to wasm32-wasi and run on a local D1, as in production; w
 
 - Tests `require "edgeway/test"` in `test/test_helper.rb`.
 - Model tests inherit `Edgeway::UnitTest` (the database, no requests).
-- `Edgeway::IntegrationTest` inherits it and adds `get`/`post`/..., `json` and `assert_response`.
+- `Edgeway::IntegrationTest` inherits it and adds `get`/`post`/..., `json` and `assert_response`. `get`/`post`/... take `json:`, `headers:` and `remote_addr:` (the client address, for that request only).
 - Both inherit `SpinelTest::Unit::TestCase`.
 
 Outgoing HTTP (see [Outbound HTTP](#outbound-http)) never reaches the network in a test:
@@ -905,6 +997,7 @@ http_requests   # the requests sent, in order: Hashes with "method", "url", "hea
 - The stubs and the recorded requests start empty in every test.
 - This is plain Ruby, so it works in the native and the wasm builds alike.
 - `Edgeway.cache` is a `NullStore` in every test (see [Caching](#caching)); a test of caching sets a `MemoryStore` itself.
+- `stub_rate_limit` and `rate_limit_checks` stand in for the limiter (see [Rate limiting](#rate-limiting)); no request is limited unless a test says so.
 
 Each test starts from an empty database with `db/migrations/*.sql` applied in file name order
 (so the migrations' seed rows are there), and requests really write and read rows.

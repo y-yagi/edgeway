@@ -39,9 +39,9 @@ test("bindings (non-strings) stay out even under APP_", () => {
   assert.deepEqual(varsOf({ APP_DB: { prepare() {} }, APP_N: 1, APP_S: "s" }), { APP_S: "s" });
 });
 
-test("CORS exposes and allows the bookmark header only with session bindings", () => {
-  assert.deepEqual(corsOptions([]), { exposeHeaders: [], allowHeaders: [] });
-  assert.deepEqual(corsOptions(["DB"]), { exposeHeaders: ["X-D1-Bookmark"], allowHeaders: ["X-D1-Bookmark"] });
+test("CORS always exposes Retry-After, and exposes and allows the bookmark header only with session bindings", () => {
+  assert.deepEqual(corsOptions([]), { exposeHeaders: ["Retry-After"], allowHeaders: [] });
+  assert.deepEqual(corsOptions(["DB"]), { exposeHeaders: ["Retry-After", "X-D1-Bookmark"], allowHeaders: ["X-D1-Bookmark"] });
 });
 
 test("LOG_LEVEL reaches the app", () => {

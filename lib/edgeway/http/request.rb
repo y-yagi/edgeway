@@ -25,6 +25,11 @@ module Edgeway
         ENV["HTTP_" + name.upcase.gsub("-", "_")] || ""
       end
 
+      # The client address the platform reports, "" when unknown.
+      def remote_addr
+        ENV["REMOTE_ADDR"] || ""
+      end
+
       def json?
         @content_type.start_with?("application/json")
       end

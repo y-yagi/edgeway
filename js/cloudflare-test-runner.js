@@ -15,6 +15,7 @@ import { d1Imports, varsOf } from "./cloudflare.js";
 import { jwtImports } from "./jwt.js";
 import { fetchImports } from "./fetch.js";
 import { kvImports } from "./cloudflare-kv.js";
+import { rateLimitImports } from "./cloudflare-ratelimit.js";
 import { D1Sessions } from "./cloudflare-d1-sessions.js";
 import { loadMigrations, resetDatabases } from "./cloudflare-test-database.js";
 
@@ -47,6 +48,7 @@ async function runTests(wasmPath, args, env) {
     ...jwtImports(env, () => instance),
     ...fetchImports(() => instance),
     ...kvImports(env, () => instance),
+    ...rateLimitImports(env, () => instance),
     edgeway_test: { reset },
   });
   try {

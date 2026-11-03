@@ -28,6 +28,18 @@ module Edgeway
   # ({"error":"invalid token"}) and the challenge no description.
   class InvalidToken < Unauthorized; end
 
+  # A request over a rate limit: 429 with a fixed body. retry_after is the
+  # seconds for a Retry-After header, 0 for none (anything but a positive
+  # Integer is 0).
+  class TooManyRequests < Error
+    attr_reader :retry_after
+
+    def initialize(message = "rate limit exceeded", retry_after = 0)
+      super(message)
+      @retry_after = retry_after.is_a?(Integer) && Integer(retry_after) > 0 ? retry_after : 0
+    end
+  end
+
   # A record that doesn't exist: 404.
   class RecordNotFound < Error; end
 

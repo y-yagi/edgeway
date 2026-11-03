@@ -34,6 +34,8 @@ module Edgeway
       elsif e.is_a?(Unauthorized)
         Edgeway.logger.info(e.message, status: 401)
         unauthorized("authentication required", "Bearer")
+      elsif e.is_a?(TooManyRequests)
+        too_many_requests(e)
       elsif e.is_a?(RecordNotUnique)
         # The message names the table and columns: the log only.
         Edgeway.logger.info(e.message, status: 409)
@@ -55,6 +57,13 @@ module Edgeway
     end
 
     private
+
+    def too_many_requests(error)
+      Edgeway.logger.info(error.message, status: 429)
+      response = message(429, "rate limit exceeded")
+      response.headers["Retry-After"] = error.retry_after.to_s if error.retry_after > 0
+      response
+    end
 
     def unauthorized(text, challenge)
       response = message(401, text)

@@ -12,6 +12,7 @@ import config from "./config.js";
 import { jwtImports } from "./jwt.js";
 import { fetchImports } from "./fetch.js";
 import { kvImports } from "./cloudflare-kv.js";
+import { rateLimitImports } from "./cloudflare-ratelimit.js";
 import { withCors } from "./cors.js";
 import { BOOKMARK_HEADER, D1Sessions } from "./cloudflare-d1-sessions.js";
 
@@ -185,9 +186,12 @@ export function varsOf(env) {
   return vars;
 }
 
+// Not CORS-safelisted, so a page reads it on a 429 or 503 only when exposed.
+const RETRY_AFTER_HEADER = "Retry-After";
+
 export function corsOptions(sessionBindings) {
-  const names = sessionBindings.length > 0 ? [BOOKMARK_HEADER] : [];
-  return { exposeHeaders: names, allowHeaders: names };
+  const bookmark = sessionBindings.length > 0 ? [BOOKMARK_HEADER] : [];
+  return { exposeHeaders: [RETRY_AFTER_HEADER, ...bookmark], allowHeaders: bookmark };
 }
 
 // What identifies the request in every log line: the ray id (absent in local
@@ -212,6 +216,7 @@ export function createWorker(appModule) {
           ...jwtImports(env, getInstance),
           ...fetchImports(getInstance),
           ...kvImports(env, getInstance),
+          ...rateLimitImports(env, getInstance),
         }),
       });
       return sessions.annotate(response);

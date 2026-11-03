@@ -50,3 +50,13 @@ migrations_dir = "db/migrations"
 # [[kv_namespaces]]
 # binding = "CACHE"
 # id = "00000000000000000000000000000000"
+
+# Rate limiting (`rate_limit "API_LIMITER"` in a controller; see Edgeway's README,
+# "Rate limiting"). The period is 10 or 60 seconds; namespace_id is a positive
+# integer, as a string, that is unique in your account. `wrangler dev` enforces it.
+# [[ratelimits]]
+# name = "API_LIMITER"
+# namespace_id = "1001"
+#   [ratelimits.simple]
+#   limit = 100
+#   period = 60

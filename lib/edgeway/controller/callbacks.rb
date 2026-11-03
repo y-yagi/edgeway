@@ -9,6 +9,10 @@ module Edgeway
         @except = except
       end
 
+      def run(controller)
+        controller.send(@name)
+      end
+
       def applies?(action)
         return false if @except.include?(action)
         @only.empty? || @only.include?(action)
@@ -19,7 +23,7 @@ module Edgeway
       def run_before_actions(action)
         self.class.all_before_actions.each do |callback|
           next unless callback.applies?(action)
-          send(callback.name)
+          callback.run(self)
           return false if performed?
         end
         true

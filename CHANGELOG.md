@@ -4,6 +4,12 @@
 
 ### Added
 
+- Rate limiting over a Cloudflare Rate Limiting binding: `rate_limit "API_LIMITER", by:, name:, retry_after:, only:, except:` in a controller
+  (a `before_action`). A request over the limit raises `Edgeway::TooManyRequests`: 429 with `{"error":"rate limit exceeded"}`, and `Retry-After`
+  with `retry_after:`. The key is per controller and, by default, the JWT `sub` or the client address. A binding the Worker does not have raises `Edgeway::ConfigurationError` (500); an error from the binding lets the request through. A `by:` method is never a route's action. The binding gets a SHA256 digest of the key; an IPv6 client is keyed by its /64.
+  The limit and period are set in `wrangler.toml` (`[[ratelimits]]`; `edgeway new` writes it commented out).
+  `Edgeway::Controller.rate_limiter` (`NullLimiter` by default; `Edgeway::Cloudflare::RateLimiter` in a built app; wasm import module `edgeway_ratelimit`,
+  `js/cloudflare-ratelimit.js`). `stub_rate_limit` and `rate_limit_checks` in `Edgeway::UnitTest`. See "Rate limiting" in the README.
 - Cache store: `Edgeway.cache` with `read`, `write`, `fetch` (`expires_in:`, `force:`, `skip_nil:`), `delete` and `exist?`, for JSON values.
   Keys can be Arrays and models (`"<table>/<id>-<updated_at>"`). Stores: `Edgeway::Cache::NullStore` (the default), `MemoryStore`, and
   `Edgeway::Cloudflare::KVStore` over a KV namespace (wasm import module `edgeway_kv`, `js/cloudflare-kv.js`).

@@ -11,6 +11,7 @@
 require "spinel_test/unit"
 require "edgeway"
 require "edgeway/http/stub_transport"
+require "edgeway/rate_limit/stub_limiter"
 require "tmp/test_app"
 
 module Edgeway
@@ -33,13 +34,17 @@ module Edgeway
   # db/NAME/migrations, read with db(:name). Edgeway's own tests use
   # MemoryAdapter instead, which stores nothing. Edgeway.cache is a NullStore in
   # every test, whatever config/cache.yml says; a test that checks caching sets
-  # `Edgeway.cache = Edgeway::Cache::MemoryStore.new` itself.
+  # `Edgeway.cache = Edgeway::Cache::MemoryStore.new` itself. The rate limiter
+  # allows every request and records the checks (stub_rate_limit,
+  # rate_limit_checks).
   class UnitTest < SpinelTest::Unit::TestCase
     def setup
       @databases = {}
       @http = Edgeway::HTTP::StubTransport.new
       Edgeway::HTTP.client = @http
       Edgeway.cache = Edgeway::Cache::NullStore.new
+      @rate_limiter = Edgeway::RateLimit::StubLimiter.new
+      Edgeway::Controller.rate_limiter = @rate_limiter
       Edgeway::TestDatabases.reset
       open_database(Edgeway::Model::PRIMARY)
       Edgeway::TEST_DATABASES.each { |name| open_database(name) }
@@ -64,6 +69,12 @@ module Edgeway
 
     def http_requests = @http.requests
 
+    def stub_rate_limit(binding_name, exceeded: true)
+      @rate_limiter.stub(binding_name, exceeded)
+    end
+
+    def rate_limit_checks = @rate_limiter.checks
+
     private
 
     def open_database(name)
@@ -84,11 +95,11 @@ module Edgeway
       @json = nil
     end
 
-    def get(path, json: nil, headers: {}) = request("GET", path, json, headers)
-    def delete(path, json: nil, headers: {}) = request("DELETE", path, json, headers)
-    def post(path, json: nil, headers: {}) = request("POST", path, json, headers)
-    def put(path, json: nil, headers: {}) = request("PUT", path, json, headers)
-    def patch(path, json: nil, headers: {}) = request("PATCH", path, json, headers)
+    def get(path, json: nil, headers: {}, remote_addr: "") = request("GET", path, json, headers, remote_addr)
+    def delete(path, json: nil, headers: {}, remote_addr: "") = request("DELETE", path, json, headers, remote_addr)
+    def post(path, json: nil, headers: {}, remote_addr: "") = request("POST", path, json, headers, remote_addr)
+    def put(path, json: nil, headers: {}, remote_addr: "") = request("PUT", path, json, headers, remote_addr)
+    def patch(path, json: nil, headers: {}, remote_addr: "") = request("PATCH", path, json, headers, remote_addr)
 
     # The body parsed as JSON.
     def json
@@ -102,7 +113,7 @@ module Edgeway
 
     private
 
-    def request(verb, target, json, headers)
+    def request(verb, target, json, headers, remote_addr)
       path = target
       query = ""
       q = target.index("?")
@@ -112,15 +123,30 @@ module Edgeway
       end
       body = json.nil? ? "" : JSON.generate(json)
       content_type = json.nil? ? "" : "application/json"
-      headers.each { |k, v| ENV["HTTP_" + k.upcase.gsub("-", "_")] = v }
-      begin
-        res = Edgeway.application.call(Edgeway::HTTP::Request.new(verb, path, query, content_type, body))
-      ensure
-        headers.each { |k, _v| ENV.delete("HTTP_" + k.upcase.gsub("-", "_")) }
-      end
+      res = call_application(Edgeway::HTTP::Request.new(verb, path, query, content_type, body), headers, remote_addr)
       @json = nil
       @response = Edgeway::TestResponse.new(res.status, res.body, res.headers)
       @response
+    end
+
+    def call_application(http_request, headers, remote_addr)
+      previous_addr = ENV["REMOTE_ADDR"]
+      headers.each { |k, v| ENV["HTTP_" + k.upcase.gsub("-", "_")] = v }
+      ENV["REMOTE_ADDR"] = remote_addr
+      begin
+        Edgeway.application.call(http_request)
+      ensure
+        headers.each { |k, _v| ENV.delete("HTTP_" + k.upcase.gsub("-", "_")) }
+        restore_remote_addr(previous_addr)
+      end
+    end
+
+    def restore_remote_addr(previous_addr)
+      if previous_addr.nil?
+        ENV.delete("REMOTE_ADDR")
+      else
+        ENV["REMOTE_ADDR"] = previous_addr
+      end
     end
   end
 end
