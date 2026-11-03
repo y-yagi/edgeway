@@ -39,6 +39,12 @@ rescue Edgeway::CLI::Error => e
   puts e.message.sub(/ in .*/, "")
 end
 
+begin
+  Edgeway::CLI::Test.run(["--ruby"])
+rescue Edgeway::CLI::Error => e
+  puts e.message
+end
+
 puts "--"
 Dir.mktmpdir do |root|
   write(root, "config/routes.rb")

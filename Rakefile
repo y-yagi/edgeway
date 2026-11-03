@@ -3,13 +3,19 @@
 require "bundler/gem_tasks"
 require "fileutils"
 require "open3"
+require "spinel_test/unit/cli"
 require "spinel_test/unit/toolchain"
 require_relative "lib/edgeway/cli/toolchain"
 
-# Tests follow the shape of Spinel's own: test/NAME.rb prints its results and
-# test/NAME.expected is what it must print. Each runs under CRuby and, when a
-# Spinel compiler is found, as a Spinel native build; both must print exactly
-# the .expected (stdout only).
+# Two styles of test, each run under CRuby and, when a Spinel compiler is
+# found, as a Spinel native build:
+#
+#   test/NAME.rb       follows the shape of Spinel's own tests: it prints its
+#                      results and test/NAME.expected is what it must print
+#                      (stdout only), once per leg
+#   test/NAME_test.rb  a spinel_test-unit class (xUnit style, named failures);
+#                      all of them are one run per leg: `spinel_test-unit
+#                      --ruby` under CRuby, one Spinel build for the lot
 #
 #   rake test                  both legs (the Spinel leg is skipped when
 #                              there is no compiler)
@@ -24,8 +30,11 @@ require_relative "lib/edgeway/cli/toolchain"
 #                              `mise which spinel`; see Edgeway::CLI::Toolchain)
 #   JOBS=N                     how many Spinel tests build at once (default: the
 #                              CPU count, honouring cgroup limits; each cc
-#                              peaks around 350MB)
-TESTS = Dir["test/*.rb"].sort
+#                              peaks around 350MB); when set, also how many
+#                              units the one spinel_test-unit build is compiled
+#                              as (otherwise its own default)
+UNIT_TESTS = Dir["test/*_test.rb"].sort
+TESTS = (Dir["test/*.rb"] - UNIT_TESTS).sort
 CLI_TESTS = Dir["test/cli/*.rb"].sort
 # Spinel only (ffi_lib / ffi_source can't be read by CRuby, like d1.rb).
 SPINEL_ONLY_TESTS = Dir["test/spinel/*.rb"].sort
@@ -67,12 +76,27 @@ def compile_and_check(spinel, test, bin)
   end
 end
 
+def run_unit_tests(*options)
+  SpinelTest::Unit::CLI.start([*options, "-I", "lib", *UNIT_TESTS]).zero?
+end
+
+def with_env(variables)
+  previous = variables.to_h { |name, _value| [name, ENV[name]] }
+  variables.each { |name, value| ENV[name] = value }
+  yield
+ensure
+  previous.each { |name, value| ENV[name] = value }
+end
+
 def spinel_jobs
   jobs = ENV.fetch("JOBS", SpinelTest::Unit::Toolchain.cpus).to_i
   jobs.positive? ? jobs : 1
 end
 
-# Results come back in the order of +tests+, whatever order they finish in.
+def unit_test_jobs
+  ENV["JOBS"] ? spinel_jobs.to_s : ENV["SPINEL_TEST_UNIT_JOBS"]
+end
+
 def check_spinel_tests(spinel, tests)
   queue = Queue.new
   tests.each_index { |index| queue << index }
@@ -90,16 +114,16 @@ def check_spinel_tests(spinel, tests)
 end
 
 namespace :test do
-  desc "Run test/*.rb under CRuby"
+  desc "Run test/*.rb and test/*_test.rb under CRuby"
   task :cruby do
     FileUtils.mkdir_p("tmp")
     results = TESTS.map do |t|
       run_test("cruby #{t}", ["ruby", "-I", "lib", t], t.sub(/\.rb\z/, ".expected"))
     end
-    abort "CRuby leg failed" unless results.all?
+    abort "CRuby leg failed" unless [*results, run_unit_tests("--ruby")].all?
   end
 
-  desc "Run test/*.rb as Spinel native builds"
+  desc "Run test/*.rb, test/spinel/*.rb and test/*_test.rb as Spinel native builds"
   task :spinel do
     spinel = Edgeway::CLI::Toolchain.spinel
     unless spinel
@@ -109,7 +133,8 @@ namespace :test do
     FileUtils.mkdir_p("tmp/spinel")
     results = check_spinel_tests(spinel, TESTS + SPINEL_ONLY_TESTS)
     results.each { |_passed, text| puts text }
-    abort "Spinel leg failed" unless results.all?(&:first)
+    unit_passed = with_env("SPINEL" => spinel, "SPINEL_TEST_UNIT_JOBS" => unit_test_jobs) { run_unit_tests }
+    abort "Spinel leg failed" unless [*results.map(&:first), unit_passed].all?
   end
 
   desc "Rewrite test/*.expected from CRuby's output"
