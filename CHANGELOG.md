@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.3.0
+
 ### Added
 
 - Rate limiting: `rate_limit` in controllers, over a Cloudflare Rate Limiting binding. A request over the limit gets a 429.
