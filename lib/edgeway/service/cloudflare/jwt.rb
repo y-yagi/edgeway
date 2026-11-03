@@ -3,33 +3,21 @@
 # (ffi_source is Spinel's; tests use edgeway/http/auth/stub).
 require "json"
 require_relative "../../http/auth/jwt"
+require_relative "../import_result"
 
 module Edgeway
   module Cloudflare
     module JWTImports
       ffi_source <<~C
-        #include <stdlib.h>
-
         #define JWT_IMPORT(name) __attribute__((import_module("edgeway_jwt"), import_name(name)))
 
         JWT_IMPORT("verify") int  js_jwt_verify(const char *token);
         JWT_IMPORT("take")   void js_jwt_take(char *buf);
 
-        /* The last result, NUL-terminated; grown as needed and reused. */
-        static char *jwt_result;
-        static int jwt_result_cap;
+        static ImportResultBuffer jwt_result;
 
         const char *jwt_verify(const char *token) {
-          int length = js_jwt_verify(token);
-          if (length + 1 > jwt_result_cap) {
-            char *grown = realloc(jwt_result, length + 1);
-            if (!grown) abort();
-            jwt_result = grown;
-            jwt_result_cap = length + 1;
-          }
-          js_jwt_take(jwt_result);
-          jwt_result[length] = 0;
-          return jwt_result;
+          return take_import_result(&jwt_result, js_jwt_verify(token), js_jwt_take);
         }
       C
       ffi_func :jwt_verify, [:str], :str

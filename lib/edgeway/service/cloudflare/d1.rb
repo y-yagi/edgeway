@@ -3,6 +3,7 @@
 # Spinel's, so CRuby can't read it (tests use edgeway/db/memory).
 require "json"
 require_relative "../../db/adapter"
+require_relative "../import_result"
 
 module Edgeway
   module Cloudflare
@@ -34,8 +35,6 @@ module Edgeway
     # suspended (JSPI), so they read like blocking calls here.
     module D1Imports
       ffi_source <<~C
-        #include <stdlib.h>
-
         #define D1_IMPORT(name) __attribute__((import_module("edgeway_d1"), import_name(name)))
 
         D1_IMPORT("query")   int  js_d1_query(const char *binding, const char *sql, const char *binds);
@@ -44,38 +43,24 @@ module Edgeway
         D1_IMPORT("batch")   int  js_d1_batch(const char *binding, const char *statements);
         D1_IMPORT("take")    void js_d1_take(char *buf);
 
-        /* The last result, NUL-terminated; grown as needed and reused. */
-        static char *result;
-        static int result_cap;
-
-        static const char *take_result(int length) {
-          if (length + 1 > result_cap) {
-            char *grown = realloc(result, length + 1);
-            if (!grown) abort();
-            result = grown;
-            result_cap = length + 1;
-          }
-          js_d1_take(result);
-          result[length] = 0;
-          return result;
-        }
+        static ImportResultBuffer d1_result;
 
         /* What ffi_func binds. Its own extern declaration would lose the
            import attributes, so the imports are wrapped. */
         const char *d1_query(const char *binding, const char *sql, const char *binds) {
-          return take_result(js_d1_query(binding, sql, binds));
+          return take_import_result(&d1_result, js_d1_query(binding, sql, binds), js_d1_take);
         }
 
         const char *d1_execute(const char *binding, const char *sql, const char *binds) {
-          return take_result(js_d1_execute(binding, sql, binds));
+          return take_import_result(&d1_result, js_d1_execute(binding, sql, binds), js_d1_take);
         }
 
         const char *d1_exec(const char *binding, const char *sql) {
-          return take_result(js_d1_exec(binding, sql));
+          return take_import_result(&d1_result, js_d1_exec(binding, sql), js_d1_take);
         }
 
         const char *d1_batch(const char *binding, const char *statements) {
-          return take_result(js_d1_batch(binding, statements));
+          return take_import_result(&d1_result, js_d1_batch(binding, statements), js_d1_take);
         }
       C
       ffi_func :d1_query, [:str, :str, :str], :str

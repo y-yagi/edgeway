@@ -1,3 +1,5 @@
+import { jspiHelpers } from "./jspi.js";
+
 const LOCAL_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
 export const DEFAULT_MAX_BYTES = 1024 * 1024;
 const BASE64_CHUNK = 8192;
@@ -97,26 +99,15 @@ export async function performRequest(spec, { fetch = globalThis.fetch, maxBytes 
 // byte length of the result and take() copies it out; request is wrapped in
 // WebAssembly.Suspending.
 export function fetchImports(getInstance, { fetch = globalThis.fetch, maxBytes = DEFAULT_MAX_BYTES } = {}) {
-  const memory = () => new Uint8Array(getInstance().exports.memory.buffer);
-  const readCString = (pointer) => {
-    const bytes = memory();
-    let end = pointer;
-    while (bytes[end]) end++;
-    return bytes.subarray(pointer, end);
-  };
-  let pending = new Uint8Array(0);
+  const { readBytes, setResult, take } = jspiHelpers(getInstance);
 
   return {
     edgeway_fetch: {
       request: new WebAssembly.Suspending(async (specPointer) => {
-        const spec = parseRequest(readCString(specPointer));
-        const result = spec ? await performRequest(spec, { fetch, maxBytes }) : { error: INVALID_REQUEST };
-        pending = new TextEncoder().encode(JSON.stringify(result));
-        return pending.length;
+        const spec = parseRequest(readBytes(specPointer));
+        return setResult(spec ? await performRequest(spec, { fetch, maxBytes }) : { error: INVALID_REQUEST });
       }),
-      take(buffer) {
-        memory().set(pending, buffer);
-      },
+      take,
     },
   };
 }

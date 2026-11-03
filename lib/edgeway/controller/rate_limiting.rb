@@ -26,7 +26,7 @@ module Edgeway
           raise ArgumentError, "by: must be a Symbol" unless by.nil? || by.is_a?(Symbol)
           raise ArgumentError, "name: must be a String" unless name.nil? || name.is_a?(String)
           raise ArgumentError, "retry_after: must be a positive Integer" unless retry_after.nil? || RateLimiting.positive_integer?(retry_after)
-          new(binding_name, by, name, retry_after, only.map(&:to_s), except.map(&:to_s))
+          new(binding_name, by, name, retry_after.nil? ? 0 : retry_after, only.map(&:to_s), except.map(&:to_s))
         end
 
         def initialize(binding_name, by, name, retry_after, only, except)
@@ -34,7 +34,7 @@ module Edgeway
           @binding_name = binding_name
           @by = by
           @scope_name = name
-          @retry_after = retry_after.nil? ? 0 : retry_after
+          @retry_after = retry_after
         end
 
         def run(controller)

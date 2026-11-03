@@ -42,3 +42,5 @@ export default {"env":"test","d1Binding":"MAIN","sessions":[],"appRoot":"ROOT","
 cloudflare-test-database.js
 cloudflare-test-runner.js
 package.json
+--
+4 tests, 8 assertions, 0 failures, 0 errors

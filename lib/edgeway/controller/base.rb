@@ -15,13 +15,11 @@ module Edgeway
                      "expires_in", "no_store", "fresh_when", "stale?"]
 
       def self.before_action(name, only: [], except: [])
-        @own_before_actions ||= []
-        @own_before_actions << Callback.new(name, only.map(&:to_s), except.map(&:to_s))
+        add_before_action(Callback.new(name, only.map(&:to_s), except.map(&:to_s)))
       end
 
       def self.rate_limit(binding_name, by: nil, name: nil, retry_after: nil, only: [], except: [])
-        @own_before_actions ||= []
-        @own_before_actions << RateLimiting::Rule.build(binding_name, by, name, retry_after, only, except)
+        add_before_action(RateLimiting::Rule.build(binding_name, by, name, retry_after, only, except))
         (@own_non_actions ||= []) << by.to_s unless by.nil?
       end
 
@@ -30,6 +28,12 @@ module Edgeway
       def self.non_action?(name)
         lineage.any? { |c| c.own_non_actions.include?(name) }
       end
+
+      def self.add_before_action(callback)
+        @own_before_actions ||= []
+        @own_before_actions << callback
+      end
+      private_class_method :add_before_action
 
       def self.own_before_actions = (@own_before_actions || [])
 
