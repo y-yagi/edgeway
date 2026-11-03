@@ -16,7 +16,8 @@ require_relative "lib/edgeway/cli/toolchain"
 #   rake test:cruby            CRuby only (what CI runs)
 #   rake test:spinel           Spinel only (also test/spinel/*.rb: the tests that
 #                              cannot run under CRuby, e.g. SQLiteAdapter's ffi_lib)
-#   rake test:cli              the edgeway command (CRuby only): test/cli/*.rb
+#   rake test:cli              the edgeway command: test/cli/*.rb (under CRuby;
+#                              test_command.rb also runs edgeway test with Spinel)
 #   rake test:js               js/*.js with plain node (skipped without node)
 #   rake test:update           rewrite the .expected files from CRuby's output
 #   SPINEL=/path/to/spinel     the compiler (default: spinel on PATH, then
@@ -121,7 +122,7 @@ namespace :test do
   end
 end
 
-desc "Test the edgeway command: build's main.rb, new, routes (CRuby only)"
+desc "Test the edgeway command: build's main.rb, new, routes, test (under CRuby)"
 task "test:cli" do
   FileUtils.mkdir_p("tmp")
   results = CLI_TESTS.map { |t| run_test("cruby #{t}", ["ruby", "-I", "lib", t], t.sub(/\.rb\z/, ".expected")) }

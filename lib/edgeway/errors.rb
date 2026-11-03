@@ -29,8 +29,7 @@ module Edgeway
   class InvalidToken < Unauthorized; end
 
   # A request over a rate limit: 429 with a fixed body. retry_after is the
-  # seconds for a Retry-After header, 0 for none (anything but a positive
-  # Integer is 0).
+  # seconds for a Retry-After header, 0 for none.
   class TooManyRequests < Error
     attr_reader :retry_after
 

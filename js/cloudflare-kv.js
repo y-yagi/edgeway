@@ -1,3 +1,5 @@
+import { jspiHelpers } from "./jspi.js";
+
 export const MIN_EXPIRATION_TTL = 60;
 
 export function putOptions(expiresIn) {
@@ -5,20 +7,11 @@ export function putOptions(expiresIn) {
   return { expirationTtl: Math.max(expiresIn, MIN_EXPIRATION_TTL) };
 }
 
-const textDecoder = new TextDecoder("utf-8", { fatal: true });
-
 // An R2 bucket also has get, put and delete; only a KV namespace has getWithMetadata.
 export const isKvNamespace = (value) => Boolean(value) && ["get", "put", "delete", "getWithMetadata"].every((name) => typeof value[name] === "function");
 
 export function kvImports(env, getInstance) {
-  const memory = () => new Uint8Array(getInstance().exports.memory.buffer);
-  const readCString = (pointer) => {
-    const bytes = memory();
-    let end = pointer;
-    while (bytes[end]) end++;
-    return textDecoder.decode(bytes.subarray(pointer, end));
-  };
-  let pending = new Uint8Array(0);
+  const { readCString, setResult, take } = jspiHelpers(getInstance);
 
   const namespaceOf = (bindingName) => {
     const namespace = env[bindingName];
@@ -34,8 +27,7 @@ export function kvImports(env, getInstance) {
     } catch (error) {
       result = { error: String(error?.message ?? error) };
     }
-    pending = new TextEncoder().encode(JSON.stringify(result));
-    return pending.length;
+    return setResult(result);
   });
 
   return {
@@ -49,10 +41,7 @@ export function kvImports(env, getInstance) {
         await namespace.delete(key);
         return { ok: true };
       }),
-      take(buffer) {
-        memory().set(pending, buffer);
-        pending = new Uint8Array(0);
-      },
+      take,
     },
   };
 }

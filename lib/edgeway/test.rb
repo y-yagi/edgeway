@@ -130,22 +130,27 @@ module Edgeway
     end
 
     def call_application(http_request, headers, remote_addr)
-      previous_addr = ENV["REMOTE_ADDR"]
-      headers.each { |k, v| ENV["HTTP_" + k.upcase.gsub("-", "_")] = v }
-      ENV["REMOTE_ADDR"] = remote_addr
+      variables = { "REMOTE_ADDR" => remote_addr }
+      headers.each { |name, value| variables["HTTP_" + name.upcase.gsub("-", "_")] = value }
+      with_environment(variables) { Edgeway.application.call(http_request) }
+    end
+
+    def with_environment(variables)
+      previous = {}
+      variables.each_key { |name| previous[name] = ENV[name].to_s unless ENV[name].nil? }
       begin
-        Edgeway.application.call(http_request)
+        variables.each { |name, value| ENV[name] = value }
+        yield
       ensure
-        headers.each { |k, _v| ENV.delete("HTTP_" + k.upcase.gsub("-", "_")) }
-        restore_remote_addr(previous_addr)
+        variables.each_key { |name| restore_variable(name, previous) }
       end
     end
 
-    def restore_remote_addr(previous_addr)
-      if previous_addr.nil?
-        ENV.delete("REMOTE_ADDR")
+    def restore_variable(name, previous)
+      if previous.key?(name)
+        ENV[name] = previous[name]
       else
-        ENV["REMOTE_ADDR"] = previous_addr
+        ENV.delete(name)
       end
     end
   end
