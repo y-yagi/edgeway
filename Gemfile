@@ -7,4 +7,4 @@ gemspec
 
 gem "irb"
 gem "rake"
-gem "spinel_test-unit", "~> 0.1.1"
+gem "spinel_test-unit", "~> 0.2.0"

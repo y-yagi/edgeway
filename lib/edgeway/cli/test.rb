@@ -6,6 +6,8 @@ module Edgeway
       PLATFORMS = []
 
       def self.run(args)
+        raise Error, "edgeway test does not support --ruby (the tests always run as a Spinel build)" if args.include?("--ruby")
+
         root = Dir.pwd
         database = Build::DatabaseConfig.new(root)
         (PLATFORMS.find { |platform| platform.handles?(database) } || Test).new(root).run(args)
