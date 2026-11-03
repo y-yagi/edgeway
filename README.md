@@ -38,6 +38,11 @@ end
 
 ## Contents
 
+- [Usage](#usage)
+  - [Generators](#generators)
+  - [Building](#building)
+  - [Spinel version](#spinel-version)
+- [Configuration](#configuration)
 - [Models](#models)
   - [Attribute types](#attribute-types)
   - [Strong parameters](#strong-parameters)
@@ -54,22 +59,157 @@ end
   - [D1 API coverage](#d1-api-coverage)
 - [Views](#views)
 - [Static assets](#static-assets)
-- [Usage](#usage)
-  - [Generators](#generators)
-  - [Building](#building)
-  - [Spinel version](#spinel-version)
-  - [Known limitations](#known-limitations)
-- [Configuration](#configuration)
 - [Logging](#logging)
 - [Authentication](#authentication)
 - [CORS](#cors)
 - [HTTP caching](#http-caching)
 - [Caching](#caching)
+  - [Stores](#stores)
+  - [config/cache.yml](#configcacheyml)
+  - [KV](#kv)
+  - [In tests](#in-tests)
 - [Outbound HTTP](#outbound-http)
 - [Rate limiting](#rate-limiting)
+  - [In tests](#in-tests-1)
 - [Testing an app](#testing-an-app)
+  - [Writing tests](#writing-tests)
+  - [Local D1 (`adapter: d1` in `test:`)](#local-d1-adapter-d1-in-test)
+  - [SQLite (`adapter: memory` in `test:`)](#sqlite-adapter-memory-in-test)
+  - [Differences from production](#differences-from-production)
+- [Known limitations](#known-limitations)
 - [Development](#development)
 - [License](#license)
+
+## Usage
+
+```sh
+gem install edgeway
+
+edgeway new myapp
+
+# mise, bundle, pnpm and the local D1 migrations
+cd myapp && bin/setup
+
+# the app's tests, as wasm on a local D1 (see "Testing an app")
+bundle exec edgeway test        # or bin/test [FILE...] in a generated app
+
+# edgeway build: writes build/app.wasm and build/edgeway/ (the JS).
+# A development build: Spinel's --incremental caches the generated C in units,
+# so a rebuild recompiles only what changed (no inlining across units)
+bin/build
+
+pnpm exec wrangler dev
+edgeway routes
+
+# bin/build --release (one unit, without --incremental), remote D1 migrations,
+# then pnpm exec wrangler deploy
+bin/deploy
+```
+
+`edgeway` commands: `new`, `build`, `test`, `generate` (`g`), `routes`, `version` (`edgeway help` lists them).
+
+Before `bin/deploy`:
+
+1. Log in (`pnpm exec wrangler login`).
+2. Create the D1 database (`pnpm exec wrangler d1 create <name>-db`).
+3. Put its `database_id` in `wrangler.toml`.
+
+`bin/setup` prints these steps when they are missing.
+
+- A generated app's Gemfile takes `edgeway` and `spinel_test-unit` from RubyGems.
+- A generated app's `.github/workflows/ci.yml` installs Ruby (from `.ruby-version`, which `edgeway new` writes with the Ruby that ran it), mise's tools and wrangler, then runs `bin/test` and `bin/build --release`.
+- An app uses [pnpm](https://pnpm.io/) for wrangler (`package.json`, `bin/setup`, `mise.toml`);
+  `edgeway new` names it in one place (`Edgeway::CLI::PackageManager`).
+- `SPINEL=/path/to/spinel bin/build` uses a Spinel other than the one on `PATH`.
+- `bin/deploy` applies pending remote D1 migrations (`wrangler d1 migrations apply <name>-db --remote`) before deploying.
+
+### Generators
+
+Inside an app made by `edgeway new`, `edgeway generate` (or `edgeway g`) writes the files and never overwrites one:
+
+```sh
+# app/models/todo.rb, db/migrations/0001_create_todos.sql, test/models/todo_test.rb
+edgeway generate model Todo title:string done:boolean
+
+# app/controllers/todos_controller.rb, test/controllers/todos_test.rb
+edgeway generate controller Todos index show
+
+# the model's files, a JSON API controller (index, show, create, update, destroy) and its test
+edgeway generate scaffold Todo title:string done:boolean
+```
+
+- Field types are `string` (the default), `text`, `integer`, `float`, `boolean` and `datetime`.
+- A model gets `timestamps` and an `id`, `created_at` and `updated_at` column.
+- The migration is numbered one above the highest in `db/migrations`.
+- Each action of a controller is a stub that renders `{}`.
+- `config/routes.rb` is not changed by `model` and `controller`: the command prints the route to add (`r.resources :todos`).
+- `model` and `scaffold` stop if a `db/migrations/*_create_todos.sql` already exists (a rerun would add a second table).
+- `scaffold` singularizes its name (`scaffold Todos` is `Todo`), checks that none of its files exist before it writes one, and adds `r.resources :todos` as the last line of the `routes.draw` block, so that it does not shadow an earlier `/todos/search`. It leaves a route that is already there alone, and prints the route and the reason instead if there is no `routes.draw do |r|` block with a closing `end`.
+- The scaffold's controller permits the given fields (`params.require(:todo).permit(...)`), and with no fields it takes no params.
+
+### Building
+
+`edgeway build` needs Spinel and the WASI SDK.
+
+- An app made by `edgeway new` has a `mise.toml` for both (`mise install`):
+  Spinel comes from the [mise-spinel](https://github.com/y-yagi/mise-spinel) plugin and is put on `PATH`,
+  and the WASI SDK is pointed at by `WASI_SDK`.
+- Without mise, set `SPINEL` (or put `spinel` on `PATH`) and `WASI_SDK`.
+- `SPINEL` wins over `spinel` on `PATH`, which is how to use a Spinel checkout instead of a release.
+
+See `todo-api` in [edgeway-examples](https://github.com/y-yagi/edgeway-examples) for an example (checked with its `check.sh`).
+
+### Spinel version
+
+Edgeway needs a Spinel newer than the 2026.09.12 release
+(that release refuses `send` with a computed name, which `Callbacks#run_before_actions` uses).
+
+- `mise.toml` (Edgeway's own and the one `edgeway new` writes) pins a commit of [matz/spinel](https://github.com/matz/spinel),
+  `ec0ad13e4`, which mise-spinel builds from source.
+  A commit rather than `master`, so that an install is the Spinel that was tested.
+- The WASI SDK (`wasi-sdk-34`) is installed first,
+  because mise-spinel builds Spinel's wasm32-wasi runtime only when it finds one.
+- Changing the pin means re-running `rake test` and `todo-api/check.sh` in [edgeway-examples](https://github.com/y-yagi/edgeway-examples).
+
+## Configuration
+
+Two files configure the database, each for its own side:
+
+- `config/database.yml` is Edgeway's: for each environment (`edgeway build --env ENV`),
+  the adapter (`d1`, or `memory`, which stores nothing) and the name of the D1 binding the app uses. It is compiled into the wasm.
+- `wrangler.toml` is Cloudflare's: which D1 database the binding is (`database_name`, `database_id`),
+  the migrations, and the Worker. `binding` in it must match `binding` in `config/database.yml`.
+
+Another database goes under `databases:` of an environment, with its own binding in `wrangler.toml`:
+
+```yaml
+production:
+  adapter: d1
+  binding: DB
+  databases:
+    analytics:
+      binding: ANALYTICS
+```
+
+Its migrations are in `db/analytics/migrations` (`migrations_dir` of its `[[d1_databases]]`; apply them per database).
+A name is lowercase letters, digits and `_`, and not `primary`; `binding:` is required.
+The extra databases use the environment's adapter.
+`sessions: true` next to `binding:` (in the environment for the primary, in the entry for another) turns on D1 Sessions for it (see [Read replication](#read-replication-sessions)).
+
+`database_id` is not a secret: it only names the database, and using it takes an API token of the account,
+so it is committed with `wrangler.toml` as Cloudflare's own examples do.
+Secrets the app needs go in Worker secrets (`pnpm exec wrangler secret put NAME`),
+which the app reads with `Edgeway.config("NAME")`.
+
+Not every Worker variable reaches the app. Only these are passed into the wasm:
+
+- the framework's own settings (`JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_LEEWAY`, `JWT_ALGORITHMS`, `JWT_JWKS_URL`, `LOG_LEVEL`)
+- the variables whose name starts with `APP_`
+
+Name your own settings `APP_...` (`APP_PAGE_SIZE = "20"` in `[vars]`, `Edgeway.config("APP_PAGE_SIZE", "20")` in Ruby),
+and likewise your secrets (`wrangler secret put APP_NAME`).
+Anything else, such as a key the Worker holds for another purpose, is never visible to the app.
+`JWT_SECRET` is never passed.
 
 ## Models
 
@@ -85,32 +225,33 @@ end
 | `:binary` | binary String (`.b`) | BLOB | base64 string |
 | `:bigint` | decimal String (`"3000000000"`) | INTEGER | string |
 
-- Integers are 32 bits in a wasm build. A `:integer` value beyond -2147483648..2147483647 casts to `nil`; use `:bigint` for those columns.
-  Assigning one is refused by validation ("is out of range"). A row that already holds one (a foreign key to a bigint parent
-  declared as `:integer`) loads as `nil`, and saving it fails the same way instead of writing `NULL` over it.
-- A `:bigint` holds its value as a String of an optional `-` and digits, without leading zeros (`"-0"` is `"0"`);
-  anything else, or a value beyond 64 bits, casts to `nil` ("is invalid"). It is bound as text and SQLite's INTEGER affinity
-  stores it as an integer, so `where`, `order` and comparisons work on the number.
-  It renders in JSON as a String, which JavaScript clients read exactly.
-  D1 hands rows over as JavaScript numbers, so a value beyond 2^53 (9007199254740991) has already lost precision before Ruby sees it.
-  Keep such values below 2^53, or store them as `:string`.
+#### `:integer` and `:bigint`
+
+- Integers are 32 bits in a wasm build. An `:integer` value outside -2147483648..2147483647 casts to `nil` and fails validation
+  ("is out of range"); use `:bigint` for such columns. A row that already holds one loads as `nil`, and saving it fails the same way
+  instead of writing `NULL` over it.
+- A `:bigint` is a String of an optional `-` and digits, without leading zeros (`"-0"` is `"0"`); anything else, or a value beyond 64 bits,
+  casts to `nil` ("is invalid"). It is stored as an INTEGER, so `where`, `order` and comparisons work on the number,
+  and it renders in JSON as a String.
+- D1 hands rows over as JavaScript numbers, so a value beyond 2^53 (9007199254740991) loses precision before Ruby sees it.
+  Keep values below 2^53, or store them as `:string`.
 - Pass bigint values as Strings: `Todo.find("3000000000")`, `where(id: "3000000000")`, `create!(owner_id: "5000000000")`,
-  `Model.execute("... WHERE id = ?", ["3000000000"])`. A Hash holding an Integer literal beyond 32 bits raises `RangeError` in a wasm build
-  (a Spinel limitation), so do not write them as Integers.
-- `attribute :id, :bigint` makes the primary key a bigint: `find`, `where(id: ...)`, `update`, `destroy` and an insert
-  (`RETURNING id`) work past 2^31, and `id` is a String. A foreign key to it is `attribute :owner_id, :bigint`
-  (declare it before `belongs_to` and it keeps its type).
-- Rows from raw SQL (`Model.select_all`) hold what the database gave: in a wasm build an INTEGER beyond 32 bits is a Bignum,
-  and `render json:` of it raises. Select it as text (`SELECT CAST(id AS TEXT) AS id ...`) or pass it through `Edgeway::Model.cast(:bigint, value)`.
-- A `:binary` attribute holds a binary String. Assigned from Ruby, a String keeps its bytes (`Document.new(body: bytes)`), and so does a `{"$blob" => base64}` Hash.
-  It is bound as a BLOB (`where(body: bytes)` too), and renders in JSON as a base64 String.
-  In a request body the value is that base64 String, so a GET then PATCH round trip is stable: params assigned through `permit` are decoded,
-  and invalid base64 fails validation ("is invalid"). `{"$blob": ...}` objects are not supported in a request body (nested objects are dropped).
-  `presence` counts a binary String blank only when empty, and `length` counts bytes.
-  A BLOB crosses between wasm and JS as `{"$blob": "<base64>"}`: binds and rows cross as JSON text, which can't hold arbitrary bytes.
-  In raw SQL (`Model.select_all`, `Model.execute`, `where("...", value)`) bind a BLOB with `Edgeway::Model.blob(bytes)`,
-  and a BLOB column comes back as `{"$blob" => base64}`.
+  `Model.execute("... WHERE id = ?", ["3000000000"])`. An Integer literal beyond 32 bits in a Hash raises `RangeError` in a wasm build (a Spinel limitation).
+- `attribute :id, :bigint` makes the primary key a bigint, and `id` is a String. A foreign key to it is `attribute :owner_id, :bigint`,
+  declared before `belongs_to` so it keeps its type.
+- Raw SQL rows (`Model.select_all`) hold what the database gave: an INTEGER beyond 32 bits is a Bignum in a wasm build, and `render json:` of it raises.
+  Select it as text (`SELECT CAST(id AS TEXT) AS id ...`) or convert it with `Edgeway::Model.cast(:bigint, value)`.
 - `Model.execute` answers `"last_insert_id"` as an Integer, or as a decimal String when the rowid is beyond 32 bits.
+
+#### `:binary`
+
+- A `:binary` attribute holds a binary String. It is bound as a BLOB (`where(body: bytes)` too) and renders in JSON as a base64 String.
+- Assigned from Ruby, a String keeps its bytes (`Document.new(body: bytes)`), and so does a `{"$blob" => base64}` Hash.
+- In a request body the value is the base64 String, so a GET then PATCH round trip is stable. Invalid base64 fails validation ("is invalid"),
+  and `{"$blob": ...}` objects are not supported (nested objects are dropped).
+- `presence` counts a binary String blank only when empty, and `length` counts bytes.
+- In raw SQL (`Model.select_all`, `Model.execute`, `where("...", value)`), bind a BLOB with `Edgeway::Model.blob(bytes)`;
+  a BLOB column comes back as `{"$blob" => base64}`, the form in which BLOBs cross between wasm and JS.
 
 ### Strong parameters
 
@@ -305,7 +446,7 @@ Todo.eager_load(:comments, :tags)   # several at once, still one query
 
 ### Multiple databases
 
-A model uses the primary database unless it names another, declared in `config/database.yml` (see "Configuration"):
+A model uses the primary database unless it names another, declared in `config/database.yml` (see [Configuration](#configuration)):
 
 ```ruby
 class Event < ApplicationModel
@@ -325,8 +466,8 @@ Edgeway::Model.execute("DELETE FROM events", [], database: :analytics)
   `eager_load` across databases raises `ArgumentError`: a `JOIN` can't cross them.
 - A `Model.batch` belongs to the database of its first write; a write for another one raises `ArgumentError`
   (D1 batches are per database). Use one `batch` per database.
-- `Edgeway::Model.query_stats(:analytics)` is that database's stats. The request log has one line per database that ran queries,
-  and the extra ones start with `database=analytics`.
+- `Edgeway::Model.query_stats(:analytics)` is that database's stats. The request logs one `query stats` line per database that ran queries,
+  with a `database` field for the ones other than the primary.
 
 ### Read replication (Sessions)
 
@@ -364,8 +505,8 @@ Every query and `Model.batch` of such a database then goes through `env.DB.withS
 | `batch()` | `Model.batch` (and `destroy` with dependents) |
 | `exec()` | `Model.exec` |
 | `withSession()`, `getBookmark()` | `sessions: true` ([Read replication](#read-replication-sessions)) |
-| `result.meta` | `Model.query_stats` and the `db=…` log line |
-| `first()`, `raw()` | not used: `find_by`/`first` send `LIMIT 1` through `all()`, which also keeps `meta`; `raw()` made the JSON smaller but rebuilding the rows in Ruby cost as much as it saved |
+| `result.meta` | `Model.query_stats` and the `query stats` log line |
+| `first()`, `raw()` | not used (`find_by`/`first` send `LIMIT 1` through `all()`) |
 | `dump()` | not supported (alpha databases only) |
 
 Time Travel, export/import and migrations are `wrangler d1` commands, outside the Worker API.
@@ -439,155 +580,6 @@ not_found_handling = "single-page-application"
 run_worker_first = ["/health", "/todos", "/todos/*"]
 ```
 
-## Usage
-
-```sh
-gem install edgeway
-
-edgeway new myapp
-
-# mise, bundle, pnpm and the local D1 migrations
-cd myapp && bin/setup
-
-# the app's tests, as wasm on a local D1 (see "Testing an app")
-bundle exec edgeway test        # or bin/test [FILE...] in a generated app
-
-# edgeway build: writes build/app.wasm and build/edgeway/ (the JS).
-# A development build: Spinel's --incremental caches the generated C in units,
-# so a rebuild recompiles only what changed (no inlining across units)
-bin/build
-
-pnpm exec wrangler dev
-edgeway routes
-
-# bin/build --release (one unit, without --incremental), remote D1 migrations,
-# then pnpm exec wrangler deploy
-bin/deploy
-```
-
-`edgeway` commands: `new`, `build`, `test`, `generate` (`g`), `routes`, `version` (`edgeway help` lists them).
-
-Before `bin/deploy`:
-
-1. Log in (`pnpm exec wrangler login`).
-2. Create the D1 database (`pnpm exec wrangler d1 create <name>-db`).
-3. Put its `database_id` in `wrangler.toml`.
-
-`bin/setup` prints these steps when they are missing.
-
-- A generated app's Gemfile takes `edgeway` and `spinel_test-unit` from RubyGems.
-- A generated app's `.github/workflows/ci.yml` installs Ruby (from `.ruby-version`, which `edgeway new` writes with the Ruby that ran it), mise's tools and wrangler, then runs `bin/test` and `bin/build --release`.
-- An app uses [pnpm](https://pnpm.io/) for wrangler (`package.json`, `bin/setup`, `mise.toml`);
-  `edgeway new` names it in one place (`Edgeway::CLI::PackageManager`).
-- `SPINEL=/path/to/spinel bin/build` uses a Spinel other than the one on `PATH`.
-- `bin/deploy` applies pending remote D1 migrations (`wrangler d1 migrations apply <name>-db --remote`) before deploying.
-
-### Generators
-
-Inside an app made by `edgeway new`, `edgeway generate` (or `edgeway g`) writes the files and never overwrites one:
-
-```sh
-# app/models/todo.rb, db/migrations/0001_create_todos.sql, test/models/todo_test.rb
-edgeway generate model Todo title:string done:boolean
-
-# app/controllers/todos_controller.rb, test/controllers/todos_test.rb
-edgeway generate controller Todos index show
-
-# the model's files, a JSON API controller (index, show, create, update, destroy) and its test
-edgeway generate scaffold Todo title:string done:boolean
-```
-
-- Field types are `string` (the default), `text`, `integer`, `float`, `boolean` and `datetime`.
-- A model gets `timestamps` and an `id`, `created_at` and `updated_at` column.
-- The migration is numbered one above the highest in `db/migrations`.
-- Each action of a controller is a stub that renders `{}`.
-- `config/routes.rb` is not changed by `model` and `controller`: the command prints the route to add (`r.resources :todos`).
-- `model` and `scaffold` stop if a `db/migrations/*_create_todos.sql` already exists (a rerun would add a second table).
-- `scaffold` singularizes its name (`scaffold Todos` is `Todo`), checks that none of its files exist before it writes one, and adds `r.resources :todos` as the last line of the `routes.draw` block, so that it does not shadow an earlier `/todos/search`. It leaves a route that is already there alone, and prints the route and the reason instead if there is no `routes.draw do |r|` block with a closing `end`.
-- The scaffold's controller permits the given fields (`params.require(:todo).permit(...)`), and with no fields it takes no params.
-
-### Building
-
-`edgeway build` needs Spinel and the WASI SDK.
-
-- An app made by `edgeway new` has a `mise.toml` for both (`mise install`):
-  Spinel comes from the [mise-spinel](https://github.com/y-yagi/mise-spinel) plugin and is put on `PATH`,
-  and the WASI SDK is pointed at by `WASI_SDK`.
-- Without mise, set `SPINEL` (or put `spinel` on `PATH`) and `WASI_SDK`.
-- `SPINEL` wins over `spinel` on `PATH`, which is how to use a Spinel checkout instead of a release.
-
-See `todo-api` in [edgeway-examples](https://github.com/y-yagi/edgeway-examples) for an example (checked with its `check.sh`).
-
-### Spinel version
-
-Edgeway needs a Spinel newer than the 2026.09.12 release
-(that release refuses `send` with a computed name, which `Callbacks#run_before_actions` uses).
-
-- `mise.toml` (Edgeway's own and the one `edgeway new` writes) pins a commit of [matz/spinel](https://github.com/matz/spinel),
-  `ec0ad13e4`, which mise-spinel builds from source.
-  A commit rather than `master`, so that an install is the Spinel that was tested.
-- The WASI SDK (`wasi-sdk-34`) is installed first,
-  because mise-spinel builds Spinel's wasm32-wasi runtime only when it finds one.
-- Changing the pin means re-running `rake test` and `todo-api/check.sh` in [edgeway-examples](https://github.com/y-yagi/edgeway-examples).
-
-### Known limitations
-
-- Only the subset of Ruby that Spinel supports can be used.
-- `has_many` does not work with namespaced models (`Admin::Post`);
-  `belongs_to` and `has_many` look models up by their full name, and that case is not handled.
-- Cloudflare Access is not supported in this release: its token comes in `Cf-Access-Jwt-Assertion`,
-  and only `Authorization: Bearer` is read (see [Authentication](#authentication)).
-- Tests run natively, not in wasm: D1 and JSPI (`Edgeway::Cloudflare::JWTVerifier`) are not covered by them,
-  and the production wasm never loads the SQLite adapter (see [Testing an app](#testing-an-app)).
-- Not verified on a production Cloudflare deploy yet: CPU and wall time on a cold start and on a JWKS cache miss,
-  and read replication with real replicas (local D1 has none, and D1 itself accepts any bookmark there). Everything was checked under `wrangler dev`.
-- Integers are 32 bits in a wasm build: use `:bigint` for larger ones and pass them as Strings,
-  and keep them below 2^53, as D1 hands rows over as JavaScript numbers (see [Attribute types](#attribute-types)).
-- A `Model.batch` runs on one database: there is no transaction across databases ([Multiple databases](#multiple-databases)).
-- `Model.exec` does not work on a database with `sessions: true`: a D1 session has no `exec()` ([Queries](#queries)).
-- Spinel can't build a Range of Times: use ISO 8601 Strings or a SQL fragment in `where` ([Queries](#queries)).
-- `first()` and `raw()` are not used and `dump()` is not supported; Time Travel and export/import are `wrangler d1` commands ([D1 API coverage](#d1-api-coverage)).
-
-## Configuration
-
-Two files configure the database, each for its own side:
-
-- `config/database.yml` is Edgeway's: for each environment (`edgeway build --env ENV`),
-  the adapter (`d1`, or `memory`, which stores nothing) and the name of the D1 binding the app uses. It is compiled into the wasm.
-- `wrangler.toml` is Cloudflare's: which D1 database the binding is (`database_name`, `database_id`),
-  the migrations, and the Worker. `binding` in it must match `binding` in `config/database.yml`.
-
-Another database goes under `databases:` of an environment, with its own binding in `wrangler.toml`:
-
-```yaml
-production:
-  adapter: d1
-  binding: DB
-  databases:
-    analytics:
-      binding: ANALYTICS
-```
-
-Its migrations are in `db/analytics/migrations` (`migrations_dir` of its `[[d1_databases]]`; apply them per database).
-A name is lowercase letters, digits and `_`, and not `primary`; `binding:` is required.
-The extra databases use the environment's adapter.
-`sessions: true` next to `binding:` (in the environment for the primary, in the entry for another) turns on D1 Sessions for it; see "Read replication (Sessions)".
-
-`database_id` is not a secret: it only names the database, and using it takes an API token of the account,
-so it is committed with `wrangler.toml` as Cloudflare's own examples do.
-Secrets the app needs go in Worker secrets (`pnpm exec wrangler secret put NAME`),
-which the app reads with `Edgeway.config("NAME")`.
-
-Not every Worker variable reaches the app. Only these are passed into the wasm:
-
-- the framework's own settings (`JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_LEEWAY`, `JWT_ALGORITHMS`, `JWT_JWKS_URL`, `LOG_LEVEL`)
-- the variables whose name starts with `APP_`
-
-Name your own settings `APP_...` (`APP_PAGE_SIZE = "20"` in `[vars]`, `Edgeway.config("APP_PAGE_SIZE", "20")` in Ruby),
-and likewise your secrets (`wrangler secret put APP_NAME`).
-Anything else, such as a key the Worker holds for another purpose, is never visible to the app.
-`JWT_SECRET` is never passed.
-
 ## Logging
 
 ```ruby
@@ -606,7 +598,7 @@ Edgeway.logger.error("payment failed", order_id: 42)
 - Other stderr text (Spinel's runtime messages, a trap) goes out as text at error level.
 - Turn Workers Logs on with `[observability]` `enabled = true` in `wrangler.toml` (`edgeway new` writes it).
   It records at most 256 KB of log data per request; nothing beyond that is kept.
-- `Edgeway::Application` logs the rescued errors (401, 404, 409 at `info`, 503 and 500 at `error`) with a `status` field.
+- `Edgeway::Application` logs the rescued errors (401, 404, 409, 429 at `info`, 503 and 500 at `error`) with a `status` field.
 - `edgeway test` with a local D1 prints a structured line as text, `[edgeway] INFO order placed order_id=42 total=12.5`.
   A native build (`adapter: memory`) writes the JSON lines as they are.
 - `Edgeway.logger =` replaces the logger (an object with the four methods, each `(message, fields = {})`), as the framework's tests do.
@@ -616,7 +608,7 @@ Edgeway.logger.error("payment failed", order_id: 42)
 Edgeway verifies JWTs that an external IdP issued (Auth0, Firebase, Cognito, ...) and that come in `Authorization: Bearer`;
 it does not issue them.
 
-- Cloudflare Access, which sends its token in `Cf-Access-Jwt-Assertion`, is not supported in the first release,
+- Cloudflare Access, which sends its token in `Cf-Access-Jwt-Assertion`, is not supported,
   nor are Cognito access tokens, which carry `client_id` instead of `aud` (Cognito ID tokens work).
 - `sub` is required and must be a non-empty string.
 - `auth_time`, when present, must not be in the future (leeway applies).
@@ -646,12 +638,22 @@ Settings are Worker variables in `wrangler.toml`, and the secret is a Worker sec
 
 | Variable | |
 |---|---|
+| `JWT_ISSUER`, `JWT_AUDIENCE` | **required**: the token's `iss` and `aud` must match |
 | `JWT_ALGORITHMS` | allowed algorithms, comma-separated (default `RS256`; `HS256/384/512`, `RS*`, `PS*`, `ES256/384`, `EdDSA`). `none` is never accepted |
-| `JWT_JWKS_URL` | the IdP's JWKS, for the asymmetric algorithms. Must be `https` (`http` only for `localhost`, `127.0.0.1`, `[::1]`), otherwise the request is answered 500. Cached for 10 minutes, fetched again when a `kid` is unknown (at most every 30 seconds); an expired JWKS is never used, so when the fetch fails the answer is 500. The fetch has a 5 second timeout, follows no redirect, needs status 200 and a body of at most 64 KB. A token needs a `kid`; a JWK with `key_ops` must list `verify` |
-| `JWT_SECRET` | the shared secret, for `HS*` (a secret; it never enters the wasm). At least 32 bytes for `HS256`, 48 for `HS384`, 64 for `HS512` (UTF-8 bytes, RFC 7518 3.2), otherwise the request is answered 500 |
-| `JWT_ISSUER`, `JWT_AUDIENCE` | **required**: `iss` and `aud` of the token must match. If either is empty the request is answered 500 (a misconfiguration, details only in the log), never let through; a token without `iss` or `aud` is 401. Without them a token the IdP issued for another API would pass: Firebase's signing keys are shared by all Firebase projects (so any project's user token), and an Auth0 Management API token of the same tenant. Applies to every algorithm, `HS*` too |
-| `JWT_LEEWAY` | seconds of clock skew allowed for `exp`, `nbf`, `iat` and `auth_time` (default 5; `0` for none; a whole number up to 300, anything else is answered 500) |
+| `JWT_JWKS_URL` | the IdP's JWKS, for the asymmetric algorithms |
+| `JWT_SECRET` | the shared secret, for `HS*` (a Worker secret; it never enters the wasm) |
+| `JWT_LEEWAY` | seconds of clock skew allowed for `exp`, `nbf`, `iat` and `auth_time` (default 5, up to 300) |
 
+A misconfigured setting answers every request 500, with the details only in the log; a request is never let through.
+
+- `JWT_ISSUER` and `JWT_AUDIENCE` apply to every algorithm, `HS*` too. Without them a token the IdP issued for another API would pass:
+  Firebase's signing keys are shared by all Firebase projects, and Auth0 signs its Management API tokens with the tenant's keys.
+  A token without `iss` or `aud` is 401.
+- `JWT_JWKS_URL` must be `https` (`http` only for `localhost`, `127.0.0.1`, `[::1]`).
+  The JWKS is cached for 10 minutes and fetched again when a `kid` is unknown (at most every 30 seconds); an expired one is never used.
+  The fetch has a 5 second timeout, follows no redirect, and needs status 200 and a body of at most 64 KB.
+  A token needs a `kid`, and a JWK with `key_ops` must list `verify`.
+- `JWT_SECRET` must be at least 32 bytes for `HS256`, 48 for `HS384` and 64 for `HS512` (RFC 7518 3.2).
 - `exp` is required, and a token with a `crit` header is refused (no extension is understood, RFC 7515 4.1.11).
 - In tests, use `Edgeway::Auth::StubVerifier` (`edgeway/http/auth/stub`; see `test/auth.rb`).
 - Like D1, this needs JSPI.
@@ -677,11 +679,16 @@ Settings are Worker variables in `wrangler.toml`:
 
 | Variable | |
 |---|---|
-| `CORS_ORIGINS` | allowed origins, comma-separated, compared as exact strings with the request's `Origin` (`https://app.example, http://localhost:3000`; no trailing slash). `*` allows any origin. Unset or empty means CORS is off: nothing is added and `OPTIONS` goes to the app. The origin `null` (sandboxed iframes, `file:` pages) is never allowed, even with `*` |
-| `CORS_HEADERS` | request headers a preflight allows (default `Authorization, Content-Type`). Listed one by one, as `*` does not cover `Authorization`. `X-D1-Bookmark` is added when a database has `sessions: true` |
-| `CORS_MAX_AGE` | seconds a browser may cache a preflight (default `600`). Not a non-negative integer: every request is answered 500, as with a bad JWT setting |
-| `CORS_EXPOSE_HEADERS` | response headers the page may read (`Access-Control-Expose-Headers`, e.g. `X-Total-Count`); `Retry-After` (a 429 or 503 answer) is always exposed, and `X-D1-Bookmark` when a database has `sessions: true` (it is also merged into the app's own `Access-Control-Expose-Headers`) |
+| `CORS_ORIGINS` | allowed origins, comma-separated (`https://app.example, http://localhost:3000`), or `*` for any. Unset or empty turns CORS off |
+| `CORS_HEADERS` | request headers a preflight allows (default `Authorization, Content-Type`) |
+| `CORS_MAX_AGE` | seconds a browser may cache a preflight (default `600`) |
+| `CORS_EXPOSE_HEADERS` | response headers the page may read (e.g. `X-Total-Count`) |
 
+- Origins are compared as exact strings with the request's `Origin` (no trailing slash). The origin `null` (sandboxed iframes, `file:` pages)
+  is never allowed, even with `*`. With CORS off, nothing is added and `OPTIONS` goes to the app.
+- List `CORS_HEADERS` one by one: `*` does not cover `Authorization`.
+- `Retry-After` is always exposed. With `sessions: true`, `X-D1-Bookmark` is added to the allowed and exposed headers.
+- A `CORS_MAX_AGE` that is not a non-negative integer answers every request 500, as a bad JWT setting does.
 - A preflight from an allowed origin is answered 204 with `Access-Control-Allow-Origin` (the request's origin),
   `Access-Control-Allow-Methods` (`GET, HEAD, POST, PUT, PATCH, DELETE`), `Access-Control-Allow-Headers` and `Access-Control-Max-Age`.
 - A preflight from another origin is 403 `{"error":"origin not allowed"}`.
@@ -866,7 +873,7 @@ response.json       # the body parsed
 - A Worker can make 50 subrequests per invocation on the Free plan and 10,000 by default on Paid,
   and has at most 6 connections open at once.
 - Like D1 and the JWT check, this needs JSPI.
-- In tests, `stub_http` (see "Writing tests") stands in for the network, so no test makes a request.
+- In tests, `stub_http` (see [Writing tests](#writing-tests)) stands in for the network, so no test makes a request.
 
 ## Rate limiting
 
@@ -902,13 +909,12 @@ rate_limit "API_LIMITER", by: :rate_limit_key, name: nil, retry_after: nil, only
   `rescue_from Edgeway::TooManyRequests` answers otherwise; the error has `retry_after` (0 without `retry_after:`).
 - `Retry-After` is sent only with `retry_after:` (a positive Integer, in seconds): the binding does not tell when the count resets.
 - The key is `"<name>:<by>"`. `name:` defaults to the controller's class name, so every controller has its own count; give several controllers the same `name:` to share one.
-- `by:` is a Symbol naming a controller method (not a lambda) that answers the key's second part, such as `:current_account_id`
-  (a String or anything with a `to_s`, such as an Integer). A method named by `by:` is never a route's action, even if it is public
-  (`private` is still tidier).
-  A value taken from the client (a header, a parameter) is a key the client chooses: it can pick a fresh count with every request.
-  The default is `"user:<sub>"` for a request that passed `authenticate!`,
-  and otherwise `"ip:<client address>"` (`request.remote_addr`, from `CF-Connecting-IP`). An IPv6 address is keyed by its /64 prefix (`2001:db8:1:2::/64`),
-  since one client usually holds a whole /64; an IPv4-mapped address (`::ffff:192.0.2.1`, `::ffff:c000:201`, `0:0:0:0:0:ffff:192.0.2.1`) by its IPv4 address.
+- `by:` is a Symbol naming a controller method (not a lambda) that answers the key's second part, such as `:current_account_id`.
+  That method is never a route's action, even if it is public.
+  Don't key on a value the client sends (a header, a parameter): the client could pick a fresh count with every request.
+- Without `by:`, the key is `"user:<sub>"` for a request that passed `authenticate!`, and otherwise `"ip:<client address>"`
+  (`request.remote_addr`, from `CF-Connecting-IP`).
+  An IPv6 address is keyed by its /64 prefix (`2001:db8:1:2::/64`), and an IPv4-mapped one (`::ffff:192.0.2.1`) by its IPv4 address.
 - Order matters: a `rate_limit` declared after `before_action :authenticate!` never sees a request that `authenticate!` rejects (401), so token probing is not counted.
   Declare an IP-keyed limit before `authenticate!` (it sees every request) and, if wanted, a per-user limit after it:
 
@@ -969,7 +975,7 @@ bin/test [FILE...]                # in a generated app: the same, all of test/ w
 `edgeway test` is the only supported way to run an app's tests.
 `config/database.yml` decides how: with `adapter: d1` in its `test:` section (what `edgeway new` writes)
 the tests are compiled to wasm32-wasi and run on a local D1, as in production; with any other adapter
-(`memory`) they are a native build with an in-memory SQLite database (see "SQLite").
+(`memory`) they are a native build with an in-memory SQLite database (see [SQLite](#sqlite-adapter-memory-in-test)).
 
 - `spinel_test-unit` is the test framework (on RubyGems;
   `edgeway new` puts `gem "spinel_test-unit", "~> 0.1", group: :test` in the Gemfile).
@@ -1056,6 +1062,24 @@ With SQLite the tests are native builds, while production is wasm32-wasi on Work
   because libsqlite3 can't be linked into the wasm.
 - SQLite and D1 (itself SQLite) take the same SQL, but D1's own limits
   (such as the number of bound parameters) are not reproduced.
+
+## Known limitations
+
+- Only the subset of Ruby that Spinel supports can be used.
+- `has_many` does not work with namespaced models (`Admin::Post`);
+  `belongs_to` and `has_many` look models up by their full name, and that case is not handled.
+- Cloudflare Access is not supported: its token comes in `Cf-Access-Jwt-Assertion`,
+  and only `Authorization: Bearer` is read (see [Authentication](#authentication)).
+- Tests call the app directly, not through the Worker, so CORS and `X-D1-Bookmark` are not covered.
+  With `adapter: memory` in `test:` they are a native build, and D1 and JSPI are not covered either (see [Testing an app](#testing-an-app)).
+- Not verified on a production Cloudflare deploy yet: CPU and wall time on a cold start and on a JWKS cache miss,
+  and read replication with real replicas (local D1 has none, and D1 itself accepts any bookmark there). Everything was checked under `wrangler dev`.
+- Integers are 32 bits in a wasm build: use `:bigint` for larger ones and pass them as Strings,
+  and keep them below 2^53, as D1 hands rows over as JavaScript numbers (see [Attribute types](#attribute-types)).
+- A `Model.batch` runs on one database: there is no transaction across databases ([Multiple databases](#multiple-databases)).
+- `Model.exec` does not work on a database with `sessions: true`: a D1 session has no `exec()` ([Queries](#queries)).
+- Spinel can't build a Range of Times: use ISO 8601 Strings or a SQL fragment in `where` ([Queries](#queries)).
+- `first()` and `raw()` are not used and `dump()` is not supported; Time Travel and export/import are `wrangler d1` commands ([D1 API coverage](#d1-api-coverage)).
 
 ## Development
 
