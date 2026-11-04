@@ -101,7 +101,7 @@ class HTTPClientTest < SpinelTest::Unit::TestCase
   end
 
   def test_response_headers_have_lowercased_names
-    assert_equal({ "content-type" => "application/json", "x-id" => "7" }, Edgeway::HTTP.get(ITEMS_URL).headers)
+    assert_equal [["content-type", "application/json"], ["x-id", "7"]], Edgeway::HTTP.get(ITEMS_URL).headers.to_a
   end
 
   def test_response_body_is_the_stubbed_string
