@@ -2,24 +2,24 @@ require "spinel_test/unit"
 require "edgeway"
 require "edgeway/http/stub_transport"
 
-class PartnersController < Edgeway::Controller::Base
-  def show
-    reply = Edgeway::HTTP.get("https://api.example/down")
-    render json: { "status" => reply.status }
+class HttpClientTest < SpinelTest::Unit::TestCase
+  class PartnersController < Edgeway::Controller::Base
+    def show
+      reply = Edgeway::HTTP.get("https://api.example/down")
+      render json: { "status" => reply.status }
+    end
+
+    def slow
+      reply = Edgeway::HTTP.get("https://api.example/slow")
+      render json: { "status" => reply.status }
+    end
+
+    def items
+      reply = Edgeway::HTTP.get("https://api.example/items")
+      render json: reply.json
+    end
   end
 
-  def slow
-    reply = Edgeway::HTTP.get("https://api.example/slow")
-    render json: { "status" => reply.status }
-  end
-
-  def items
-    reply = Edgeway::HTTP.get("https://api.example/items")
-    render json: reply.json
-  end
-end
-
-class HTTPClientTest < SpinelTest::Unit::TestCase
   class LogCollector
     attr_reader :lines
 
@@ -80,9 +80,9 @@ class HTTPClientTest < SpinelTest::Unit::TestCase
     routes = Edgeway.application.routes
     routes.list.clear
     routes.draw do |mapper|
-      mapper.get "/partner", to: "partners#show"
-      mapper.get "/partner/slow", to: "partners#slow"
-      mapper.get "/partner/items", to: "partners#items"
+      mapper.get "/partner", to: "http_client_test/partners#show"
+      mapper.get "/partner/slow", to: "http_client_test/partners#slow"
+      mapper.get "/partner/items", to: "http_client_test/partners#items"
     end
   end
 
