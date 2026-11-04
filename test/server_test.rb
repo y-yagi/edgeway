@@ -2,16 +2,16 @@ require "spinel_test/unit"
 require "edgeway"
 require "edgeway/db/memory"
 
-class HealthController < Edgeway::Controller::Base
-  def show = render json: { "status" => "ok", "q" => params["q"] }
-
-  def leak
-    headers["X-Name"] = params["name"]
-    render json: {}
-  end
-end
-
 class ServerTest < SpinelTest::Unit::TestCase
+  class HealthController < Edgeway::Controller::Base
+    def show = render json: { "status" => "ok", "q" => params["q"] }
+
+    def leak
+      headers["X-Name"] = params["name"]
+      render json: {}
+    end
+  end
+
   class LogCollector
     attr_reader :lines
 
@@ -50,8 +50,8 @@ class ServerTest < SpinelTest::Unit::TestCase
     routes = Edgeway.application.routes
     routes.list.clear
     routes.draw do |mapper|
-      mapper.get "/health", to: "health#show"
-      mapper.get "/leak", to: "health#leak"
+      mapper.get "/health", to: "server_test/health#show"
+      mapper.get "/leak", to: "server_test/health#leak"
     end
   end
 
