@@ -655,7 +655,7 @@ A misconfigured setting answers every request 500, with the details only in the 
   A token needs a `kid`, and a JWK with `key_ops` must list `verify`.
 - `JWT_SECRET` must be at least 32 bytes for `HS256`, 48 for `HS384` and 64 for `HS512` (RFC 7518 3.2).
 - `exp` is required, and a token with a `crit` header is refused (no extension is understood, RFC 7515 4.1.11).
-- In tests, use `Edgeway::Auth::StubVerifier` (`edgeway/http/auth/stub`; see `test/auth.rb`).
+- In tests, use `Edgeway::Auth::StubVerifier` (`edgeway/http/auth/stub`; see `test/auth_test.rb`).
 - Like D1, this needs JSPI.
 - An example is `GET /me` in `todo-api` of [edgeway-examples](https://github.com/y-yagi/edgeway-examples).
 
