@@ -28,5 +28,6 @@ Dir.mktmpdir do |dir|
   puts "mentions npm/npx: #{npm.inspect}"
   puts File.read(File.join(app, ".github/workflows/ci.yml")).lines.grep(/run:/)
   puts ".ruby-version: #{File.read(File.join(app, ".ruby-version")) == RUBY_VERSION + "\n"}"
+  puts Edgeway::CLI::Build::PlatformConfig.load(app).name
   puts out.string.lines.last.sub(app, "APP")
 end

@@ -176,7 +176,7 @@ end
 
 puts "--"
 Dir.mktmpdir do |root|
-  Edgeway::CLI::Build::JsFiles.copy(root, "")
+  Edgeway::CLI::Build::JsFiles.copy(root, "", Edgeway::CLI::Build::PlatformConfig.load(root).js_paths)
   puts Dir.children(root).grep(/-test/).inspect
   puts Dir.children(root).include?("cloudflare.js")
 end

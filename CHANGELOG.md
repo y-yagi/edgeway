@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- `config/edgeway.yml` with `platform:` (only `cloudflare` for now, and the default without the file). `edgeway new` writes it.
+
 ## v0.3.0
 
 ### Added
