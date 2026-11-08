@@ -173,6 +173,18 @@ Edgeway needs a Spinel newer than the 2026.09.12 release
 
 ## Configuration
 
+`config/edgeway.yml` sets the platform the app is built for:
+
+```yaml
+platform: cloudflare
+```
+
+- `cloudflare` is the only platform, and the default: without the file the platform is `cloudflare`.
+- It is one setting for the whole app, not one per environment.
+- An unknown platform or key fails `edgeway build`.
+- `edgeway build` fails when the platform does not support the database adapter or cache store the environment uses.
+- `edgeway new` writes the file.
+
 Two files configure the database, each for its own side:
 
 - `config/database.yml` is Edgeway's: for each environment (`edgeway build --env ENV`),

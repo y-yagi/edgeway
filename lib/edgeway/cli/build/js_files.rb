@@ -9,15 +9,23 @@ module Edgeway
       module JsFiles
         TEST_ONLY = /-test(-[^\/]*)?\.js\z/
 
-        def self.copy(destination, config_js, tests: false)
+        def self.copy(destination, config_js, paths)
           FileUtils.mkdir_p(destination)
-          paths(tests).each { |file| FileUtils.cp(file, destination) }
+          paths.each { |file| FileUtils.cp(file, destination) }
           File.write(File.join(destination, "config.js"), config_js)
         end
 
-        def self.paths(tests)
-          files = Dir.glob(File.join(CLI.gem_dir, "js/*.js"))
+        # The files no platform claims, plus those prefixed by platform_name
+        # ("<name>.js", "<name>-*.js"); test-only files only when tests.
+        def self.paths(platform_name, tests, directory: File.join(CLI.gem_dir, "js"))
+          files = Dir.glob(File.join(directory, "*.js")).sort
+          files = files.select { |file| usable_on?(File.basename(file), platform_name) }
           tests ? files : files.grep_v(TEST_ONLY)
+        end
+
+        def self.usable_on?(basename, platform_name)
+          owner = PlatformConfig::PLATFORMS.keys.find { |name| basename.match?(/\A#{Regexp.escape(name)}(-|\.js\z)/) }
+          owner.nil? || owner == platform_name
         end
 
         def self.config_js(values, command)

@@ -17,6 +17,9 @@ module Edgeway
 
       def initialize(root)
         super
+        @platform = Build::PlatformConfig.load(root)
+        raise Error, "edgeway test needs platform: cloudflare in config/edgeway.yml (got #{@platform.name.inspect})" unless @platform.name == "cloudflare"
+
         @config = Build::AppConfig.load(root, "test")
       end
 
@@ -59,7 +62,7 @@ module Edgeway
           "appRoot" => @root, "databases" => databases
         }
         directory = File.join(@root, RUNTIME_DIR)
-        Build::JsFiles.copy(directory, Build::JsFiles.config_js(values, "test"), tests: true)
+        Build::JsFiles.copy(directory, Build::JsFiles.config_js(values, "test"), @platform.js_paths(tests: true))
         File.write(File.join(directory, "package.json"), %({"type": "module"}\n))
       end
 

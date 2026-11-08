@@ -13,6 +13,7 @@ bin/setup
 bin/test
 config/cache.yml
 config/database.yml
+config/edgeway.yml
 config/routes.rb
 db/migrations/.keep
 mise.toml
@@ -42,4 +43,5 @@ mentions npm/npx: []
         run: bin/test
         run: bin/build --release
 .ruby-version: true
+cloudflare
 Next: cd APP && bin/setup && bin/test && bin/build

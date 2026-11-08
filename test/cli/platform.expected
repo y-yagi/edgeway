@@ -1,0 +1,24 @@
+cloudflare
+cloudflare
+cloudflare
+config/edgeway.yml: platform must be one of cloudflare (got "vercel")
+config/edgeway.yml: platform must be one of cloudflare (got nil)
+config/edgeway.yml: unknown target (one of platform)
+config/edgeway.yml must be a Hash
+--
+built
+database adapter "d1" is not supported on platform "fake"
+cache store "memory" is not supported on platform "fake"
+cache store "kv" is not supported on platform "fake"
+--
+["config.js", "cors.js"]
+config/edgeway.yml: platform must be one of cloudflare (got 1)
+--
+edgeway test needs platform: cloudflare in config/edgeway.yml (got "fake")
+--
+["cloudflare-kv.js", "cloudflare-test-runner.js", "cloudflare.js", "neutral.js"]
+["fake-extra.js", "fake.js", "neutral.js"]
+["fake-extra.js", "fake-test-runner.js", "fake.js", "neutral.js"]
+[]
+["cloudflare-test-database.js", "cloudflare-test-runner.js"]
+[]
