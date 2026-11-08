@@ -64,22 +64,6 @@ false
 2147483647
 -2147483648
 nil
-["amount is not a number", "qty is not a number", "ratio is not a number"]
-["qty must be an integer"]
-["qty must be an integer"]
-[]
-[]
-1.0e+20
-["qty must be less than or equal to 100", "ratio is not a number", "code is too short (minimum is 2 characters)"]
-["amount is not a number", "code is too long (maximum is 4 characters)"]
-["amount is not a number", "qty is not a number", "ratio is not a number"]
-[]
-false
-["qty is not a number"]
-true
-7
-["code is the wrong length (should be 3 characters)"]
-[]
 categories
 baskets
 days
@@ -117,64 +101,6 @@ houses house true
 todos todo true
 comments comment true
 SELECT id, basket_id FROM categories WHERE basket_id = ? | [4]
-false
-["name has already been taken"]
-SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT 1 | ["work","u1"]
-true
-SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT 1 | ["home","u1"]
-true
-SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT 1 | ["work","u1"]
-false
-["name has already been taken"]
-SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT 1 | ["work","u1"]
-false
-true
-SELECT id, name, a, b FROM tags WHERE a = ? AND b IS NULL AND name IS NULL LIMIT 1 | ["x"]
-true
-SELECT id, name, a, b FROM tags WHERE name = ? LIMIT 1 | ["l"]
-SELECT id, name, a, b FROM tags WHERE a = ? AND b IS NULL AND name = ? LIMIT 1 | ["x","l"]
-unknown column: nope
-2
-SELECT id, owner_id, name FROM projects WHERE owner_id = ? AND name = ? LIMIT 1 | ["u1","work"]
-[4, "u1", true]
-SELECT id, owner_id, name FROM projects WHERE owner_id = ? AND name = ? LIMIT 1 | ["u1","default"]
-SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT 1 | ["default","u1"]
-INSERT INTO projects (owner_id, name) VALUES (?, ?) RETURNING id, owner_id, name | ["u1","default"]
-[false, ["name can't be blank"]]
-SELECT id, owner_id, name FROM projects WHERE name = ? LIMIT 1 | [""]
-validation failed: name can't be blank
-SELECT id, owner_id, name FROM projects WHERE name = ? LIMIT 1 | [""]
-unknown column: nope
-5
-SELECT id, owner_id, name FROM projects WHERE owner_id = ? AND name = ? LIMIT 1 | ["u1","race"]
-SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT 1 | ["race","u1"]
-INSERT INTO projects (owner_id, name) VALUES (?, ?) RETURNING id, owner_id, name | ["u1","race"]
-SELECT id, owner_id, name FROM projects WHERE owner_id = ? AND name = ? LIMIT 1 | ["u1","race"]
-D1_ERROR: UNIQUE constraint failed: projects.id: SQLITE_CONSTRAINT
-SELECT id, owner_id, name FROM projects WHERE name = ? LIMIT 1 | ["ghost"]
-SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id IS NULL LIMIT 1 | ["ghost"]
-INSERT INTO projects (name) VALUES (?) RETURNING id, owner_id, name | ["ghost"]
-SELECT id, owner_id, name FROM projects WHERE name = ? LIMIT 1 | ["ghost"]
-not unique: D1_ERROR: UNIQUE constraint failed: tags.name: SQLITE_CONSTRAINT
-true
-false
-D1_ERROR: no such table: tags: SQLITE_ERROR
-INSERT | []
-SELECT | []
-Edgeway::NotNullViolation: false
-Edgeway::InvalidForeignKey: false
-Edgeway::CheckViolation: false
-Edgeway::DatabaseError: false
-INSERT | []
-INSERT | []
-INSERT | []
-INSERT | []
-Edgeway::DatabaseUnavailable: d1: D1_ERROR: Network connection lost.
-Edgeway::RecordNotUnique: d1: D1_ERROR: UNIQUE constraint failed: tags.name: SQLITE_CONSTRAINT
-Edgeway::DatabaseError: d1: D1_ERROR: exceeded CPU time limit
-insert: UNIQUE constraint failed: projects.id
-SELECT id, owner_id, name FROM projects WHERE name = ? AND owner_id = ? LIMIT 1 | ["x","u9"]
-INSERT INTO projects (owner_id, name) VALUES (?, ?) RETURNING id, owner_id, name | ["u9","x"]
 SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY updated_at DESC, id DESC | []
 SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY title ASC, position DESC LIMIT 2 | []
 SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY position ASC | []

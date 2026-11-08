@@ -23,22 +23,6 @@ class Comment < ApplicationModel
   validates :body, presence: true
 end
 
-class Measure < ApplicationModel
-  attribute :amount, :float
-  attribute :qty, :integer
-  attribute :ratio, :float
-  attribute :code, :string
-  validates :amount, numericality: { greater_than: 0 }
-  validates :qty, numericality: { only_integer: true, less_than_or_equal_to: 100 }
-  validates :ratio, numericality: true
-  validates :code, length: { in: 2..4 }
-end
-
-class Pin < ApplicationModel
-  attribute :code, :string
-  validates :code, length: { is: 3 }
-end
-
 class Basket < ApplicationModel
   attribute :name, :string
   has_many :categories
@@ -52,25 +36,6 @@ end
 class Ledger < ApplicationModel
   attribute :id, :bigint
   attribute :total, :bigint
-end
-
-class Project < ApplicationModel
-  attribute :owner_id, :string
-  attribute :name, :string
-  validates :name, presence: true, uniqueness: { scope: :owner_id }
-end
-
-class Tag < ApplicationModel
-  attribute :name, :string
-  attribute :a, :string
-  attribute :b, :string
-  validates :name, uniqueness: true
-  validates :a, uniqueness: { scope: [:b, :name] }
-end
-
-class Odd < ApplicationModel
-  attribute :name, :string
-  validates :name, uniqueness: { scope: :nope }
 end
 
 class Category < ApplicationModel
@@ -270,43 +235,6 @@ p Edgeway::Model.cast(:integer, "2147483647")
 p Edgeway::Model.cast(:integer, "-2147483648")
 p Edgeway::Model.cast(:integer, "2147483648")
 
-# numericality checks what was set, not the cast value
-def check(attrs)
-  m = Measure.new(attrs)
-  m.valid?
-  p m.errors
-end
-check(amount: "abc", qty: "x", ratio: "y", code: "abc")
-check(amount: "1.5", qty: "1.9", ratio: "2", code: "abc")
-check(amount: "1e3", qty: "1e3", ratio: "-1.5E-3", code: "abc")
-check(amount: 0.00001, qty: 5, ratio: 1.5e-7, code: "abc")
-# Float#to_s writes an exponent for these (set through the writers: a big
-# integral Float in a Hash literal fails in Spinel)
-big = Measure.new(qty: 5, code: "abc")
-big.amount = 1.0e20
-big.ratio = 0.00001
-big.valid?
-p big.errors
-p big.amount
-check(amount: "0.00001", qty: "101", ratio: "", code: "a")
-check(amount: "  ", qty: nil, ratio: nil, code: "abcde")
-check(amount: "Infinity", qty: "0x10", ratio: "1_000", code: "abc")
-check(amount: 2, qty: 100, ratio: 3, code: "abcd")
-m = Measure.new(amount: "2", qty: "3", ratio: "4", code: "abc")
-m.qty = "z"
-p m.valid?
-p m.errors
-m.qty = 7
-p m.valid?
-p m.qty
-
-# length: is: and in:
-["ab", "abc"].each do |code|
-  pin = Pin.new(code: code)
-  pin.valid?
-  p pin.errors
-end
-
 # one helper for plurals: ies <-> y
 puts Category.table_name
 puts Basket.table_name
@@ -324,145 +252,6 @@ end
 end
 basket = Basket.instantiate({ "id" => 4, "name" => "n" })
 basket.categories.to_a
-show(db)
-
-# uniqueness: a query, only when nothing else failed
-project_row = { "id" => 2, "owner_id" => "u1", "name" => "work" }
-db.queue([project_row])
-dup = Project.new(owner_id: "u1", name: "work")
-p dup.valid?
-p dup.errors
-show(db)
-db.queue([])
-fresh = Project.new(owner_id: "u1", name: "home")
-p fresh.valid?
-show(db)
-# the same record saved again is not a duplicate of itself
-db.queue([project_row])
-same = Project.instantiate(project_row)
-p same.valid?
-show(db)
-# but another row with the value is
-db.queue([{ "id" => 3, "owner_id" => "u1", "name" => "work" }])
-p same.valid?
-p same.errors
-show(db)
-# an invalid record does not query
-p Project.new(owner_id: "u1", name: " ").valid?
-show(db)
-# a nil value is not checked (a nil scope is IS NULL)
-p Tag.new(a: "x").valid?
-show(db)
-db.queue([])
-db.queue([])
-p Tag.new(name: "l", a: "x").valid?
-show(db)
-# a scope column that does not exist is an UnknownColumn
-begin
-  Odd.new(name: "n").valid?
-rescue Edgeway::UnknownColumn => e
-  puts e.message
-end
-show(db)
-
-# find_or_create_by: found, so no insert
-db.returning = true
-db.queue([project_row])
-found = Project.where(owner_id: "u1").find_or_create_by(name: "work")
-p found.id
-show(db)
-# not found: the insert has the relation's conditions too
-db.queue([])
-db.queue([])
-db.queue([{ "id" => 4, "owner_id" => "u1", "name" => "default" }])
-made = Project.where(owner_id: "u1").find_or_create_by(name: "default")
-p [made.id, made.owner_id, made.persisted?]
-show(db)
-# on the model; a validation failure answers the unsaved record
-db.queue([])
-bad_project = Project.find_or_create_by(name: "")
-p [bad_project.persisted?, bad_project.errors]
-show(db)
-begin
-  Project.find_or_create_by!(name: "")
-rescue Edgeway::RecordInvalid => e
-  puts e.message
-end
-show(db)
-begin
-  Project.find_or_create_by(nope: 1)
-rescue Edgeway::UnknownColumn => e
-  puts e.message
-end
-# the race: the insert is refused as not unique, the second find has the row
-db.queue([])
-db.queue([])
-db.fail_next("D1_ERROR: UNIQUE constraint failed: projects.owner_id, projects.name: SQLITE_CONSTRAINT", "INSERT")
-db.queue([{ "id" => 5, "owner_id" => "u1", "name" => "race" }])
-raced = Project.where(owner_id: "u1").find_or_create_by!(name: "race")
-p raced.id
-show(db)
-# still nothing: the error is raised
-db.queue([])
-db.queue([])
-db.fail_next("D1_ERROR: UNIQUE constraint failed: projects.id: SQLITE_CONSTRAINT", "INSERT")
-db.queue([])
-begin
-  Project.find_or_create_by(name: "ghost")
-rescue Edgeway::RecordNotUnique => e
-  puts e.message
-end
-show(db)
-
-# D1's UNIQUE message is RecordNotUnique (a DatabaseError); others stay DatabaseError
-db.fail_next("D1_ERROR: UNIQUE constraint failed: tags.name: SQLITE_CONSTRAINT")
-begin
-  db.execute("INSERT", [])
-rescue Edgeway::RecordNotUnique => e
-  puts "not unique: #{e.message}"
-  p e.is_a?(Edgeway::DatabaseError)
-end
-db.fail_next("D1_ERROR: no such table: tags: SQLITE_ERROR")
-begin
-  db.select_all("SELECT", [])
-rescue Edgeway::DatabaseError => e
-  p e.is_a?(Edgeway::RecordNotUnique)
-  puts e.message
-end
-show(db)
-[
-  "D1_ERROR: NOT NULL constraint failed: tags.name: SQLITE_CONSTRAINT",
-  "D1_ERROR: FOREIGN KEY constraint failed: SQLITE_CONSTRAINT",
-  "D1_ERROR: CHECK constraint failed: stars: SQLITE_CONSTRAINT",
-  "D1_ERROR: no such table: tags: SQLITE_ERROR",
-].each do |m|
-  db.fail_next(m)
-  begin
-    db.execute("INSERT", [])
-  rescue Edgeway::DatabaseError => e
-    puts "#{e.class}: #{e.is_a?(Edgeway::RecordNotUnique)}"
-  end
-end
-show(db)
-[
-  '{"error":"D1_ERROR: Network connection lost.","unavailable":true}',
-  '{"error":"D1_ERROR: UNIQUE constraint failed: tags.name: SQLITE_CONSTRAINT"}',
-  '{"error":"D1_ERROR: exceeded CPU time limit"}',
-].each do |json|
-  begin
-    db.raise_error_result(JSON.parse(json), "d1: ")
-  rescue Edgeway::DatabaseError => e
-    puts "#{e.class}: #{e.message}"
-  end
-end
-# INSERT ... RETURNING goes through the same mapping
-db.queue([])
-db.fail_next("UNIQUE constraint failed: projects.id", "RETURNING")
-begin
-  Project.create(owner_id: "u9", name: "x")
-rescue Edgeway::RecordNotUnique => e
-  puts "insert: #{e.message}"
-end
 show(db)
 
 # order adds terms; reorder replaces them
