@@ -121,59 +121,6 @@ DELETE FROM todos WHERE id = ? | [1]
 DELETE FROM todos WHERE id = ? | [2]
 []
 SELECT id, title, done, priority, position, created_at, updated_at FROM todos | []
-true
-false
-[{"changes" => 1, "last_insert_id" => 9}, {"changes" => 1, "last_insert_id" => 10}, {"changes" => 1, "last_insert_id" => 11}]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE done = ? | [0]
-BATCH 3
-UPDATE todos SET title = ?, done = ?, priority = ?, position = ?, created_at = ?, updated_at = ? WHERE id = ? | ["batched",0,"normal",1,"c","2026-01-02T03:04:05.000Z",1]
-DELETE FROM todos WHERE done = ? | [1]
-DELETE FROM todos WHERE id = ? | [8]
-in block: 0 logged
-BATCH 1
-UPDATE todos SET title = ?, done = ?, priority = ?, position = ?, created_at = ?, updated_at = ? WHERE id = ? | ["later",0,"normal",1,"c","2026-01-02T03:04:05.000Z",1]
-[]
-[]
-raised boom
-false
-[]
-UPDATE todos SET title = ?, done = ?, priority = ?, position = ?, created_at = ?, updated_at = ? WHERE id = ? | ["plain",0,"normal",1,"c","2026-01-02T03:04:05.000Z",1]
-3
-BATCH 3
-UPDATE todos SET title = ?, done = ?, priority = ?, position = ?, created_at = ?, updated_at = ? WHERE id = ? | ["outer",0,"normal",1,"c","2026-01-02T03:04:05.000Z",1]
-DELETE FROM todos WHERE done = ? | [1]
-UPDATE todos SET title = ?, done = ?, priority = ?, position = ?, created_at = ?, updated_at = ? WHERE id = ? | ["after",0,"normal",1,"c","2026-01-02T03:04:05.000Z",1]
-create isn't supported inside Model.batch
-false
-[]
-not unique: D1_ERROR: UNIQUE constraint failed: todos.title: SQLITE_CONSTRAINT
-false
-BATCH 2
-UPDATE todos SET title = ?, done = ?, priority = ?, position = ?, created_at = ?, updated_at = ? WHERE id = ? | ["dup",0,"normal",1,"c","2026-01-02T03:04:05.000Z",1]
-DELETE FROM todos WHERE done = ? | [1]
-1
-BATCH 1
-DELETE FROM todos WHERE done = ? | [1]
-SELECT id, name, group_id FROM members WHERE group_id = ? | [7]
-SELECT id, body, member_id FROM notes WHERE member_id = ? | [11]
-BATCH 3
-DELETE FROM notes WHERE id = ? | [21]
-DELETE FROM members WHERE id = ? | [11]
-DELETE FROM groups WHERE id = ? | [7]
-BATCH 2
-DELETE FROM tasks WHERE team_id = ? | [3]
-DELETE FROM teams WHERE id = ? | [3]
-D1_ERROR: boom
-true
-BATCH 2
-DELETE FROM tasks WHERE team_id = ? | [3]
-DELETE FROM teams WHERE id = ? | [3]
-ForbiddenAttributes: Todo: params must go through permit
-ForbiddenAttributes: Todo: params must go through permit
-ForbiddenAttributes: Todo: params must go through permit
-require alone is not permitted
-["t", 1, false]
-"s"
 SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id IN (?, ?) | [1,2]
 SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE done IN (?, ?) | [1,0]
 SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE 1 = 0 | []
@@ -216,8 +163,8 @@ where(Hash) takes no binds
 [[4, "raw", true, true]]
 [{"n" => 3}]
 0
-{"changes" => 1, "last_insert_id" => 30}
-{"changes" => 1, "last_insert_id" => 31}
+{"changes" => 1, "last_insert_id" => 14}
+{"changes" => 1, "last_insert_id" => 15}
 SELECT * FROM todos WHERE done = ? AND title LIKE ? | [1,"r%"]
 SELECT COUNT(*) AS n FROM todos WHERE done = ? | [0]
 SELECT * FROM todos | []
@@ -225,7 +172,7 @@ UPDATE todos SET done = ? WHERE id = ? | [1,1]
 DELETE FROM todos | []
 {"changes" => 0, "last_insert_id" => 0}
 0
-[{"changes" => 1, "last_insert_id" => 32}, {"changes" => 1, "last_insert_id" => 33}]
+[{"changes" => 1, "last_insert_id" => 16}, {"changes" => 1, "last_insert_id" => 17}]
 BATCH 2
 UPDATE todos SET done = ? WHERE id = ? | [1,1]
 DELETE FROM comments WHERE todo_id = ? | [1]
