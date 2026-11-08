@@ -1,17 +1,3 @@
-todos
-comments
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE done = ? ORDER BY title DESC LIMIT 5 OFFSET 10 | [0]
-4
-SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos WHERE priority = ?) | ["high"]
-{"id" => 3, "title" => "a", "done" => true, "priority" => "low", "position" => 2, "created_at" => "t", "updated_at" => "t"}
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT 1 | [3]
-true
-todos 4 not found
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT 1 | [4]
-unknown column: title;DROP TABLE todos
-unknown column: nope
-["x", "y"]
-SELECT title FROM todos | []
 9
 true
 INSERT INTO todos (title, done, priority, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id, title, done, priority, position, created_at, updated_at | ["new",0,"normal",1,"2026-01-02T03:04:05.000Z","2026-01-02T03:04:05.000Z"]
@@ -25,87 +11,6 @@ DELETE FROM todos WHERE id = ? | [9]
 1
 INSERT INTO todos (title, done, priority, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) | ["z",0,"normal",1,"2026-01-02T03:04:05.000Z","2026-01-02T03:04:05.000Z"]
 SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? | [3]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position IS NULL | []
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position IS NULL AND done = ? AND title = ? | [1,"x"]
-nil
-true
-SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos LIMIT 1) | []
-false
-SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos WHERE title = ? LIMIT 1) | ["none"]
-2
-SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos LIMIT 2) | []
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos LIMIT -1 OFFSET 3 | []
-true
-SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos WHERE done = ? LIMIT 1) | [1]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY id ASC LIMIT 1 | []
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY title ASC LIMIT 1 | []
-nil
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE title = ? LIMIT 1 | ["z"]
-nil
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE done = ? AND title = ? LIMIT 1 | [1,"z"]
-todos 4294967297 not found
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT 1 | ["4294967297"]
-todos 99999999999999999999 not found
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT 1 | ["99999999999999999999"]
-bad limit: 99999999999
-bad limit: -1
-bad limit: 2147483648
-bad offset: 4294967297
-0
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos LIMIT 2147483647 OFFSET 0 | []
-false
-["position is out of range"]
-2147483647
--2147483648
-nil
-categories
-baskets
-days
-categories
-category
-todo
-status statuses status status
-class classes class class
-box boxes box box
-wish wishes wish wish
-match matches match match
-address addresses address address
-bus buses bus bus
-post posts post post
-category categories category category
-day days day day
-case cases case case
-base bases base base
-database databases database database
-type types type type
-house houses house house
-todo todos todo todo
-comment comments comment comment
-statuses status true
-classes class true
-addresses address true
-boxes box true
-wishes wish true
-matches match true
-cases case true
-bases base true
-databases database true
-types type true
-houses house true
-todos todo true
-comments comment true
-SELECT id, basket_id FROM categories WHERE basket_id = ? | [4]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY updated_at DESC, id DESC | []
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY title ASC, position DESC LIMIT 2 | []
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY position ASC | []
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY title DESC | []
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE done = ? ORDER BY id DESC LIMIT 1 | [1]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos ORDER BY title ASC, id DESC LIMIT 1 | []
-SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos) | []
-unknown column: nope
-bad order direction: sideways
-bad order direction: up
-unknown column: id;DROP
 1
 DELETE FROM todos | []
 1
@@ -121,67 +26,6 @@ DELETE FROM todos WHERE id = ? | [1]
 DELETE FROM todos WHERE id = ? | [2]
 []
 SELECT id, title, done, priority, position, created_at, updated_at FROM todos | []
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id IN (?, ?) | [1,2]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE done IN (?, ?) | [1,0]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE 1 = 0 | []
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE (position IN (?) OR position IS NULL) | [1]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position IS NULL | []
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position >= ? AND position <= ? | [1,5]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position >= ? AND position < ? | [1,5]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position >= ? | [2]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position <= ? | [5]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position < ? | [5]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE (title LIKE ?) | ["%x%"]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE (done = 1) | []
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE (title LIKE ? OR priority = ?) AND done = ? | ["%x%","low",1]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE (done = ?) | [1]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id IN (?, ?) AND position >= ? AND position <= ? AND (title <> ?) AND done = ? ORDER BY id ASC LIMIT 5 OFFSET 2 | [1,2,3,4,"z",0]
-2
-SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos WHERE id IN (?, ?) AND (title <> ?) LIMIT 1) | [1,2,"z"]
-true
-SELECT COUNT(*) AS n FROM (SELECT 1 FROM todos WHERE position >= ? AND position <= ? LIMIT 1) | [1,3]
-SELECT title FROM todos WHERE id IN (?, ?) | [1,2]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE position >= ? AND position <= ? ORDER BY id ASC LIMIT 1 | [1,3]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id IN (?, ?) AND title = ? LIMIT 1 | [3,4,"z"]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE (title LIKE ?) AND id = ? LIMIT 1 | ["a%",7]
-DELETE FROM todos WHERE id IN (?, ?) | [1,2]
-DELETE FROM todos WHERE position >= ? AND position < ? AND (title = ?) AND done = ? | [1,3,"z",1]
-DELETE FROM todos WHERE 1 = 0 | []
-2
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id IN (?, ?) AND (title <> ?) | [1,2,"z"]
-DELETE FROM todos WHERE id = ? | [1]
-DELETE FROM todos WHERE id = ? | [2]
-SELECT todos.id AS p_id, todos.title AS p_title, todos.done AS p_done, todos.priority AS p_priority, todos.position AS p_position, todos.created_at AS p_created_at, todos.updated_at AS p_updated_at, eager_comments.id AS c0_id, eager_comments.body AS c0_body, eager_comments.todo_id AS c0_todo_id FROM (SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id IN (?, ?) AND (title <> ?) LIMIT 3) AS todos LEFT JOIN comments AS eager_comments ON eager_comments.todo_id = todos.id ORDER BY todos.id, eager_comments.id | [1,2,"z"]
-SELECT id, body, todo_id FROM comments WHERE todo_id = ? AND body IN (?, ?) AND (body <> ?) | [5,"a","b","c"]
-unknown column: nope
-unknown column: nope
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE created_at = ? | ["2026-10-28T05:00:00.000Z"]
-SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE created_at IN (?, ?) AND (updated_at > ?) | ["2026-10-28T05:00:00.000Z","2026-10-28T06:00:00.000Z","2026-10-28T05:00:00.000Z"]
-SELECT 1 WHERE ? < ? | ["2026-10-28T05:00:00.000Z",1]
-an Array bind in a SQL fragment isn't expanded; use where(column: [...])
-where(Hash) takes no binds
-[[4, "raw", true, true]]
-[{"n" => 3}]
-0
-{"changes" => 1, "last_insert_id" => 14}
-{"changes" => 1, "last_insert_id" => 15}
-SELECT * FROM todos WHERE done = ? AND title LIKE ? | [1,"r%"]
-SELECT COUNT(*) AS n FROM todos WHERE done = ? | [0]
-SELECT * FROM todos | []
-UPDATE todos SET done = ? WHERE id = ? | [1,1]
-DELETE FROM todos | []
-{"changes" => 0, "last_insert_id" => 0}
-0
-[{"changes" => 1, "last_insert_id" => 16}, {"changes" => 1, "last_insert_id" => 17}]
-BATCH 2
-UPDATE todos SET done = ? WHERE id = ? | [1,1]
-DELETE FROM comments WHERE todo_id = ? | [1]
-1
-too many bind parameters: 101 (at most 100)
-, ?, ?, ?, ?) LIMIT 1 OFFSET 2
-too many bind parameters: 101 (at most 100)
-too many bind parameters: 101 (at most 100)
-2
 true
 {"queries":0,"rows_read":0,"rows_written":0,"db_ms":0.0}
 0

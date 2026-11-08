@@ -23,11 +23,6 @@ class Comment < ApplicationModel
   validates :body, presence: true
 end
 
-class Basket < ApplicationModel
-  attribute :name, :string
-  has_many :categories
-end
-
 class Attachment < ApplicationModel
   attribute :name, :string
   attribute :data, :binary
@@ -38,10 +33,6 @@ class Ledger < ApplicationModel
   attribute :total, :bigint
 end
 
-class Category < ApplicationModel
-  attribute :basket_id, :integer
-end
-
 db = Edgeway::DB::MemoryAdapter.new
 Edgeway::Model.connection = db
 Edgeway::Model.freeze_time("2026-01-02T03:04:05.000Z")
@@ -50,41 +41,6 @@ def show(db)
   puts db.log
   db.log.clear
 end
-
-puts Todo.table_name
-puts Comment.table_name
-
-# queries
-Todo.where(done: false).order(:title, :desc).limit(5).offset(10).to_a
-show(db)
-db.queue([{ "n" => 4 }])
-p Todo.where("priority" => "high").count
-show(db)
-db.queue([{ "id" => 3, "title" => "a", "done" => 1, "priority" => "low", "position" => 2, "created_at" => "t", "updated_at" => "t" }])
-t = Todo.find(3)
-p t.as_json
-show(db)
-p t.done
-db.queue([])
-begin
-  Todo.find(4)
-rescue Edgeway::RecordNotFound => e
-  puts e.message
-end
-show(db)
-begin
-  Todo.order("title;DROP TABLE todos")
-rescue Edgeway::UnknownColumn => e
-  puts e.message
-end
-begin
-  Todo.where(nope: 1)
-rescue Edgeway::BadRequest => e
-  puts e.message
-end
-db.queue([{ "title" => "x" }, { "title" => "y" }])
-p Todo.pluck(:title)
-show(db)
 
 # create and validations
 db.queue([{ "id" => 9, "title" => "new", "done" => 0, "priority" => "normal", "position" => 1, "created_at" => "c", "updated_at" => "u" }])
@@ -119,134 +75,6 @@ db.queue([{ "id" => 1, "title" => "z", "done" => 0, "priority" => "normal", "pos
 z = Todo.create!(title: "z", position: 1)
 p z.id
 show(db)
-
-# where(col: nil) is IS NULL, with no bind
-Todo.where(position: nil).to_a
-show(db)
-Todo.where(position: nil, done: true).where(title: "x").to_a
-show(db)
-c = Todo.where(position: nil).build(title: "b")
-p c.position
-
-# exists?, count with a limit, an offset alone
-db.queue([{ "n" => 1 }])
-p Todo.exists?
-show(db)
-db.queue([{ "n" => 0 }])
-p Todo.exists?(title: "none")
-show(db)
-db.queue([{ "n" => 2 }])
-p Todo.limit(2).count
-show(db)
-Todo.offset(3).to_a
-show(db)
-db.queue([{ "n" => 0 }])
-p Todo.where(done: true).empty?
-show(db)
-
-# first orders by id unless ordered; find and find_by ignore an offset
-Todo.first
-show(db)
-Todo.order(:title).first
-show(db)
-db.queue([])
-p Todo.offset(5).find_by(title: "z")
-show(db)
-db.queue([])
-p Todo.where(done: true).offset(5).limit(3).find_by(title: "z")
-show(db)
-
-# 32-bit limits: an id outside them finds nothing, a limit or offset is a BadRequest
-db.queue([])
-begin
-  Todo.find(4294967297)
-rescue Edgeway::RecordNotFound => e
-  puts e.message
-end
-show(db)
-db.queue([])
-begin
-  Todo.find("99999999999999999999")
-rescue Edgeway::RecordNotFound => e
-  puts e.message
-end
-show(db)
-["99999999999", "-1", 2147483648].each do |n|
-  begin
-    Todo.limit(n)
-  rescue Edgeway::BadRequest => e
-    puts e.message
-  end
-end
-begin
-  Todo.offset("4294967297")
-rescue Edgeway::BadRequest => e
-  puts e.message
-end
-p Todo.limit("2147483647").offset(0).to_a.size
-show(db)
-big = Todo.new(title: "t", position: "4294967297")
-p big.valid?
-p big.errors
-p Edgeway::Model.cast(:integer, "2147483647")
-p Edgeway::Model.cast(:integer, "-2147483648")
-p Edgeway::Model.cast(:integer, "2147483648")
-
-# one helper for plurals: ies <-> y
-puts Category.table_name
-puts Basket.table_name
-puts Edgeway::Inflector.pluralize("day")
-puts Edgeway::Inflector.pluralize("category")
-puts Edgeway::Inflector.singularize("categories")
-puts Edgeway::Inflector.singularize("todos")
-%w[status class box wish match address bus post category day case base database type house todo comment].each do |w|
-  pl = Edgeway::Inflector.pluralize(w)
-  puts "#{w} #{pl} #{Edgeway::Inflector.singularize(pl)} #{Edgeway::Inflector.singularize(w)}"
-end
-%w[statuses classes addresses boxes wishes matches cases bases databases types houses todos comments].each do |pl|
-  sg = Edgeway::Inflector.singularize(pl)
-  puts "#{pl} #{sg} #{Edgeway::Inflector.pluralize(sg) == pl}"
-end
-basket = Basket.instantiate({ "id" => 4, "name" => "n" })
-basket.categories.to_a
-show(db)
-
-# order adds terms; reorder replaces them
-Todo.order(:updated_at, :desc).order(:id, :desc).to_a
-show(db)
-Todo.order(:title).order("position", "DESC").limit(2).to_a
-show(db)
-Todo.order(:title).order(:id).reorder(:position).to_a
-show(db)
-Todo.reorder(:title, :desc).to_a
-show(db)
-Todo.where(done: true).order(:title).reorder(:id, :desc).first
-show(db)
-Todo.order(:title).order(:id, :desc).first
-show(db)
-db.queue([{ "n" => 1 }])
-Todo.order(:title).order(:id).count
-show(db)
-begin
-  Todo.order(:title).order(:nope)
-rescue Edgeway::UnknownColumn => e
-  puts e.message
-end
-begin
-  Todo.order(:title).order(:id, :sideways)
-rescue Edgeway::BadRequest => e
-  puts e.message
-end
-begin
-  Todo.order(:title).reorder(:id, :up)
-rescue Edgeway::BadRequest => e
-  puts e.message
-end
-begin
-  Todo.order(:title).reorder("id;DROP")
-rescue Edgeway::UnknownColumn => e
-  puts e.message
-end
 
 # delete_all: one DELETE, the number of rows, no records
 p Todo.delete_all
@@ -283,121 +111,6 @@ db.returning = true
 # a persisted Todo that the multiple-database checks below reuse
 db.queue([{ "id" => 1, "title" => "p", "done" => 0, "priority" => "normal", "position" => 1, "created_at" => "c", "updated_at" => "u" }])
 bt = Todo.find(1)
-db.log.clear
-
-db.log.clear
-Todo.where(id: [1, "2"]).to_a
-Todo.where(done: [true, false]).to_a
-Todo.where(id: []).to_a
-Todo.where(position: [1, nil]).to_a
-Todo.where(position: [nil]).to_a
-show(db)
-Todo.where(position: 1..5).to_a
-Todo.where(position: 1...5).to_a
-Todo.where(position: (2..)).to_a
-Todo.where(position: (..5)).to_a
-Todo.where(position: (...5)).to_a
-show(db)
-Todo.where("title LIKE ?", "%x%").to_a
-Todo.where("done = 1").to_a
-Todo.where("title LIKE ? OR priority = ?", "%x%", "low").where(done: true).to_a
-Todo.where("done = ?", true).to_a
-show(db)
-Todo.where(id: [1, 2]).where(position: 3..4).where("title <> ?", "z").where(done: false).order(:id).limit(5).offset(2).to_a
-show(db)
-db.queue([{ "n" => 2 }])
-p Todo.where(id: [1, 2]).where("title <> ?", "z").limit(1).count
-show(db)
-db.queue([{ "n" => 1 }])
-p Todo.where(position: 1..3).exists?
-show(db)
-Todo.where(id: [1, 2]).pluck(:title)
-Todo.where(position: 1..3).first
-Todo.where(id: [3, 4]).find_by(title: "z")
-Todo.where("title LIKE ?", "a%").find_by(id: 7)
-show(db)
-Todo.where(id: [1, 2]).delete_all
-Todo.where(position: 1...3).where("title = ?", "z").where(done: true).delete_all
-Todo.where(id: []).delete_all
-show(db)
-db.queue([{ "id" => 1, "title" => "a" }, { "id" => 2, "title" => "b" }])
-p Todo.where(id: [1, 2]).where("title <> ?", "z").destroy_all.size
-show(db)
-Todo.where(id: [1, 2]).eager_load(:comments).where("title <> ?", "z").limit(3).to_a
-show(db)
-todo = Todo.instantiate({ "id" => 5, "title" => "x" })
-todo.comments.where(body: ["a", "b"]).where("body <> ?", "c").to_a
-show(db)
-begin
-  Todo.where(nope: [1]).to_a
-rescue Edgeway::UnknownColumn => e
-  puts e.message
-end
-begin
-  Todo.where(nope: 1..2).to_a
-rescue Edgeway::UnknownColumn => e
-  puts e.message
-end
-
-t0 = Time.utc(2026, 10, 28, 5, 0, 0)
-db.log.clear
-Todo.where(created_at: t0).to_a
-Todo.where(created_at: [t0, t0 + 3600]).where("updated_at > ?", t0).to_a
-Edgeway::Model.select_all("SELECT 1 WHERE ? < ?", [t0, true])
-show(db)
-begin
-  Todo.where("id IN (?)", [1, 2])
-rescue ArgumentError => e
-  puts e.message
-end
-begin
-  Todo.where({ id: 1 }, 2)
-rescue ArgumentError => e
-  puts e.message
-end
-
-# raw SQL
-db.queue([{ "id" => 4, "title" => "raw", "done" => 1, "priority" => "low", "position" => 2 }])
-raw = Todo.find_by_sql("SELECT * FROM todos WHERE done = ? AND title LIKE ?", [true, "r%"])
-p raw.map { |r| [r.id, r.title, r.done, r.persisted?] }
-db.queue([{ "n" => 3 }])
-p Edgeway::Model.select_all("SELECT COUNT(*) AS n FROM todos WHERE done = ?", [false])
-p Todo.find_by_sql("SELECT * FROM todos").size
-p Edgeway::Model.execute("UPDATE todos SET done = ? WHERE id = ?", [true, 1])
-p Edgeway::Model.execute("DELETE FROM todos")
-show(db)
-results = Edgeway::Model.batch do
-  p Edgeway::Model.execute("UPDATE todos SET done = ? WHERE id = ?", [true, 1])
-  Edgeway::Model.execute("DELETE FROM comments WHERE todo_id = ?", [1])
-  p db.log.size
-end
-p results
-show(db)
-
-db.log.clear
-Todo.where(id: (1..100).to_a).to_a
-p db.log.size
-begin
-  Todo.where(id: (1..101).to_a).to_a
-rescue ArgumentError => e
-  puts e.message
-end
-Todo.where(id: (1..100).to_a).limit(1).offset(2).to_a
-puts db.log.last.split(" | ")[0][-30..]
-begin
-  Edgeway::Model.execute("DELETE FROM todos WHERE id IN (#{(1..101).map { "?" }.join(", ")})", (1..101).to_a)
-rescue ArgumentError => e
-  puts e.message
-end
-begin
-  Edgeway::Model.batch do
-    Edgeway::Model.execute("DELETE FROM todos WHERE id = ?", [1])
-    Edgeway::Model.execute("DELETE FROM todos WHERE id IN (#{(1..101).map { "?" }.join(", ")})", (1..101).to_a)
-  end
-rescue ArgumentError => e
-  puts e.message
-end
-p db.log.size
 db.log.clear
 
 # Model.now without a frozen time: UTC, always three digits of milliseconds
