@@ -35,7 +35,7 @@ module Edgeway
 
     def initialize(message = "rate limit exceeded", retry_after = 0)
       super(message)
-      @retry_after = retry_after.is_a?(Integer) && Integer(retry_after) > 0 ? retry_after : 0
+      @retry_after = retry_after.is_a?(Integer) && retry_after > 0 ? retry_after : 0
     end
   end
 
