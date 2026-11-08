@@ -44,9 +44,8 @@ module Edgeway
         !fresh_when(etag: etag, last_modified: last_modified, public: public)
       end
 
-      # Integer() gives Spinel a type for a parameter no call site types.
       def self.duration?(seconds)
-        seconds.is_a?(Integer) && Integer(seconds) >= 0
+        seconds.is_a?(Integer) && seconds >= 0
       end
 
       # Weak, because a proxy may recompress the body and weaken a strong

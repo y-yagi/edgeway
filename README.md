@@ -161,11 +161,12 @@ See `todo-api` in [edgeway-examples](https://github.com/y-yagi/edgeway-examples)
 
 ### Spinel version
 
-Edgeway needs a Spinel newer than the 2026.09.12 release
-(that release refuses `send` with a computed name, which `Callbacks#run_before_actions` uses).
+Edgeway needs a Spinel at or after the pinned commit below.
+No release has all the fixes Edgeway relies on yet
+(the 2026.09.12 release, for one, refuses `send` with a computed name, which `Callbacks#run_before_actions` uses).
 
 - `mise.toml` (Edgeway's own and the one `edgeway new` writes) pins a commit of [matz/spinel](https://github.com/matz/spinel),
-  `ec0ad13e4`, which mise-spinel builds from source.
+  `5f1f87566`, which mise-spinel builds from source.
   A commit rather than `master`, so that an install is the Spinel that was tested.
 - The WASI SDK (`wasi-sdk-34`) is installed first,
   because mise-spinel builds Spinel's wasm32-wasi runtime only when it finds one.

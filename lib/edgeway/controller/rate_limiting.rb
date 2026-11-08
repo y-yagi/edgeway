@@ -116,9 +116,8 @@ module Edgeway
         group.to_i(16).to_s(16)
       end
 
-      # Integer() gives Spinel a type for a parameter no call site types.
       def self.positive_integer?(value)
-        value.is_a?(Integer) && Integer(value) > 0
+        value.is_a?(Integer) && value > 0
       end
 
       private

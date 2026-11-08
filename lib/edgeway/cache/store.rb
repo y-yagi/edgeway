@@ -78,7 +78,7 @@ module Edgeway
       end
 
       def expired?(entry)
-        entry["e"].is_a?(Integer) && Integer(entry["e"]) <= current_time
+        entry["e"].is_a?(Integer) && entry["e"] <= current_time
       end
 
       def envelope(value, seconds)
@@ -92,7 +92,7 @@ module Edgeway
       end
 
       def checked_expires_in(seconds)
-        unless seconds.is_a?(Integer) && Integer(seconds) > 0 && Integer(seconds) <= MAX_EXPIRES_IN
+        unless seconds.is_a?(Integer) && seconds > 0 && seconds <= MAX_EXPIRES_IN
           raise ArgumentError, "expires_in must be a whole number of seconds, 1 to #{MAX_EXPIRES_IN}"
         end
 
