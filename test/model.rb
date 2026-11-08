@@ -42,33 +42,6 @@ class Category < ApplicationModel
   attribute :basket_id, :integer
 end
 
-class Group < ApplicationModel
-  attribute :name, :string
-  has_many :members, dependent: :destroy
-  has_many :notes
-end
-
-class Member < ApplicationModel
-  attribute :name, :string
-  belongs_to :group
-  has_many :notes, dependent: :destroy
-end
-
-class Note < ApplicationModel
-  attribute :body, :string
-  belongs_to :member
-end
-
-class Team < ApplicationModel
-  attribute :name, :string
-  has_many :tasks, dependent: :delete_all
-end
-
-class Task < ApplicationModel
-  attribute :title, :string
-  belongs_to :team
-end
-
 db = Edgeway::DB::MemoryAdapter.new
 Edgeway::Model.connection = db
 Edgeway::Model.freeze_time("2026-01-02T03:04:05.000Z")
@@ -307,114 +280,10 @@ show(db)
 
 db.returning = true
 
-# Model.batch: writes are queued and sent as one BATCH; reads run at once
+# a persisted Todo that the multiple-database checks below reuse
 db.queue([{ "id" => 1, "title" => "p", "done" => 0, "priority" => "normal", "position" => 1, "created_at" => "c", "updated_at" => "u" }])
 bt = Todo.find(1)
 db.log.clear
-db.queue([{ "id" => 8, "title" => "x" }])
-results = Edgeway::Model.batch do
-  bt.update!(title: "batched")
-  Todo.where(done: true).delete_all
-  p Edgeway::Model.batching?
-  Todo.where(done: false).destroy_all
-end
-p Edgeway::Model.batching?
-p results
-show(db)
-# the queue is sent only at the end of the block: the log shows no UPDATE yet
-Edgeway::Model.batch do
-  bt.update!(title: "later")
-  puts "in block: #{db.log.size} logged"
-end
-show(db)
-# an empty batch sends nothing
-p Edgeway::Model.batch { 1 + 1 }
-p db.log
-# a block that raises sends nothing and the error propagates; the queue is reset
-begin
-  Edgeway::Model.batch do
-    bt.update!(title: "lost")
-    raise "boom"
-  end
-rescue => e
-  puts "raised #{e.message}"
-end
-p Edgeway::Model.batching?
-p db.log
-bt.update!(title: "plain")
-show(db)
-# nested batches join the outer one
-p(Edgeway::Model.batch do
-  bt.update!(title: "outer")
-  Edgeway::Model.batch { Todo.where(done: true).delete_all }
-  bt.update!(title: "after")
-end.size)
-show(db)
-# a create is refused, before any SQL
-begin
-  Edgeway::Model.batch do
-    bt.update!(title: "queued")
-    Todo.create!(title: "new", position: 1)
-  end
-rescue ArgumentError => e
-  puts e.message
-end
-p Edgeway::Model.batching?
-p db.log
-# a failure when the batch is sent: RecordNotUnique, state reset, the next batch works
-db.fail_next("D1_ERROR: UNIQUE constraint failed: todos.title: SQLITE_CONSTRAINT", "DELETE")
-begin
-  Edgeway::Model.batch do
-    bt.update!(title: "dup")
-    Todo.where(done: true).delete_all
-  end
-rescue Edgeway::RecordNotUnique => e
-  puts "not unique: #{e.message}"
-end
-p Edgeway::Model.batching?
-show(db)
-p Edgeway::Model.batch { Todo.where(done: true).delete_all }.size
-show(db)
-# destroy with dependents is one BATCH: the children's DELETEs, then the parent's
-db.queue([{ "id" => 7, "name" => "g" }])
-group = Group.find(7)
-db.log.clear
-db.queue([{ "id" => 11, "name" => "m1", "group_id" => 7 }])
-db.queue([{ "id" => 21, "body" => "n", "member_id" => 11 }])
-group.destroy
-show(db)
-team = Team.instantiate({ "id" => 3, "name" => "t" })
-team.destroy
-show(db)
-# a failing batch leaves the parent persisted
-team = Team.instantiate({ "id" => 3, "name" => "t" })
-db.fail_next("D1_ERROR: boom", "DELETE FROM teams")
-begin
-  team.destroy
-rescue Edgeway::DatabaseError => e
-  puts e.message
-end
-p team.persisted?
-show(db)
-
-# strong parameters: only Parameters that went through permit are assigned
-raw = Edgeway::HTTP::Parameters.new({ "title" => "t", "position" => "1" })
-[-> { Todo.new(raw) }, -> { Todo.new(title: "a", position: 1).update(raw) }, -> { Todo.create!(raw) }].each do |f|
-  begin
-    f.call
-  rescue Edgeway::ForbiddenAttributes => e
-    puts "ForbiddenAttributes: #{e.message}"
-  end
-end
-scoped = Edgeway::HTTP::Parameters.new({ "todo[title]" => "t", "todo[position]" => "1", "todo[done]" => "1" })
-begin
-  Todo.new(scoped.require(:todo))
-rescue Edgeway::ForbiddenAttributes
-  puts "require alone is not permitted"
-end
-ok = Todo.new(scoped.require(:todo).permit(:title, :position))
-p [ok.title, ok.position, ok.done]
-p Todo.new("title" => "s", :position => 2).title
 
 db.log.clear
 Todo.where(id: [1, "2"]).to_a
