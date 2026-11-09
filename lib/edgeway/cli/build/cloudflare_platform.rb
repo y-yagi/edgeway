@@ -21,7 +21,7 @@ module Edgeway
         # rate limits.
         def service_lines
           [
-            'require "edgeway/service/cloudflare/jwt"',
+            'require "edgeway/service/jwt"',
             'require "edgeway/service/fetch"',
             'require "edgeway/service/cloudflare/rate_limit"'
           ]
@@ -29,7 +29,7 @@ module Edgeway
 
         def setup_lines
           [
-            "Edgeway::Auth.verifier = Edgeway::Cloudflare::JWTVerifier.new",
+            "Edgeway::Auth.verifier = Edgeway::JWTVerifier.new",
             "Edgeway::HTTP.client = Edgeway::FetchTransport.new"
           ]
         end

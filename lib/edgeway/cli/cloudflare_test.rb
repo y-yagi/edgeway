@@ -38,7 +38,7 @@ module Edgeway
         [
           'require "edgeway/db/memory"',
           'require "edgeway/service/cloudflare/test_databases"',
-          'require "edgeway/service/cloudflare/jwt"',
+          'require "edgeway/service/jwt"',
           'require "edgeway/service/fetch"',
           "module Edgeway; TEST_DATABASES = #{@config.databases.keys.inspect}; end",
           "module Edgeway; TEST_BINDINGS = #{bindings.inspect}; end"

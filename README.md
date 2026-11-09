@@ -1063,7 +1063,7 @@ What differs:
 - It is wrangler's local D1 (miniflare), not Cloudflare's: its limits and timing are not reproduced, and neither is read replication
   (`sessions: true` is passed on, but there is one local replica).
 - The app is called directly (`get`, `post`), not through `js/cloudflare.js` and the Worker: no CORS, no `X-D1-Bookmark`.
-- A JWT's signature is checked only when the test sets `Edgeway::Auth.verifier = Edgeway::Cloudflare::JWTVerifier.new`
+- A JWT's signature is checked only when the test sets `Edgeway::Auth.verifier = Edgeway::JWTVerifier.new`
   (`JWT_SECRET` and the like come from the Worker variables, `.dev.vars` included); otherwise use `Edgeway::Auth::StubVerifier`.
 - `db.log` has the SQL the test ran, but not the migrations'.
 
