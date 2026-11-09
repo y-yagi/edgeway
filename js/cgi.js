@@ -118,14 +118,14 @@ const CF_FIELDS = {
 //    the one that handles the request.
 //  - The Proxy header is not passed: HTTP_PROXY is read by HTTP clients as
 //    proxy config (httpoxy, CVE-2016-5385).
+//  - SERVER_SOFTWARE is `serverSoftware` from the caller, and not set without one.
 //  - CF_* are not CGI; they come from request.cf, which is absent locally
 //    in some setups, and absent fields are skipped.
-export function cgiEnv(request, body) {
+export function cgiEnv(request, body, { serverSoftware } = {}) {
   const url = new URL(request.url);
   const https = url.protocol === "https:";
   const env = {
     GATEWAY_INTERFACE: "CGI/1.1",
-    SERVER_SOFTWARE: "Cloudflare-Workers",
     SERVER_PROTOCOL: request.cf?.httpProtocol ? String(request.cf.httpProtocol) : "HTTP/1.1",
     SERVER_NAME: url.hostname,
     SERVER_PORT: url.port || (https ? "443" : "80"),
@@ -138,6 +138,7 @@ export function cgiEnv(request, body) {
     REMOTE_ADDR: request.headers.get("cf-connecting-ip") ?? "",
     CONTENT_LENGTH: String(body.length),
   };
+  if (serverSoftware) env.SERVER_SOFTWARE = serverSoftware;
   if (https) env.HTTPS = "on";
   const type = request.headers.get("content-type");
   if (type != null) env.CONTENT_TYPE = type;

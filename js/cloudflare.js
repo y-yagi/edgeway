@@ -209,6 +209,7 @@ export function createWorker(appModule) {
       const response = await runCgi(appModule, request, {
         extraEnv: { EDGEWAY_ENV: config.env, ...varsOf(env) },
         logFields: logFieldsOf(request),
+        serverSoftware: "Cloudflare-Workers",
         // Every module is always supplied, whether or not the app uses it:
         // the wasm instance needs every import it declares.
         imports: (getInstance) => ({
