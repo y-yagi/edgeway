@@ -207,7 +207,7 @@ export function jwtVerifier(env, { fetch = globalThis.fetch, now = Date.now, cac
   };
 }
 
-// The wasm import module "edgeway_jwt" (lib/edgeway/service/cloudflare/jwt.rb):
+// The wasm import module "edgeway_jwt" (lib/edgeway/service/jwt.rb):
 //   verify(token) -> {"header": {...}, "payload": {...}}
 //                  | {"error": "message"}                      the token is bad
 //                  | {"error": "message", "unavailable": true}  it can't be checked
