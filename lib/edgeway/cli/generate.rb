@@ -6,20 +6,12 @@ require_relative "package_manager"
 module Edgeway
   module CLI
     class Generate
-      USAGE = <<~TEXT
-        Usage: edgeway generate model NAME [field:type ...]
-               edgeway generate controller NAME [action ...]
-               edgeway generate scaffold NAME [field:type ...]
-
-        Types: #{%w[string text integer float boolean datetime].join(", ")} (default string)
-      TEXT
-
       # field type => its column's SQL type, its attribute type, and the values
       # (as Ruby source) the scaffold's test creates and updates with.
       # D1 is SQLite, which has no datetime/boolean type (only NULL, INTEGER,
       # REAL, TEXT and BLOB): a datetime is TEXT (ISO 8601, as Model.now
       # writes it) and a boolean is an INTEGER 0/1. It is SQLite's, not a
-      # Cloudflare, limit.
+      # Cloudflare, limit. A binary's values are base64 in requests and JSON.
       Type = Struct.new(:sql, :attr, :created, :updated)
       TYPES = {
         "string" => Type.new("TEXT", ":string", '"MyString"', '"Updated"'),
@@ -27,8 +19,17 @@ module Edgeway
         "integer" => Type.new("INTEGER", ":integer", "1", "2"),
         "float" => Type.new("REAL", ":float", "1.5", "2.5"),
         "boolean" => Type.new("INTEGER NOT NULL DEFAULT 0", ":boolean", "true", "false"),
-        "datetime" => Type.new("TEXT", ":datetime", '"2026-01-01T00:00:00Z"', '"2026-02-01T00:00:00Z"')
+        "datetime" => Type.new("TEXT", ":datetime", '"2026-01-01T00:00:00Z"', '"2026-02-01T00:00:00Z"'),
+        "binary" => Type.new("BLOB", ":binary", '"AQID"', '"BAUG"')
       }.freeze
+
+      USAGE = <<~TEXT
+        Usage: edgeway generate model NAME [field:type ...]
+               edgeway generate controller NAME [action ...]
+               edgeway generate scaffold NAME [field:type ...]
+
+        Types: #{TYPES.keys.join(", ")} (default string)
+      TEXT
 
       Field = Struct.new(:name, :sql, :attr, :created, :updated)
 

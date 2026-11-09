@@ -138,7 +138,7 @@ edgeway generate controller Todos index show
 edgeway generate scaffold Todo title:string done:boolean
 ```
 
-- Field types are `string` (the default), `text`, `integer`, `float`, `boolean` and `datetime`.
+- Field types are `string` (the default), `text`, `integer`, `float`, `boolean`, `datetime` and `binary` (a BLOB; its values are base64 Strings in requests and JSON).
 - A model gets `timestamps` and an `id`, `created_at` and `updated_at` column.
 - The migration is numbered one above the highest in `db/migrations`.
 - Each action of a controller is a stub that renders `{}`.
