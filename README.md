@@ -1101,10 +1101,11 @@ With SQLite the tests are native builds, while production is wasm32-wasi on Work
 bin/setup
 
 # needs libsqlite3-dev (test/spinel/sqlite.rb) and, for the Node.js tests, node;
-# runs test/*.rb under CRuby and as Spinel native builds, and compares with .expected
+# runs test/*_test.rb (spinel_test-unit) under CRuby and as a Spinel native build,
+# plus test/spinel/*.rb as Spinel builds, test/cli/*.rb and test/js/*_test.mjs
 bundle exec rake test
 
-# CRuby only
+# the unit tests under CRuby only
 bundle exec rake test:cruby
 ```
 

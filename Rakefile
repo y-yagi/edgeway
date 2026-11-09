@@ -7,34 +7,32 @@ require "spinel_test/unit/cli"
 require "spinel_test/unit/toolchain"
 require_relative "lib/edgeway/cli/toolchain"
 
-# Two styles of test, each run under CRuby and, when a Spinel compiler is
-# found, as a Spinel native build:
+# The tests are spinel_test-unit classes (xUnit style, named failures) in
+# test/*_test.rb, each leg one run: `spinel_test-unit --ruby` under CRuby, one
+# Spinel native build for the lot. Two directories keep the shape of Spinel's own
+# tests instead: the script prints its results and the .expected file next to it
+# is what it must print (stdout only):
 #
-#   test/NAME.rb       follows the shape of Spinel's own tests: it prints its
-#                      results and test/NAME.expected is what it must print
-#                      (stdout only), once per leg
-#   test/NAME_test.rb  a spinel_test-unit class (xUnit style, named failures);
-#                      all of them are one run per leg: `spinel_test-unit
-#                      --ruby` under CRuby, one Spinel build for the lot
+#   test/cli/*.rb      the edgeway command, under CRuby
+#   test/spinel/*.rb   Spinel only: they cannot run under CRuby (SQLiteAdapter's
+#                      ffi_lib), so each is its own Spinel build
 #
 #   rake test                  both legs (the Spinel leg is skipped when
-#                              there is no compiler)
-#   rake test:cruby            CRuby only (what CI runs)
-#   rake test:spinel           Spinel only (also test/spinel/*.rb: the tests that
-#                              cannot run under CRuby, e.g. SQLiteAdapter's ffi_lib)
+#                              there is no compiler), then test:cli and test:js
+#   rake test:cruby            the unit tests under CRuby only
+#   rake test:spinel           the unit tests and test/spinel/*.rb as Spinel builds
 #   rake test:cli              the edgeway command: test/cli/*.rb (under CRuby;
 #                              test_command.rb also runs edgeway test with Spinel)
-#   rake test:js               js/*.js with plain node (skipped without node)
-#   rake test:update           rewrite the .expected files from CRuby's output
+#   rake test:js               test/js/*_test.mjs with plain node (skipped without node)
+#   rake test:update           rewrite test/cli/*.expected from CRuby's output
 #   SPINEL=/path/to/spinel     the compiler (default: spinel on PATH, then
 #                              `mise which spinel`; see Edgeway::CLI::Toolchain)
-#   JOBS=N                     how many Spinel tests build at once (default: the
-#                              CPU count, honouring cgroup limits; each cc
-#                              peaks around 350MB); when set, also how many
+#   JOBS=N                     how many test/spinel/*.rb tests build at once
+#                              (default: the CPU count, honouring cgroup limits;
+#                              each cc peaks around 350MB); when set, also how many
 #                              units the one spinel_test-unit build is compiled
 #                              as (otherwise its own default)
 UNIT_TESTS = Dir["test/*_test.rb"].sort
-TESTS = (Dir["test/*.rb"] - UNIT_TESTS).sort
 CLI_TESTS = Dir["test/cli/*.rb"].sort
 # Spinel only (ffi_lib / ffi_source can't be read by CRuby, like d1.rb).
 SPINEL_ONLY_TESTS = Dir["test/spinel/*.rb"].sort
@@ -58,8 +56,6 @@ def run_test(name, cmd, expected)
   passed
 end
 
-# Test basenames are unique across test/ and test/spinel/, so parallel builds
-# never share tmp/spinel/<basename> or tmp/<basename>.actual.
 def check_spinel_test(spinel, test)
   bin = "tmp/spinel/#{File.basename(test, ".rb")}"
   compile_and_check(spinel, test, bin)
@@ -114,16 +110,12 @@ def check_spinel_tests(spinel, tests)
 end
 
 namespace :test do
-  desc "Run test/*.rb and test/*_test.rb under CRuby"
+  desc "Run test/*_test.rb under CRuby"
   task :cruby do
-    FileUtils.mkdir_p("tmp")
-    results = TESTS.map do |t|
-      run_test("cruby #{t}", ["ruby", "-I", "lib", t], t.sub(/\.rb\z/, ".expected"))
-    end
-    abort "CRuby leg failed" unless [*results, run_unit_tests("--ruby")].all?
+    abort "CRuby leg failed" unless run_unit_tests("--ruby")
   end
 
-  desc "Run test/*.rb, test/spinel/*.rb and test/*_test.rb as Spinel native builds"
+  desc "Run test/spinel/*.rb and test/*_test.rb as Spinel native builds"
   task :spinel do
     spinel = Edgeway::CLI::Toolchain.spinel
     unless spinel
@@ -131,15 +123,15 @@ namespace :test do
       next
     end
     FileUtils.mkdir_p("tmp/spinel")
-    results = check_spinel_tests(spinel, TESTS + SPINEL_ONLY_TESTS)
+    results = check_spinel_tests(spinel, SPINEL_ONLY_TESTS)
     results.each { |_passed, text| puts text }
     unit_passed = with_env("SPINEL" => spinel, "SPINEL_TEST_UNIT_JOBS" => unit_test_jobs) { run_unit_tests }
     abort "Spinel leg failed" unless [*results.map(&:first), unit_passed].all?
   end
 
-  desc "Rewrite test/*.expected from CRuby's output"
+  desc "Rewrite test/cli/*.expected from CRuby's output"
   task :update do
-    (TESTS + CLI_TESTS).each do |t|
+    CLI_TESTS.each do |t|
       out, _err, status = Open3.capture3("ruby", "-I", "lib", t, stdin_data: "")
       abort "#{t} failed" unless status.success?
       File.write(t.sub(/\.rb\z/, ".expected"), out)
@@ -167,7 +159,7 @@ task "test:cli" do
   end
 end
 
-desc "Test js/*.js with plain node (skipped when node is missing)"
+desc "Test test/js/*_test.mjs with plain node (skipped when node is missing)"
 task "test:js" do
   node = Edgeway::CLI::Toolchain.find_on_path("node")
   if node
@@ -177,7 +169,7 @@ task "test:js" do
   end
 end
 
-desc "Run the tests under CRuby and Spinel"
+desc "Run the tests under CRuby and Spinel, then test:cli and test:js"
 task test: ["test:cruby", "test:spinel", "test:cli", "test:js"]
 
 task default: :test
