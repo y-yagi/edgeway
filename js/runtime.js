@@ -90,11 +90,12 @@ function internalError() {
 // Response.
 //   extraEnv: more CGI environment variables (strings), such as the app's
 //             settings and EDGEWAY_ENV.
+//   serverSoftware: the SERVER_SOFTWARE variable; not set without it.
 //   logFields: fields added to every structured log line the app writes.
 //   imports:  (getInstance) => { moduleName: { name: fn } }, the wasm import
 //             modules besides WASI. A function wrapped in
 //             WebAssembly.Suspending may await (JSPI).
-export async function runCgi(appModule, request, { extraEnv = {}, imports = () => ({}), logFields = {} } = {}) {
+export async function runCgi(appModule, request, { extraEnv = {}, imports = () => ({}), logFields = {}, serverSoftware } = {}) {
   const body = request.method === "GET" || request.method === "HEAD"
     ? new Uint8Array(0)
     : await readBody(request);
@@ -104,7 +105,7 @@ export async function runCgi(appModule, request, { extraEnv = {}, imports = () =
   const stderr = lineSplitter((line) => logLine(line, logFields));
   const wasi = new WASI({
     args: ["app"],
-    env: { ...extraEnv, ...cgiEnv(request, body), SPINEL_GC_SLAB_MB: SLAB_MB },
+    env: { ...extraEnv, ...cgiEnv(request, body, { serverSoftware }), SPINEL_GC_SLAB_MB: SLAB_MB },
     stdin: body,
     onStdoutBytes: (b) => out.push(b),
     onStderr: (text) => stderr.push(text),

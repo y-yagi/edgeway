@@ -56,4 +56,10 @@ await test("request headers: underscores dropped, proxy dropped", () => {
   assert.equal(env.REQUEST_METHOD, "GET");
 });
 
+await test("SERVER_SOFTWARE comes from the caller and is unset without one", () => {
+  const req = new Request("https://x.example/");
+  assert.equal(cgiEnv(req, new Uint8Array(0), { serverSoftware: "Test-Server" }).SERVER_SOFTWARE, "Test-Server");
+  assert.equal("SERVER_SOFTWARE" in cgiEnv(req, new Uint8Array(0)), false);
+});
+
 console.log(`${count} js tests passed`);
