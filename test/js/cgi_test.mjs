@@ -56,10 +56,29 @@ await test("request headers: underscores dropped, proxy dropped", () => {
   assert.equal(env.REQUEST_METHOD, "GET");
 });
 
-await test("SERVER_SOFTWARE comes from the caller and is unset without one", () => {
-  const req = new Request("https://x.example/");
-  assert.equal(cgiEnv(req, new Uint8Array(0), { serverSoftware: "Test-Server" }).SERVER_SOFTWARE, "Test-Server");
-  assert.equal("SERVER_SOFTWARE" in cgiEnv(req, new Uint8Array(0)), false);
+await test("defaults for the variables a platform can supply", () => {
+  const env = cgiEnv(new Request("https://x.example/"), new Uint8Array(0));
+  assert.equal(env.SERVER_PROTOCOL, "HTTP/1.1");
+  assert.equal(env.REMOTE_ADDR, "");
+  assert.equal("SERVER_SOFTWARE" in env, false);
+});
+
+await test("platformEnv replaces defaults, skips null, and stringifies", () => {
+  const platformEnv = { SERVER_SOFTWARE: "Test-Server", REMOTE_ADDR: "192.0.2.1", SERVER_PROTOCOL: "HTTP/2", X_COUNT: 7, X_GONE: undefined, X_NULL: null };
+  const env = cgiEnv(new Request("https://x.example/"), new Uint8Array(0), { platformEnv });
+  assert.equal(env.SERVER_SOFTWARE, "Test-Server");
+  assert.equal(env.REMOTE_ADDR, "192.0.2.1");
+  assert.equal(env.SERVER_PROTOCOL, "HTTP/2");
+  assert.equal(env.X_COUNT, "7");
+  assert.equal("X_GONE" in env, false);
+  assert.equal("X_NULL" in env, false);
+});
+
+await test("platformEnv replaces a request header's HTTP_* variable", () => {
+  const req = new Request("https://x.example/", { headers: { "X-Forwarded-For": "6.6.6.6", "X-Other": "kept" } });
+  const env = cgiEnv(req, new Uint8Array(0), { platformEnv: { HTTP_X_FORWARDED_FOR: "192.0.2.1" } });
+  assert.equal(env.HTTP_X_FORWARDED_FOR, "192.0.2.1");
+  assert.equal(env.HTTP_X_OTHER, "kept");
 });
 
 console.log(`${count} js tests passed`);

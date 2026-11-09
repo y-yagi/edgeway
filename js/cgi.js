@@ -95,21 +95,13 @@ function decodePath(path) {
     }).join(""));
 }
 
-// The request.cf fields passed on, as non-standard CF_* variables.
-const CF_FIELDS = {
-  CF_COUNTRY: "country", CF_CONTINENT: "continent", CF_REGION: "region", CF_REGION_CODE: "regionCode",
-  CF_CITY: "city", CF_TIMEZONE: "timezone", CF_COLO: "colo", CF_ASN: "asn",
-};
-// Precise location (latitude, longitude, postal code) is deliberately not passed;
-// an app that needs it can read request.cf in the worker.
-
 // The CGI environment for a request: an object of strings (no undefined or
 // null; WASI env needs strings). `body` is the request body as a Uint8Array.
-//  - REMOTE_ADDR comes from CF-Connecting-IP; it is "" when that is missing
-//    (local wrangler dev may not send it), so the variable is always set.
+//  - SERVER_PROTOCOL and REMOTE_ADDR default to "HTTP/1.1" and "", so they are
+//    always set; the platform can supply the real values in `platformEnv`.
 //  - CONTENT_LENGTH is always set ("0" without a body); CONTENT_TYPE only
 //    when the request has one.
-//  - Header values go in as the JS strings workerd gives (a UTF-8 value from the
+//  - Header values go in as JS strings (a UTF-8 value from the
 //    client arrives decoded; the WASI shim encodes env as UTF-8, so the app
 //    sees the client's bytes). Content-Type and Content-Length are not HTTP_* (RFC 3875); every other
 //    header is HTTP_<NAME> (upper case, "-" -> "_"; a name that already holds
@@ -118,15 +110,15 @@ const CF_FIELDS = {
 //    the one that handles the request.
 //  - The Proxy header is not passed: HTTP_PROXY is read by HTTP clients as
 //    proxy config (httpoxy, CVE-2016-5385).
-//  - SERVER_SOFTWARE is `serverSoftware` from the caller, and not set without one.
-//  - CF_* are not CGI; they come from request.cf, which is absent locally
-//    in some setups, and absent fields are skipped.
-export function cgiEnv(request, body, { serverSoftware } = {}) {
+//  - `platformEnv` holds the variables the platform adds for this request
+//    (SERVER_SOFTWARE, non-standard ones...). They go in last, so they replace
+//    any other value of the same name, and a null or undefined one is skipped.
+export function cgiEnv(request, body, { platformEnv = {} } = {}) {
   const url = new URL(request.url);
   const https = url.protocol === "https:";
   const env = {
     GATEWAY_INTERFACE: "CGI/1.1",
-    SERVER_PROTOCOL: request.cf?.httpProtocol ? String(request.cf.httpProtocol) : "HTTP/1.1",
+    SERVER_PROTOCOL: "HTTP/1.1",
     SERVER_NAME: url.hostname,
     SERVER_PORT: url.port || (https ? "443" : "80"),
     REQUEST_SCHEME: https ? "https" : "http",
@@ -135,10 +127,9 @@ export function cgiEnv(request, body, { serverSoftware } = {}) {
     PATH_INFO: decodePath(url.pathname),
     QUERY_STRING: url.search.slice(1),
     REQUEST_URI: url.pathname + url.search,
-    REMOTE_ADDR: request.headers.get("cf-connecting-ip") ?? "",
+    REMOTE_ADDR: "",
     CONTENT_LENGTH: String(body.length),
   };
-  if (serverSoftware) env.SERVER_SOFTWARE = serverSoftware;
   if (https) env.HTTPS = "on";
   const type = request.headers.get("content-type");
   if (type != null) env.CONTENT_TYPE = type;
@@ -150,9 +141,8 @@ export function cgiEnv(request, body, { serverSoftware } = {}) {
     if (name.includes("_")) return;
     env["HTTP_" + name.toUpperCase().replace(/-/g, "_")] = value;
   });
-  for (const [key, field] of Object.entries(CF_FIELDS)) {
-    const v = request.cf?.[field];
-    if (v != null && v !== "") env[key] = String(v);
+  for (const [name, value] of Object.entries(platformEnv)) {
+    if (value != null) env[name] = String(value);
   }
   return env;
 }
