@@ -1,7 +1,7 @@
 // Runs a Spinel-built app.wasm once per request, CGI style: the request
 // becomes CGI environment variables and STDIN, the program's stdout becomes
-// the Response. Nothing here is specific to a platform; cloudflare.js
-// supplies the imports a platform adds (D1, ...) and the environment.
+// the Response. Nothing here is specific to a platform: the
+// caller supplies the imports a platform adds and its part of the environment.
 import { WASI } from "./wasi-shim.js";
 import { cgiEnv, cgiResponse, concatBytes } from "./cgi.js";
 
@@ -90,12 +90,13 @@ function internalError() {
 // Response.
 //   extraEnv: more CGI environment variables (strings), such as the app's
 //             settings and EDGEWAY_ENV.
-//   serverSoftware: the SERVER_SOFTWARE variable; not set without it.
+//   platformEnv: CGI variables the platform supplies for this request,
+//             such as SERVER_SOFTWARE and REMOTE_ADDR; they replace the defaults.
 //   logFields: fields added to every structured log line the app writes.
 //   imports:  (getInstance) => { moduleName: { name: fn } }, the wasm import
 //             modules besides WASI. A function wrapped in
 //             WebAssembly.Suspending may await (JSPI).
-export async function runCgi(appModule, request, { extraEnv = {}, imports = () => ({}), logFields = {}, serverSoftware } = {}) {
+export async function runCgi(appModule, request, { extraEnv = {}, imports = () => ({}), logFields = {}, platformEnv = {} } = {}) {
   const body = request.method === "GET" || request.method === "HEAD"
     ? new Uint8Array(0)
     : await readBody(request);
@@ -105,7 +106,7 @@ export async function runCgi(appModule, request, { extraEnv = {}, imports = () =
   const stderr = lineSplitter((line) => logLine(line, logFields));
   const wasi = new WASI({
     args: ["app"],
-    env: { ...extraEnv, ...cgiEnv(request, body, { serverSoftware }), SPINEL_GC_SLAB_MB: SLAB_MB },
+    env: { ...extraEnv, ...cgiEnv(request, body, { platformEnv }), SPINEL_GC_SLAB_MB: SLAB_MB },
     stdin: body,
     onStdoutBytes: (b) => out.push(b),
     onStderr: (text) => stderr.push(text),

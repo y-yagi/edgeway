@@ -201,6 +201,30 @@ export function logFieldsOf(request) {
   return ray ? { ray } : {};
 }
 
+// The request.cf fields passed on, as non-standard CF_* variables. Precise
+// location (latitude, longitude, postal code) is deliberately not passed; an
+// app that needs it can read request.cf in the worker.
+const CF_FIELDS = {
+  CF_COUNTRY: "country", CF_CONTINENT: "continent", CF_REGION: "region", CF_REGION_CODE: "regionCode",
+  CF_CITY: "city", CF_TIMEZONE: "timezone", CF_COLO: "colo", CF_ASN: "asn",
+};
+
+// The CGI variables this platform adds to a request. request.cf, and so the CF_*
+// variables, may be absent in local development, and absent fields are skipped.
+// REMOTE_ADDR is "" without CF-Connecting-IP, so it is always set.
+export function platformEnvOf(request) {
+  const env = {
+    SERVER_SOFTWARE: "Cloudflare-Workers",
+    REMOTE_ADDR: request.headers.get("cf-connecting-ip") ?? "",
+  };
+  if (request.cf?.httpProtocol) env.SERVER_PROTOCOL = String(request.cf.httpProtocol);
+  for (const [name, field] of Object.entries(CF_FIELDS)) {
+    const value = request.cf?.[field];
+    if (value != null && value !== "") env[name] = String(value);
+  }
+  return env;
+}
+
 // appModule: the WebAssembly.Module that `import app from "...app.wasm"` gives.
 export function createWorker(appModule) {
   return {
@@ -209,7 +233,7 @@ export function createWorker(appModule) {
       const response = await runCgi(appModule, request, {
         extraEnv: { EDGEWAY_ENV: config.env, ...varsOf(env) },
         logFields: logFieldsOf(request),
-        serverSoftware: "Cloudflare-Workers",
+        platformEnv: platformEnvOf(request),
         // Every module is always supplied, whether or not the app uses it:
         // the wasm instance needs every import it declares.
         imports: (getInstance) => ({
