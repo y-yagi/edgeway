@@ -50,7 +50,7 @@ Dir.mktmpdir do |root|
   FileUtils.mkdir_p(File.join(root, "config"))
   File.write(File.join(root, "config/routes.rb"), ROUTES)
 
-  puts gen(root, "scaffold", "Todo", "title:string", "done:boolean", "priority:integer", "score:float", "due:datetime")
+  puts gen(root, "scaffold", "Todo", "title:string", "done:boolean", "priority:integer", "score:float", "due:datetime", "data:binary")
   %w[app/models/todo.rb db/migrations/0001_create_todos.sql test/models/todo_test.rb
      app/controllers/todos_controller.rb test/controllers/todos_test.rb config/routes.rb].each { |f| show(root, f) }
 
