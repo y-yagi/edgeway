@@ -4,7 +4,7 @@ module Edgeway
       include Callbacks
       include Rescuable
       include Rendering
-      include Authentication
+      include BearerTokenAuthentication
       include Caching
       include RateLimiting
 

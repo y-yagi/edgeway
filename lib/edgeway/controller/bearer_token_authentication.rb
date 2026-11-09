@@ -1,16 +1,15 @@
 module Edgeway
   module Controller
-    # Bearer-token authentication:
+    # Usage:
     #
     #   class ApplicationController < Edgeway::Controller::Base
     #     before_action :authenticate!
     #   end
     #   # or before_action :authenticate!, only: [:create]
     #
-    # authenticate! answers 401 unless the request has an
-    # "Authorization: Bearer <JWT>" whose token passes Edgeway::Auth; the
-    # claims are then in current_claims.
-    module Authentication
+    # The token is verified by Edgeway::Auth; its claims are then in
+    # current_claims.
+    module BearerTokenAuthentication
       # Raises Unauthorized (no token) or InvalidToken. Both are 401 with a
       # WWW-Authenticate header, unless the app rescue_froms them.
       def authenticate!
