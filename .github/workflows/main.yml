@@ -50,7 +50,7 @@ jobs:
       - name: Show Spinel
         run: |
           spinel --version
-      # CRuby, Spinel native builds, the CLI, and js/cgi.js with node
+      # CRuby, Spinel native builds, the CLI, and test/js/*_test.mjs with node
       # (preinstalled on the runners).
       - name: Run the tests
         run: bundle exec rake test
