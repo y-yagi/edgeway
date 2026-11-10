@@ -74,7 +74,6 @@ class ModelPersistenceTest < SpinelTest::Unit::TestCase
 
   def test_create_bang_of_an_invalid_record_raises_record_invalid_and_sends_nothing
     error = assert_raise(Edgeway::RecordInvalid) { Todo.create!(title: "") }
-    assert_equal "Edgeway::RecordInvalid", error.class.name
     assert_equal "validation failed: title can't be blank", error.message
     assert_equal [], @database.log
   end

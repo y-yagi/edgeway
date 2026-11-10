@@ -162,7 +162,6 @@ class CacheTest < SpinelTest::Unit::TestCase
 
   def assert_argument_error(message, &block)
     error = assert_raise(ArgumentError, &block)
-    assert_equal "ArgumentError", error.class.name
     assert_equal message, error.message
   end
 

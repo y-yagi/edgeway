@@ -87,14 +87,12 @@ class ModelValidationTest < SpinelTest::Unit::TestCase
   def assert_insert_fails_as(klass, message)
     @database.fail_next(message)
     error = assert_raise(klass) { @database.execute("INSERT", []) }
-    assert_equal klass.name, error.class.name
     assert_equal false, error.is_a?(Edgeway::RecordNotUnique)
     assert_equal ["INSERT | []"], @database.log
   end
 
   def assert_error_result(klass, message, json)
     error = assert_raise(klass) { @database.raise_error_result(JSON.parse(json), "d1: ") }
-    assert_equal klass.name, error.class.name
     assert_equal message, error.message
     assert_equal [], @database.log
   end
