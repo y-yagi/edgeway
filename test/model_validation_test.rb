@@ -84,17 +84,17 @@ class ModelValidationTest < SpinelTest::Unit::TestCase
     measure.errors
   end
 
-  def assert_insert_fails_as(class_name, message)
+  def assert_insert_fails_as(klass, message)
     @database.fail_next(message)
-    error = assert_raise(Edgeway::DatabaseError) { @database.execute("INSERT", []) }
-    assert_equal class_name, error.class.name
+    error = assert_raise(klass) { @database.execute("INSERT", []) }
+    assert_equal klass.name, error.class.name
     assert_equal false, error.is_a?(Edgeway::RecordNotUnique)
     assert_equal ["INSERT | []"], @database.log
   end
 
-  def assert_error_result(class_name, message, json)
-    error = assert_raise(Edgeway::DatabaseError) { @database.raise_error_result(JSON.parse(json), "d1: ") }
-    assert_equal class_name, error.class.name
+  def assert_error_result(klass, message, json)
+    error = assert_raise(klass) { @database.raise_error_result(JSON.parse(json), "d1: ") }
+    assert_equal klass.name, error.class.name
     assert_equal message, error.message
     assert_equal [], @database.log
   end
@@ -305,33 +305,33 @@ class ModelValidationTest < SpinelTest::Unit::TestCase
   end
 
   def test_a_not_null_constraint_message_is_a_not_null_violation
-    assert_insert_fails_as "Edgeway::NotNullViolation", "D1_ERROR: NOT NULL constraint failed: tags.name: SQLITE_CONSTRAINT"
+    assert_insert_fails_as Edgeway::NotNullViolation, "D1_ERROR: NOT NULL constraint failed: tags.name: SQLITE_CONSTRAINT"
   end
 
   def test_a_foreign_key_constraint_message_is_an_invalid_foreign_key
-    assert_insert_fails_as "Edgeway::InvalidForeignKey", "D1_ERROR: FOREIGN KEY constraint failed: SQLITE_CONSTRAINT"
+    assert_insert_fails_as Edgeway::InvalidForeignKey, "D1_ERROR: FOREIGN KEY constraint failed: SQLITE_CONSTRAINT"
   end
 
   def test_a_check_constraint_message_is_a_check_violation
-    assert_insert_fails_as "Edgeway::CheckViolation", "D1_ERROR: CHECK constraint failed: stars: SQLITE_CONSTRAINT"
+    assert_insert_fails_as Edgeway::CheckViolation, "D1_ERROR: CHECK constraint failed: stars: SQLITE_CONSTRAINT"
   end
 
   def test_an_unrecognised_message_is_a_database_error
-    assert_insert_fails_as "Edgeway::DatabaseError", NO_SUCH_TABLE
+    assert_insert_fails_as Edgeway::DatabaseError, NO_SUCH_TABLE
   end
 
   def test_an_error_result_flagged_unavailable_is_database_unavailable
-    assert_error_result "Edgeway::DatabaseUnavailable", "d1: D1_ERROR: Network connection lost.",
+    assert_error_result Edgeway::DatabaseUnavailable, "d1: D1_ERROR: Network connection lost.",
       '{"error":"D1_ERROR: Network connection lost.","unavailable":true}'
   end
 
   def test_an_error_result_with_a_unique_message_is_record_not_unique
-    assert_error_result "Edgeway::RecordNotUnique", "d1: #{UNIQUE_FAILED}",
+    assert_error_result Edgeway::RecordNotUnique, "d1: #{UNIQUE_FAILED}",
       '{"error":"D1_ERROR: UNIQUE constraint failed: tags.name: SQLITE_CONSTRAINT"}'
   end
 
   def test_an_error_result_with_another_message_is_a_database_error
-    assert_error_result "Edgeway::DatabaseError", "d1: D1_ERROR: exceeded CPU time limit",
+    assert_error_result Edgeway::DatabaseError, "d1: D1_ERROR: exceeded CPU time limit",
       '{"error":"D1_ERROR: exceeded CPU time limit"}'
   end
 
