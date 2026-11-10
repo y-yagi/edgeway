@@ -131,7 +131,7 @@ class ModelQueryTest < SpinelTest::Unit::TestCase
   end
 
   def test_where_refuses_a_column_that_is_not_an_attribute_before_any_sql
-    error = assert_raise(Edgeway::BadRequest) { Todo.where(nope: 1) }
+    error = assert_raise(Edgeway::UnknownColumn) { Todo.where(nope: 1) }
     assert_equal "unknown column: nope", error.message
     assert_equal "Edgeway::UnknownColumn", error.class.name
     assert_equal [], @database.log
