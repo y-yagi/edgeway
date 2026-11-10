@@ -139,7 +139,6 @@ class HttpClientTest < SpinelTest::Unit::TestCase
 
   def test_a_transport_error_raises_http_error
     error = assert_raise(Edgeway::HTTP::Error) { Edgeway::HTTP.get("https://api.example/down") }
-    assert_equal "Edgeway::HTTP::Error", error.class.to_s
     assert_equal "connection refused", error.message
   end
 

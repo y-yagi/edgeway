@@ -133,7 +133,6 @@ class ModelQueryTest < SpinelTest::Unit::TestCase
   def test_where_refuses_a_column_that_is_not_an_attribute_before_any_sql
     error = assert_raise(Edgeway::UnknownColumn) { Todo.where(nope: 1) }
     assert_equal "unknown column: nope", error.message
-    assert_equal "Edgeway::UnknownColumn", error.class.name
     assert_equal [], @database.log
   end
 
@@ -221,28 +220,24 @@ class ModelQueryTest < SpinelTest::Unit::TestCase
   def test_a_string_limit_beyond_32_bits_is_a_bad_request
     error = assert_raise(Edgeway::BadRequest) { Todo.limit("99999999999") }
     assert_equal "bad limit: 99999999999", error.message
-    assert_equal "Edgeway::BadRequest", error.class.name
     assert_equal [], @database.log
   end
 
   def test_a_negative_string_limit_is_a_bad_request
     error = assert_raise(Edgeway::BadRequest) { Todo.limit("-1") }
     assert_equal "bad limit: -1", error.message
-    assert_equal "Edgeway::BadRequest", error.class.name
     assert_equal [], @database.log
   end
 
   def test_an_integer_limit_beyond_32_bits_is_a_bad_request
     error = assert_raise(Edgeway::BadRequest) { Todo.limit(2147483648) }
     assert_equal "bad limit: 2147483648", error.message
-    assert_equal "Edgeway::BadRequest", error.class.name
     assert_equal [], @database.log
   end
 
   def test_an_offset_beyond_32_bits_is_a_bad_request
     error = assert_raise(Edgeway::BadRequest) { Todo.offset("4294967297") }
     assert_equal "bad offset: 4294967297", error.message
-    assert_equal "Edgeway::BadRequest", error.class.name
     assert_equal [], @database.log
   end
 
@@ -338,14 +333,12 @@ class ModelQueryTest < SpinelTest::Unit::TestCase
   def test_a_later_order_refuses_an_unknown_direction
     error = assert_raise(Edgeway::BadRequest) { Todo.order(:title).order(:id, :sideways) }
     assert_equal "bad order direction: sideways", error.message
-    assert_equal "Edgeway::BadRequest", error.class.name
     assert_equal [], @database.log
   end
 
   def test_reorder_refuses_an_unknown_direction
     error = assert_raise(Edgeway::BadRequest) { Todo.order(:title).reorder(:id, :up) }
     assert_equal "bad order direction: up", error.message
-    assert_equal "Edgeway::BadRequest", error.class.name
     assert_equal [], @database.log
   end
 

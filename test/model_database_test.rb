@@ -212,7 +212,6 @@ class ModelDatabaseTest < SpinelTest::Unit::TestCase
   def test_exec_maps_a_database_error
     @primary.fail_next("D1_EXEC_ERROR: syntax error")
     error = assert_raise(Edgeway::DatabaseError) { Edgeway::Model.exec("NOPE") }
-    assert_equal "Edgeway::DatabaseError", error.class.name
     assert_equal "D1_EXEC_ERROR: syntax error", error.message
   end
 

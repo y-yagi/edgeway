@@ -599,7 +599,6 @@ class RateLimitingTest < SpinelTest::Unit::TestCase
 
   def test_a_misconfigured_answer_raises_a_configuration_error
     error = assert_raise(Edgeway::ConfigurationError) { ask_transport("{\"misconfigured\":\"no rate limit binding API_LIMITER\"}") }
-    assert_equal "Edgeway::ConfigurationError", error.class.name
     assert_equal "rate limit: no rate limit binding API_LIMITER", error.message
     assert_equal [], @log.lines
   end

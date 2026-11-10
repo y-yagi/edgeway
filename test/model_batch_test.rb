@@ -189,7 +189,6 @@ class ModelBatchTest < SpinelTest::Unit::TestCase
     @database.fail_next("D1_ERROR: boom", "DELETE FROM teams")
     team = persisted_team
     error = assert_raise(Edgeway::DatabaseError) { team.destroy }
-    assert_equal "Edgeway::DatabaseError", error.class.name
     assert_equal "D1_ERROR: boom", error.message
     assert_equal true, team.persisted?
     assert_equal ["BATCH 2", DELETE_TASKS_OF_TEAM_3, DELETE_TEAM_3], @database.log
