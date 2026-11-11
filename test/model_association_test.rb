@@ -1,6 +1,4 @@
-require "spinel_test/unit"
-require "edgeway"
-require "edgeway/db/memory"
+require_relative "test_helper"
 
 # The fallback target of the namespace lookup has to live at the top level.
 class Beacon < Edgeway::Model::Base
@@ -9,7 +7,7 @@ class Beacon < Edgeway::Model::Base
   attribute :label, :string
 end
 
-class ModelAssociationTest < SpinelTest::Unit::TestCase
+class ModelAssociationTest < DatabaseTestCase
   class ApplicationModel < Edgeway::Model::Base
     extend Edgeway::Model::Macros
   end
@@ -164,15 +162,6 @@ class ModelAssociationTest < SpinelTest::Unit::TestCase
   EAGER_ACCOUNT_LOGINS = "SELECT accounts.id AS p_id, accounts.uid AS p_uid, accounts.name AS p_name, eager_logins.id AS c0_id, eager_logins.account_uid AS c0_account_uid FROM (SELECT id, uid, name FROM accounts) AS accounts LEFT JOIN logins AS eager_logins ON eager_logins.account_uid = accounts.uid ORDER BY accounts.id, eager_logins.id | []"
   EAGER_ACCOUNT_MEMBERSHIPS = "SELECT accounts.id AS p_id, accounts.uid AS p_uid, accounts.name AS p_name, eager_memberships.id AS c0_id, eager_memberships.member_ref AS c0_member_ref FROM (SELECT id, uid, name FROM accounts) AS accounts LEFT JOIN memberships AS eager_memberships ON eager_memberships.member_ref = accounts.id ORDER BY accounts.id, eager_memberships.id | []"
   EAGER_DEVICE_ACCOUNT = "SELECT devices.id AS p_id, devices.owner_uid AS p_owner_uid, eager_account.id AS c0_id, eager_account.uid AS c0_uid, eager_account.name AS c0_name FROM (SELECT id, owner_uid FROM devices) AS devices LEFT JOIN accounts AS eager_account ON eager_account.uid = devices.owner_uid ORDER BY devices.id, eager_account.id | []"
-
-  def setup
-    @database = Edgeway::DB::MemoryAdapter.new
-    Edgeway::Model.connection = @database
-  end
-
-  def teardown
-    Edgeway::Model.disconnect(Edgeway::Model::PRIMARY)
-  end
 
   def parent_todo_row
     { "id" => 1, "title" => "p", "done" => 0, "priority" => "normal", "position" => 1, "created_at" => "c", "updated_at" => "u" }

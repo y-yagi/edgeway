@@ -1,8 +1,6 @@
-require "spinel_test/unit"
-require "edgeway"
-require "edgeway/db/memory"
+require_relative "test_helper"
 
-class ModelDatabaseTest < SpinelTest::Unit::TestCase
+class ModelDatabaseTest < DatabaseTestCase
   class ApplicationModel < Edgeway::Model::Base
     extend Edgeway::Model::Macros
   end
@@ -54,14 +52,9 @@ class ModelDatabaseTest < SpinelTest::Unit::TestCase
   IMPRESSION_SELECT_LOG = "SELECT id, note, todo_id FROM impressions ORDER BY id ASC LIMIT 1 | []"
   TODO_7_SELECT_LOG = "SELECT id, title, done, priority, position, created_at, updated_at FROM todos WHERE id = ? LIMIT 1 | [7]"
 
-  def setup
-    @primary = Edgeway::DB::MemoryAdapter.new
-    Edgeway::Model.connection = @primary
-  end
-
   def teardown
     Edgeway::Model.disconnect("analytics")
-    Edgeway::Model.disconnect(Edgeway::Model::PRIMARY)
+    super
   end
 
   def connect_analytics
@@ -82,7 +75,7 @@ class ModelDatabaseTest < SpinelTest::Unit::TestCase
   end
 
   def assert_logs(primary_log, analytics_log)
-    assert_equal primary_log, @primary.log
+    assert_equal primary_log, @database.log
     assert_equal analytics_log, @analytics.log
   end
 
@@ -92,42 +85,42 @@ class ModelDatabaseTest < SpinelTest::Unit::TestCase
   end
 
   def test_query_stats_add_up_and_keep_the_latest_region_and_primary_flag
-    record_meta(@primary, '{"rows_read":3,"rows_written":1,"duration":2,"served_by_region":"WEUR","served_by_primary":false}')
-    record_meta(@primary, '{"rows_read":4,"rows_written":0,"duration":0.456,"served_by_region":"ENAM","served_by_primary":true}')
-    stats = @primary.query_stats
+    record_meta(@database, '{"rows_read":3,"rows_written":1,"duration":2,"served_by_region":"WEUR","served_by_primary":false}')
+    record_meta(@database, '{"rows_read":4,"rows_written":0,"duration":0.456,"served_by_region":"ENAM","served_by_primary":true}')
+    stats = @database.query_stats
     assert_equal '[2, 7, 1, 2.456, "ENAM", true]', [stats.queries, stats.rows_read, stats.rows_written, stats.duration_ms, stats.served_by_region, stats.served_by_primary].inspect
     assert_equal '{"queries":2,"rows_read":7,"rows_written":1,"db_ms":2.46}', JSON.generate(stats.log_fields)
   end
 
   def test_a_report_without_region_and_primary_fields_keeps_the_earlier_ones
-    record_meta(@primary, '{"rows_read":3,"rows_written":1,"duration":2,"served_by_region":"WEUR","served_by_primary":false}')
-    record_meta(@primary, '{"rows_read":4,"rows_written":0,"duration":0.456,"served_by_region":"ENAM","served_by_primary":true}')
-    record_meta(@primary, '{"rows_read":0,"rows_written":0,"duration":0.5}')
-    stats = @primary.query_stats
+    record_meta(@database, '{"rows_read":3,"rows_written":1,"duration":2,"served_by_region":"WEUR","served_by_primary":false}')
+    record_meta(@database, '{"rows_read":4,"rows_written":0,"duration":0.456,"served_by_region":"ENAM","served_by_primary":true}')
+    record_meta(@database, '{"rows_read":0,"rows_written":0,"duration":0.5}')
+    stats = @database.query_stats
     assert_equal '[3, "ENAM", true]', [stats.queries, stats.served_by_region, stats.served_by_primary].inspect
   end
 
   def test_a_report_without_the_primary_flag_keeps_an_earlier_false
-    record_meta(@primary, '{"rows_read":1,"rows_written":0,"duration":1,"served_by_region":"WEUR","served_by_primary":false}')
-    record_meta(@primary, '{"rows_read":0,"rows_written":0,"duration":1}')
-    assert_equal '["WEUR", false]', [@primary.query_stats.served_by_region, @primary.query_stats.served_by_primary].inspect
+    record_meta(@database, '{"rows_read":1,"rows_written":0,"duration":1,"served_by_region":"WEUR","served_by_primary":false}')
+    record_meta(@database, '{"rows_read":0,"rows_written":0,"duration":1}')
+    assert_equal '["WEUR", false]', [@database.query_stats.served_by_region, @database.query_stats.served_by_primary].inspect
   end
 
   def test_a_report_with_an_empty_region_is_counted
-    record_meta(@primary, '{"rows_read":30,"rows_written":3,"duration":1.5,"served_by_region":"","served_by_primary":true}')
-    assert_equal '{"queries":1,"rows_read":30,"rows_written":3,"db_ms":1.5}', JSON.generate(@primary.query_stats.log_fields)
+    record_meta(@database, '{"rows_read":30,"rows_written":3,"duration":1.5,"served_by_region":"","served_by_primary":true}')
+    assert_equal '{"queries":1,"rows_read":30,"rows_written":3,"db_ms":1.5}', JSON.generate(@database.query_stats.log_fields)
   end
 
   def test_a_report_with_an_empty_region_replaces_the_earlier_region
-    record_meta(@primary, '{"rows_read":1,"rows_written":0,"duration":1,"served_by_region":"WEUR","served_by_primary":false}')
-    record_meta(@primary, '{"rows_read":30,"rows_written":3,"duration":1.5,"served_by_region":"","served_by_primary":true}')
-    assert_equal '["", true]', [@primary.query_stats.served_by_region, @primary.query_stats.served_by_primary].inspect
+    record_meta(@database, '{"rows_read":1,"rows_written":0,"duration":1,"served_by_region":"WEUR","served_by_primary":false}')
+    record_meta(@database, '{"rows_read":30,"rows_written":3,"duration":1.5,"served_by_region":"","served_by_primary":true}')
+    assert_equal '["", true]', [@database.query_stats.served_by_region, @database.query_stats.served_by_primary].inspect
   end
 
   def test_a_row_count_sum_stops_at_the_32_bit_maximum
-    record_meta(@primary, '{"rows_read":2147483647,"rows_written":5,"duration":1}')
-    record_meta(@primary, '{"rows_read":10,"rows_written":5,"duration":1}')
-    assert_equal '{"queries":2,"rows_read":2147483647,"rows_written":10,"db_ms":2.0}', JSON.generate(@primary.query_stats.log_fields)
+    record_meta(@database, '{"rows_read":2147483647,"rows_written":5,"duration":1}')
+    record_meta(@database, '{"rows_read":10,"rows_written":5,"duration":1}')
+    assert_equal '{"queries":2,"rows_read":2147483647,"rows_written":10,"db_ms":2.0}', JSON.generate(@database.query_stats.log_fields)
   end
 
   def test_query_stats_of_another_database_are_its_own
@@ -158,7 +151,7 @@ class ModelDatabaseTest < SpinelTest::Unit::TestCase
     assert_equal true, Edgeway::Model.connection_for(:analytics).equal?(@analytics)
     assert_equal true, Event.connection.equal?(@analytics)
     assert_equal true, ClickEvent.connection.equal?(@analytics)
-    assert_equal true, Todo.connection.equal?(@primary)
+    assert_equal true, Todo.connection.equal?(@database)
   end
 
   def test_queries_on_another_database_leave_the_primary_alone
@@ -210,7 +203,7 @@ class ModelDatabaseTest < SpinelTest::Unit::TestCase
   end
 
   def test_exec_maps_a_database_error
-    @primary.fail_next("D1_EXEC_ERROR: syntax error")
+    @database.fail_next("D1_EXEC_ERROR: syntax error")
     error = assert_raise(Edgeway::DatabaseError) { Edgeway::Model.exec("NOPE") }
     assert_equal "D1_EXEC_ERROR: syntax error", error.message
   end
@@ -240,7 +233,7 @@ class ModelDatabaseTest < SpinelTest::Unit::TestCase
     connect_analytics
     @analytics.queue([{ "id" => 1, "note" => "n", "todo_id" => 7 }])
     impression = Impression.first
-    @primary.queue([{ "id" => 7, "title" => "p", "done" => 0, "priority" => "normal", "position" => 1, "created_at" => "c", "updated_at" => "u" }])
+    @database.queue([{ "id" => 7, "title" => "p", "done" => 0, "priority" => "normal", "position" => 1, "created_at" => "c", "updated_at" => "u" }])
     assert_equal "p", impression.todo.title
     assert_logs [TODO_7_SELECT_LOG], [IMPRESSION_SELECT_LOG]
   end

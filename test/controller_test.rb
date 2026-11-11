@@ -1,8 +1,6 @@
-require "spinel_test/unit"
-require "edgeway"
-require "edgeway/db/memory"
+require_relative "test_helper"
 
-class ControllerTest < SpinelTest::Unit::TestCase
+class ControllerTest < DatabaseTestCase
   class ApplicationModel < Edgeway::Model::Base
     extend Edgeway::Model::Macros
   end
@@ -221,20 +219,19 @@ class ControllerTest < SpinelTest::Unit::TestCase
   FORM_TYPE = "application/x-www-form-urlencoded"
 
   def setup
+    super
     @original_logger = Edgeway.logger
     @original_test_header = ENV["HTTP_X_TEST"]
     @log = LogCollector.new
     Edgeway.logger = @log
-    @database = Edgeway::DB::MemoryAdapter.new
-    Edgeway::Model.connection = @database
     draw_routes
   end
 
   def teardown
     Edgeway.application.routes.list.clear
     Edgeway.logger = @original_logger
-    Edgeway::Model.disconnect(Edgeway::Model::PRIMARY)
     restore_test_header
+    super
   end
 
   def restore_test_header
