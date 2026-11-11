@@ -1,8 +1,6 @@
-require "spinel_test/unit"
-require "edgeway"
-require "edgeway/db/memory"
+require_relative "test_helper"
 
-class ModelParametersTest < SpinelTest::Unit::TestCase
+class ModelParametersTest < DatabaseTestCase
   class ApplicationModel < Edgeway::Model::Base
     extend Edgeway::Model::Macros
   end
@@ -14,15 +12,6 @@ class ModelParametersTest < SpinelTest::Unit::TestCase
   end
 
   REFUSED = "ModelParametersTest::Todo: params must go through permit"
-
-  def setup
-    @database = Edgeway::DB::MemoryAdapter.new
-    Edgeway::Model.connection = @database
-  end
-
-  def teardown
-    Edgeway::Model.disconnect(Edgeway::Model::PRIMARY)
-  end
 
   def unpermitted_parameters
     Edgeway::HTTP::Parameters.new({ "title" => "t", "position" => "1" })

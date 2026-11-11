@@ -1,8 +1,6 @@
-require "spinel_test/unit"
-require "edgeway"
-require "edgeway/db/memory"
+require_relative "test_helper"
 
-class CachingTest < SpinelTest::Unit::TestCase
+class CachingTest < DatabaseTestCase
   class ApplicationModel < Edgeway::Model::Base
     extend Edgeway::Model::Macros
   end
@@ -149,18 +147,17 @@ class CachingTest < SpinelTest::Unit::TestCase
   NOT_FOUND_BODY = "{\"error\":\"not found\"}\n"
 
   def setup
+    super
     @original_logger = Edgeway.logger
     @log = LogCollector.new
     Edgeway.logger = @log
-    @database = Edgeway::DB::MemoryAdapter.new
-    Edgeway::Model.connection = @database
     draw_routes
   end
 
   def teardown
     Edgeway.application.routes.list.clear
-    Edgeway::Model.disconnect(Edgeway::Model::PRIMARY)
     Edgeway.logger = @original_logger
+    super
   end
 
   def draw_routes

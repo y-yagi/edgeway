@@ -1,8 +1,6 @@
-require "spinel_test/unit"
-require "edgeway"
-require "edgeway/db/memory"
+require_relative "test_helper"
 
-class ModelAttributeTest < SpinelTest::Unit::TestCase
+class ModelAttributeTest < DatabaseTestCase
   class ApplicationModel < Edgeway::Model::Base
     extend Edgeway::Model::Macros
   end
@@ -40,14 +38,13 @@ class ModelAttributeTest < SpinelTest::Unit::TestCase
   SELECT_REFERENCE = "SELECT id, ticket_id, note FROM references ORDER BY id ASC LIMIT 1 | []"
 
   def setup
-    @database = Edgeway::DB::MemoryAdapter.new
-    Edgeway::Model.connection = @database
+    super
     @raw = BYTES.pack("C*")
   end
 
   def teardown
     Edgeway::Model.freeze_time(nil)
-    Edgeway::Model.disconnect(Edgeway::Model::PRIMARY)
+    super
   end
 
   def bigint_cast_inspect(text)

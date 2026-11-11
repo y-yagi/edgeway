@@ -1,8 +1,6 @@
-require "spinel_test/unit"
-require "edgeway"
-require "edgeway/db/memory"
+require_relative "test_helper"
 
-class ModelBatchTest < SpinelTest::Unit::TestCase
+class ModelBatchTest < DatabaseTestCase
   class ApplicationModel < Edgeway::Model::Base
     extend Edgeway::Model::Macros
   end
@@ -48,14 +46,13 @@ class ModelBatchTest < SpinelTest::Unit::TestCase
   UNIQUE_FAILED = "D1_ERROR: UNIQUE constraint failed: todos.title: SQLITE_CONSTRAINT"
 
   def setup
-    @database = Edgeway::DB::MemoryAdapter.new
-    Edgeway::Model.connection = @database
+    super
     Edgeway::Model.freeze_time("2026-01-02T03:04:05.000Z")
   end
 
   def teardown
     Edgeway::Model.freeze_time(nil)
-    Edgeway::Model.disconnect(Edgeway::Model::PRIMARY)
+    super
   end
 
   def persisted_todo

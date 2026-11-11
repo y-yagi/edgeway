@@ -1,8 +1,6 @@
-require "spinel_test/unit"
-require "edgeway"
-require "edgeway/db/memory"
+require_relative "test_helper"
 
-class ModelValidationTest < SpinelTest::Unit::TestCase
+class ModelValidationTest < DatabaseTestCase
   class ApplicationModel < Edgeway::Model::Base
     extend Edgeway::Model::Macros
   end
@@ -64,15 +62,6 @@ class ModelValidationTest < SpinelTest::Unit::TestCase
 
   UNIQUE_FAILED = "D1_ERROR: UNIQUE constraint failed: tags.name: SQLITE_CONSTRAINT"
   NO_SUCH_TABLE = "D1_ERROR: no such table: tags: SQLITE_ERROR"
-
-  def setup
-    @database = Edgeway::DB::MemoryAdapter.new
-    Edgeway::Model.connection = @database
-  end
-
-  def teardown
-    Edgeway::Model.disconnect(Edgeway::Model::PRIMARY)
-  end
 
   def project_row
     { "id" => 2, "owner_id" => "u1", "name" => "work" }

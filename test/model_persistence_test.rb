@@ -1,8 +1,6 @@
-require "spinel_test/unit"
-require "edgeway"
-require "edgeway/db/memory"
+require_relative "test_helper"
 
-class ModelPersistenceTest < SpinelTest::Unit::TestCase
+class ModelPersistenceTest < DatabaseTestCase
   class ApplicationModel < Edgeway::Model::Base
     extend Edgeway::Model::Macros
   end
@@ -25,14 +23,13 @@ class ModelPersistenceTest < SpinelTest::Unit::TestCase
   DELETE_REFUSAL = "delete_all doesn't support limit/offset"
 
   def setup
-    @database = Edgeway::DB::MemoryAdapter.new
-    Edgeway::Model.connection = @database
+    super
     Edgeway::Model.freeze_time(FROZEN_TIME)
   end
 
   def teardown
     Edgeway::Model.freeze_time(nil)
-    Edgeway::Model.disconnect(Edgeway::Model::PRIMARY)
+    super
   end
 
   def queue_persisted_row(id)

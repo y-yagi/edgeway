@@ -1,8 +1,6 @@
-require "spinel_test/unit"
-require "edgeway"
-require "edgeway/db/memory"
+require_relative "test_helper"
 
-class ServerTest < SpinelTest::Unit::TestCase
+class ServerTest < DatabaseTestCase
   class HealthController < Edgeway::Controller::Base
     def show = render json: { "status" => "ok", "q" => params["q"] }
 
@@ -31,19 +29,18 @@ class ServerTest < SpinelTest::Unit::TestCase
   JSON_200_HEAD = "Status: 200\nContent-Type: application/json\n\n"
 
   def setup
+    super
     @original_logger = Edgeway.logger
     @log = LogCollector.new
     Edgeway.logger = @log
-    @primary = Edgeway::DB::MemoryAdapter.new
-    Edgeway::Model.connection = @primary
     draw_routes
   end
 
   def teardown
     Edgeway.application.routes.list.clear
     Edgeway::Model.disconnect("analytics")
-    Edgeway::Model.disconnect(Edgeway::Model::PRIMARY)
     Edgeway.logger = @original_logger
+    super
   end
 
   def draw_routes
@@ -139,7 +136,7 @@ class ServerTest < SpinelTest::Unit::TestCase
   end
 
   def test_logs_the_query_stats_of_the_primary_database
-    @primary.record_meta(primary_meta)
+    @database.record_meta(primary_meta)
     expected = ['info query stats {"queries":1,"rows_read":3,"rows_written":1,"db_ms":2.0}']
     assert_equal expected, logged_stats
   end
@@ -147,7 +144,7 @@ class ServerTest < SpinelTest::Unit::TestCase
   def test_logs_an_extra_line_for_a_second_database
     analytics = Edgeway::DB::MemoryAdapter.new
     Edgeway::Model.connect("analytics", analytics)
-    @primary.record_meta(primary_meta)
+    @database.record_meta(primary_meta)
     analytics.record_meta(analytics_meta)
     expected = [
       'info query stats {"queries":1,"rows_read":3,"rows_written":1,"db_ms":2.0}',
@@ -158,7 +155,7 @@ class ServerTest < SpinelTest::Unit::TestCase
 
   def test_logs_only_the_primary_line_when_the_second_database_had_no_queries
     Edgeway::Model.connect("analytics", Edgeway::DB::MemoryAdapter.new)
-    @primary.record_meta(primary_meta)
+    @database.record_meta(primary_meta)
     expected = ['info query stats {"queries":1,"rows_read":3,"rows_written":1,"db_ms":2.0}']
     assert_equal expected, logged_stats
   end
