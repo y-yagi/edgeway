@@ -15,7 +15,7 @@ bundle exec edgeway build                     # build/app.wasm (or bin/build); -
 bundle exec edgeway routes
 ```
 
-`bin/deploy` builds with `--release`: one unit, without Spinel's `--incremental` (cached C units, no inlining across units), for deploying.
+`bin/deploy` builds with `--release`: one unit, without Spinel's `--incremental` (cached C units, no inlining across units), for deploying. It also strips the debug info from `build/app.wasm` with the WASI SDK's `llvm-strip`; function names stay, so stack traces are readable.
 
 Files in `public/` are served by Cloudflare before the app, for every method on their path (see Edgeway's README, "Static assets").
 

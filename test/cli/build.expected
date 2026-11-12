@@ -121,3 +121,12 @@ config/cache.yml: expires_in in development must be a whole number of seconds, 1
 config/cache.yml: expires_in in development must be a whole number of seconds, 1 to 31536000
 config/cache.yml: expires_in in development must be a whole number of seconds, 1 to 31536000
 config/cache.yml: unknown expire_in in development (one of store, binding, namespace, expires_in)
+--
+release=false strip=checks its arguments
+release=true strip=checks its arguments
+DIR/sdk/bin/llvm-strip --strip-debug build/app.wasm
+release=true strip="exit 1"
+DIR/sdk/bin/llvm-strip --strip-debug build/app.wasm
+llvm-strip failed
+release=true strip=nil
+edgeway: warning: no llvm-strip in the WASI SDK; build/app.wasm keeps its debug info

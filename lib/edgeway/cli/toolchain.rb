@@ -8,9 +8,9 @@ module Edgeway
     #   2. spinel on PATH (mise puts its spinel there when it is activated)
     #   3. `mise which spinel` (mise is installed but not activated)
     #
-    # The WASI SDK that --target=wasm32-wasi needs is Spinel's to find: it
-    # reads WASI_SDK (mise.toml sets it), then WASI_SDK_PATH, and defaults to
-    # /opt/wasi-sdk.
+    # The WASI SDK that --target=wasm32-wasi needs is found the same way by
+    # Spinel and by Edgeway (for llvm-strip in a release build): WASI_SDK
+    # (mise.toml sets it), then WASI_SDK_PATH, and /opt/wasi-sdk by default.
     module Toolchain
       def self.spinel
         env = ENV["SPINEL"]

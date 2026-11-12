@@ -2,6 +2,7 @@
 # without invoking Spinel. CRuby only (the CLI is not part of the wasm).
 require "tmpdir"
 require "fileutils"
+require "stringio"
 require_relative "../../lib/edgeway/cli"
 
 def write(root, path, text = "")
@@ -257,4 +258,52 @@ puts "--"
       puts e.message
     end
   end
+end
+
+puts "--"
+def fake_executable(path, body)
+  FileUtils.mkdir_p(File.dirname(path))
+  File.write(path, "#!/bin/sh\n#{body}\n")
+  File.chmod(0o755, path)
+end
+
+def build_with_fake_toolchain(release:, strip_body:)
+  Dir.mktmpdir do |dir|
+    root = File.join(dir, "app")
+    write(root, "config/routes.rb")
+    write(root, "config/database.yml", "development:\n  adapter: memory\n")
+    fake_executable(File.join(dir, "spinel"), "touch build/app.wasm")
+    fake_executable(File.join(dir, "sdk/bin/llvm-strip"), strip_body) if strip_body
+    FileUtils.mkdir_p(File.join(dir, "sdk"))
+    output = with_env("SPINEL" => File.join(dir, "spinel"), "WASI_SDK" => File.join(dir, "sdk")) do
+      capture_output { yield Edgeway::CLI::Build.new(root, "development", release:) }
+    end
+    puts output.gsub(dir, "DIR").lines.grep(/llvm-strip|keeps its debug info/)
+  end
+end
+
+def with_env(values)
+  saved = values.keys.to_h { |name| [name, ENV[name]] }
+  values.each { |name, value| ENV[name] = value }
+  yield
+ensure
+  saved.each { |name, value| ENV[name] = value }
+end
+
+def capture_output
+  buffer = StringIO.new
+  $stdout = $stderr = buffer
+  yield
+  buffer.string
+rescue Edgeway::CLI::Error => e
+  buffer.string + e.message + "\n"
+ensure
+  $stdout = STDOUT
+  $stderr = STDERR
+end
+
+strip_checks_arguments = 'test "$1" = --strip-debug && test "$2" = build/app.wasm && test -f "$2"'
+[[false, strip_checks_arguments], [true, strip_checks_arguments], [true, "exit 1"], [true, nil]].each do |release, strip_body|
+  puts "release=#{release} strip=#{strip_body == strip_checks_arguments ? "checks its arguments" : strip_body.inspect}"
+  build_with_fake_toolchain(release:, strip_body:, &:run)
 end
