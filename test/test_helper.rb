@@ -1,4 +1,5 @@
 require "spinel_test/unit"
+require_relative "dynamic_dispatch"
 require "edgeway"
 require "edgeway/db/memory"
 

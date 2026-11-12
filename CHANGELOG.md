@@ -7,6 +7,12 @@
 - `edgeway generate` takes a `binary` field type.
 - `config/edgeway.yml` with `platform:` (only `cloudflare` for now, and the default without the file). `edgeway new` writes it.
 
+### Changed
+
+- A route to a controller that is not defined, or to an action that is not a public method of it (private methods and `Edgeway::Controller::Base`'s own public methods are not actions), is a build error, not a 404 at run time.
+- `edgeway build` and `edgeway test` now load the app's files in CRuby to read the routes (`edgeway routes` loads only `config/routes.rb`).
+  The library files that use Spinel's `ffi_*` declarations can't load there and are skipped, so an app file that uses their classes when it is loaded fails the build.
+
 ## v0.3.0
 
 ### Added

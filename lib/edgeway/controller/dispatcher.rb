@@ -1,32 +1,22 @@
 module Edgeway
   module Controller
     module Dispatcher
-      def self.controller_class(route)
-        klass = nil
-        begin
-          klass = Object.const_get(route.controller_class_name)
-        rescue NameError
-          return nil
-        end
-        klass.is_a?(Class) && klass < Base ? klass : nil
-      end
+      def self.instantiate(name, request) = nil
 
       def self.dispatch(route, request)
-        klass = controller_class(route)
-        raise RoutingError, "no controller for #{route.controller_path}" if klass.nil?
-        controller = klass.new(request)
+        controller = Dispatcher.instantiate(route.controller_class_name, request)
+        raise RoutingError, "no controller for #{route.controller_path}" if controller.nil?
         controller.action_name = route.action
-        # A route whose action isn't defined (or is one of Base's own public
-        # methods) is a 404, as in Rails.
+        # The build refuses a route to an action that isn't defined (or is one
+        # of Base's own public methods); this stays so that a private method
+        # or a Base method can't be reached whatever generated the dispatch.
         raise RoutingError, "no route for #{request.method} #{request.path}" unless controller.action?(route.action)
         begin
-          # The action is called here, on an instance of a class found by
-          # name, and not from a Base method: with a name taken as a method
-          # argument Spinel's send looks among the literals of the program,
-          # and misses a subclass's methods (matz/spinel#8592). public_send:
-          # a route can't reach a private method.
-          action = route.action.to_sym
-          controller.public_send(action) if controller.run_before_actions(route.action)
+          # instantiate and _run_action are generated from the routes by
+          # `edgeway build` / `edgeway test`: a class found by name and a send
+          # with a computed name make Spinel emit a branch for every class and
+          # every method name of the program, and keep their code reachable.
+          controller._run_action(route.action) if controller.run_before_actions(route.action)
           implicit_render(controller, route) unless controller.performed?
         rescue => e
           raise e unless controller.rescue_with_handler(e)

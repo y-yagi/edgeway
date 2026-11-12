@@ -1,5 +1,6 @@
 require "spinel_test/unit"
 require "edgeway"
+require_relative "dynamic_dispatch"
 require "edgeway/http/auth/stub"
 
 class AuthTest < SpinelTest::Unit::TestCase

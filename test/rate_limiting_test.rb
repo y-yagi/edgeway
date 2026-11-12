@@ -1,5 +1,6 @@
 require "spinel_test/unit"
 require "edgeway"
+require_relative "dynamic_dispatch"
 require "edgeway/http/auth/stub"
 require "edgeway/rate_limit/stub_limiter"
 require "edgeway/service/cloudflare/rate_limiter"

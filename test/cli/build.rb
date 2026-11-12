@@ -157,6 +157,21 @@ Dir.mktmpdir do |root|
   puts File.exist?(File.join(root, "build/views.rb"))
 end
 
+Dir.mktmpdir do |root|
+  write(root, "app/controllers/todos_controller.rb", "class TodosController < Edgeway::Controller::Base\n  def index = nil\nend\n")
+  write(root, "app/views/todos/index.html.erb", "<%= 1 %>")
+  write(root, "config/routes.rb", "Edgeway.application.routes.draw { |r| r.get \"/todos\", to: \"todos#index\" }\n")
+  out = main_for(root, "test", "test:\n  adapter: memory\n")
+  puts out.lines.grep(/require_relative/)
+  puts File.exist?(File.join(root, "build/dispatch.rb"))
+  write(root, "config/routes.rb", "Edgeway.application.routes.draw { |r| r.get \"/todos\", to: \"todos#nope\" }\n")
+  begin
+    main_for(root, "test", "test:\n  adapter: memory\n")
+  rescue Edgeway::CLI::Error => e
+    puts e.message
+  end
+end
+
 # a views directory with no controller fails the build
 Dir.mktmpdir do |root|
   write(root, "app/views/ghosts/index.html.erb", "x")

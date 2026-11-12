@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../../inflector"
+require_relative "class_source"
 
 module Edgeway
   module CLI
@@ -168,17 +169,7 @@ module Edgeway
             body.map { |l| "  #{l}" } + ["  out", "end"]
         end
 
-        def wrap(klass, body)
-          *modules, name = klass.split("::")
-          depth = modules.size
-          lines = [""]
-          modules.each_with_index { |m, i| lines << "#{"  " * i}module #{m}" }
-          lines << "#{"  " * depth}class #{name}"
-          body.each { |l| lines << (l.empty? ? "" : "#{"  " * (depth + 1)}#{l}") }
-          lines << "#{"  " * depth}end"
-          modules.size.times { |i| lines << "#{"  " * (modules.size - 1 - i)}end" }
-          lines
-        end
+        def wrap(klass, body) = ClassSource.wrap(klass, body)
 
         def controller_file!(dir, what)
           return if File.exist?(File.join(@root, "app/controllers/#{dir}_controller.rb"))

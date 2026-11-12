@@ -156,8 +156,14 @@ edgeway generate scaffold Todo title:string done:boolean
   and the WASI SDK is pointed at by `WASI_SDK`.
 - Without mise, set `SPINEL` (or put `spinel` on `PATH`) and `WASI_SDK`.
 - `SPINEL` wins over `spinel` on `PATH`, which is how to use a Spinel checkout instead of a release.
-
-See `todo-api` in [edgeway-examples](https://github.com/y-yagi/edgeway-examples) for an example (checked with its `check.sh`).
+- The build (and `edgeway test`) reads the routes by loading the library files `build/main.rb` requires, the app's files under `app/` and `config/routes.rb` in CRuby,
+  and generates the code that creates each routed controller and calls each routed action (`build/dispatch.rb`, `tmp/dispatch.rb`),
+  so the wasm holds only the controllers and actions the routes use.
+  A route to a controller that isn't defined, or to an action that isn't a public method of it
+  (a private method, or a public method of `Edgeway::Controller::Base` itself, is not an action), is a build error, not a 404 at run time.
+- That makes loading the app's files in CRuby a requirement of the build, which `edgeway routes` (it loads only `config/routes.rb`) doesn't have.
+  The library files that use Spinel's `ffi_*` declarations (the D1 adapter, `edgeway/service/jwt`, `fetch` and `rate_limit`) can't load in CRuby and are skipped,
+  so an app file that uses one of their classes (`Edgeway::JWTVerifier`, ...) when it is loaded, instead of when a request runs, fails the build.
 
 ### Spinel version
 
@@ -554,7 +560,7 @@ so it sees the action's `@variables`, `params` and the controller's methods.
   Safety is not kept across string operations (`"<b>".html_safe + x` is not defined): build the HTML in a template,
   or escape the pieces with `Edgeway::View.escape` and mark the result.
   `<% code %>`, `<%# comment %>`, `<%%` (a literal `<%`) and `-%>` (drops the newline after the tag) work as in ERB.
-- The public methods of `Edgeway::Controller::Base` (`render`, `head`, `params`, `raw`, ...) are not actions; a route to one is a 404.
+- The public methods of `Edgeway::Controller::Base` (`render`, `head`, `params`, `raw`, ...) are not actions; a route to one is a build error.
 - An action that renders nothing renders its template, or answers 204 when it has none.
 - `render :name` / `render "name"` renders another template of the controller, `render html: value` a string (HTML-escaped; a `SafeHTML` is output as is);
   both take `status:` and `layout: false`.
