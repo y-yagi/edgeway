@@ -15,7 +15,8 @@ module Edgeway
     # edgeway build: app/, config/ -> build/main.rb -> build/app.wasm, and the
     # gem's js/ -> build/edgeway/. Spinel compiles with --incremental (cached C
     # units, fast rebuilds, no inlining across units) unless --release, which
-    # builds as one unit for deploying.
+    # builds as one unit for deploying and strips the DWARF debug info from
+    # build/app.wasm.
     #
     # Spinel resolves require at compile time and has no autoloading, so
     # build/main.rb requires every file, in an order where a class body finds
@@ -38,7 +39,7 @@ module Edgeway
         OptionParser.new do |o|
           o.banner = "Usage: edgeway build [--env ENV] [--release]"
           o.on("--env ENV", "environment (default: development)") { |v| env = v }
-          o.on("--release", "build as one unit, without --incremental (for deploying)") { release = true }
+          o.on("--release", "build as one unit, without --incremental, and strip debug info (for deploying)") { release = true }
         end.parse!(args)
         new(Dir.pwd, env, release:).run
       end
@@ -134,6 +135,26 @@ module Edgeway
         cmd << "--incremental" unless @release
         puts cmd.join(" ")
         system(*cmd, chdir: @root) || raise(Error, "spinel failed")
+        strip_debug_info if @release
+      end
+
+      def strip_debug_info
+        strip = strip_tool
+        unless strip
+          warn("edgeway: warning: no llvm-strip in the WASI SDK; build/app.wasm keeps its debug info")
+          return
+        end
+
+        # --strip-debug and not --strip-all: the name section stays, so stack traces keep their function names.
+        command = [strip, "--strip-debug", "build/app.wasm"]
+        puts command.join(" ")
+        system(*command, chdir: @root) || raise(Error, "llvm-strip failed")
+      end
+
+      def strip_tool
+        sdk = Toolchain.wasi_sdk
+        tool = sdk && File.join(sdk, "bin/llvm-strip")
+        tool if tool && File.executable?(tool)
       end
     end
   end

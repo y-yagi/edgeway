@@ -23,7 +23,7 @@ module Edgeway
         new APP                  create a new app in APP/
         build [--env ENV] [--release]
                                  compile the app to build/app.wasm (ENV: development);
-                                   --release builds for deploying (no --incremental)
+                                   --release builds for deploying (no --incremental, debug info stripped)
         test [ARGS]              regenerate tmp/test_app.rb, run test/ with spinel_test-unit
                                    (natively, or as wasm on the platform's local database, by database.yml's test:)
         generate, g KIND NAME    generate a model (NAME field:type ...), a controller (NAME action ...)

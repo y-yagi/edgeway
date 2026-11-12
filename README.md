@@ -101,7 +101,7 @@ bin/build
 pnpm exec wrangler dev
 edgeway routes
 
-# bin/build --release (one unit, without --incremental), remote D1 migrations,
+# bin/build --release (one unit, without --incremental, debug info stripped), remote D1 migrations,
 # then pnpm exec wrangler deploy
 bin/deploy
 ```
