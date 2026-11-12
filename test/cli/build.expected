@@ -82,6 +82,13 @@ require_relative "../app/controllers/todos_controller"
 require_relative "views"
 require_relative "../config/routes"
 true
+require_relative "../app/controllers/todos_controller"
+require_relative "views"
+require_relative "dispatch"
+require_relative "../config/routes"
+true
+config/routes.rb:
+  GET /todos (todos#nope): TodosController has no action nope (a public method that is not one of Edgeway::Controller::Base's)
 app/views/ghosts/ has no controller: app/controllers/ghosts_controller.rb does not exist
 no config/routes.rb
 --

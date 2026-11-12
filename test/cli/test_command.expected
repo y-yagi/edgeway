@@ -20,6 +20,13 @@ require_relative "../config/routes"
 class TodosController
   def _view_todos_index
   def _render_view(action)
+--
+require_relative "../app/controllers/todos_controller"
+require_relative "dispatch"
+require_relative "../config/routes"
+class TodosController
+  def _run_action(action)
+      def self.instantiate(name, request)
 no config/routes.rb
 edgeway test does not support --ruby (the tests always run as a Spinel build)
 --

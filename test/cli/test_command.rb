@@ -5,10 +5,10 @@ require "open3"
 require "fileutils"
 require_relative "../../lib/edgeway/cli"
 
-def write(root, path)
+def write(root, path, text = "")
   full = File.join(root, path)
   FileUtils.mkdir_p(File.dirname(full))
-  File.write(full, "")
+  File.write(full, text)
 end
 
 Dir.mktmpdir do |root|
@@ -31,6 +31,15 @@ Dir.mktmpdir do |root|
   Edgeway::CLI::Test.new(root).write_test_app
   puts File.read(File.join(root, "tmp/test_app.rb")).lines.grep(/require_relative/)
   puts File.read(File.join(root, "tmp/views.rb")).lines.grep(/def |class /)
+end
+
+puts "--"
+Dir.mktmpdir do |root|
+  write(root, "app/controllers/todos_controller.rb", "class TodosController < Edgeway::Controller::Base\n  def index = nil\nend\n")
+  write(root, "config/routes.rb", "Edgeway.application.routes.draw { |r| r.get \"/todos\", to: \"todos#index\" }\n")
+  Edgeway::CLI::Test.new(root).write_test_app
+  puts File.read(File.join(root, "tmp/test_app.rb")).lines.grep(/require_relative/)
+  puts File.read(File.join(root, "tmp/dispatch.rb")).lines.grep(/def |class /)
 end
 
 begin

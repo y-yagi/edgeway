@@ -1,5 +1,6 @@
 require "spinel_test/unit"
 require "edgeway"
+require_relative "dynamic_dispatch"
 
 class ViewTest < SpinelTest::Unit::TestCase
   class LayoutController < Edgeway::Controller::Base
@@ -165,6 +166,7 @@ class ViewTest < SpinelTest::Unit::TestCase
       mapper.get "/view_posts/gone", to: "view_test/posts#gone"
       mapper.get "/view_posts/_view_view_test_posts_index", to: "view_test/posts#_view_view_test_posts_index"
       mapper.get "/view_posts/_render_view", to: "view_test/posts#_render_view"
+      mapper.get "/view_posts/_run_action", to: "view_test/posts#_run_action"
       mapper.get "/view_framed", to: "view_test/framed#show"
       mapper.get "/view_notes/shared", to: "view_test/notes#shared"
       mapper.get "/view_notes/mine", to: "view_test/notes#mine"
@@ -310,6 +312,10 @@ class ViewTest < SpinelTest::Unit::TestCase
 
   def test_the_generated_render_view_method_is_not_an_action
     assert_not_found get("/view_posts/_render_view")
+  end
+
+  def test_the_generated_run_action_method_is_not_an_action
+    assert_not_found get("/view_posts/_run_action")
   end
 
   def test_a_controller_renders_a_template_it_inherits

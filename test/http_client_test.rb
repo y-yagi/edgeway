@@ -1,5 +1,6 @@
 require "spinel_test/unit"
 require "edgeway"
+require_relative "dynamic_dispatch"
 require "edgeway/http/stub_transport"
 
 class HttpClientTest < SpinelTest::Unit::TestCase

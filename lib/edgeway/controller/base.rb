@@ -85,13 +85,15 @@ module Edgeway
       def headers = @headers
 
       def action?(name)
-        return false if name.start_with?("_view_") || name.start_with?("_render_")
+        return false if name.start_with?("_view_") || name.start_with?("_render_") || name.start_with?("_run_")
         respond_to?(name.to_sym) && !NON_ACTIONS.include?(name) && !self.class.non_action?(name)
       end
 
       def raw(text) = View::SafeHTML.new(text)
 
       def _render_view(action) = nil
+
+      def _run_action(action) = nil
 
       def _render_layout(content) = content
 
