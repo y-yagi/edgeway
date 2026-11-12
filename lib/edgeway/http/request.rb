@@ -68,16 +68,16 @@ module Edgeway
         add_body_params(decode_pairs(@body, "form body"))
       end
 
-      # URI.decode_www_form never raises on bad bytes: it turns those that aren't
-      # UTF-8 (%ff) into U+FFFD. That is only right when the client sent a
-      # U+FFFD itself, so otherwise one in the result is a BadRequest.
+      # FormBody turns bytes that aren't UTF-8 (%ff) into U+FFFD instead of
+      # raising. That is only right when the client sent a U+FFFD itself, so
+      # otherwise one in the result is a BadRequest.
       def decode_pairs(text, what)
         raise BadRequest, "#{what} is not valid UTF-8" unless text.valid_encoding?
-        pairs = URI.decode_www_form(text)
+        pairs = FormBody.new(text).pairs
         sent = text.include?(REPLACEMENT) || text.downcase.include?("%ef%bf%bd")
         unless sent
-          pairs.each do |k, v|
-            raise BadRequest, "#{what} is not valid UTF-8" if k.include?(REPLACEMENT) || v.include?(REPLACEMENT)
+          pairs.each do |key, value|
+            raise BadRequest, "#{what} is not valid UTF-8" if key.include?(REPLACEMENT) || value.include?(REPLACEMENT)
           end
         end
         pairs

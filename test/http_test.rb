@@ -65,6 +65,18 @@ class HTTPTest < SpinelTest::Unit::TestCase
     assert_equal [["title", "a b"], ["done", "1"]], form.params.require(:todo).to_h.to_a
   end
 
+  def test_sent_replacement_character_in_a_form_body_is_accepted
+    form = Edgeway::HTTP::Request.new("POST", "/", "", "application/x-www-form-urlencoded", "a=%EF%BF%BD")
+    form.read_body
+    assert_equal "\uFFFD", form.params["a"]
+  end
+
+  def test_raw_utf8_query_string_is_decoded
+    request = Edgeway::HTTP::Request.new("GET", "/", "a=\u3042", "", "")
+    request.read_body
+    assert_equal "\u3042", request.params["a"]
+  end
+
   def test_invalid_json_body_is_a_bad_request
     request = Edgeway::HTTP::Request.new("POST", "/", "", "application/json", "{bad")
     assert_raise(Edgeway::BadRequest) { request.read_body }
