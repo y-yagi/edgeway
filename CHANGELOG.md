@@ -13,6 +13,10 @@
 - `edgeway build` and `edgeway test` now load the app's files in CRuby to read the routes (`edgeway routes` loads only `config/routes.rb`).
   The library files that use Spinel's `ffi_*` declarations can't load there and are skipped, so an app file that uses their classes when it is loaded fails the build.
 
+### Fixed
+
+- `Edgeway::Model.batch` left with `break` or `return` now sends the queued writes and ends the batch. Before, the writes were lost and every later write was queued and never run.
+
 ## v0.3.0
 
 ### Added

@@ -34,6 +34,8 @@ class ModelBatchTest < DatabaseTestCase
     has_many :tasks, dependent: :delete_all
   end
 
+  class Abort < Exception; end
+
   class Task < ApplicationModel
     attribute :title, :string
     belongs_to :team
@@ -61,6 +63,14 @@ class ModelBatchTest < DatabaseTestCase
 
   def update_todo_sql(title)
     "UPDATE todos SET title = ?, done = ?, priority = ?, position = ?, created_at = ?, updated_at = ? WHERE id = ? | [\"#{title}\",0,\"normal\",1,\"c\",\"2026-01-02T03:04:05.000Z\",1]"
+  end
+
+  def update_and_return(todo)
+    Edgeway::Model.batch do
+      todo.update!(title: "returned")
+      return :left
+    end
+    :not_reached
   end
 
   def persisted_team
@@ -118,6 +128,48 @@ class ModelBatchTest < DatabaseTestCase
     assert_equal "boom", error.message
     assert_equal false, Edgeway::Model.batching?
     assert_equal [], @database.log
+    todo.update!(title: "plain")
+    assert_equal [update_todo_sql("plain")], @database.log
+  end
+
+  def test_a_block_that_raises_a_non_standard_error_sends_nothing_and_resets_the_queue
+    todo = persisted_todo
+    raised = nil
+    begin
+      Edgeway::Model.batch do
+        todo.update!(title: "lost")
+        raise Abort, "stop"
+      end
+    rescue Abort => e
+      raised = e
+    end
+    assert_equal "stop", raised.message
+    assert_equal false, Edgeway::Model.batching?
+    assert_equal [], @database.log
+    todo.update!(title: "plain")
+    assert_equal [update_todo_sql("plain")], @database.log
+  end
+
+  def test_a_block_left_with_break_sends_the_writes_and_resets_the_queue
+    todo = persisted_todo
+    result = Edgeway::Model.batch do
+      todo.update!(title: "broken")
+      break :stopped
+    end
+    assert_equal :stopped, result
+    assert_equal false, Edgeway::Model.batching?
+    assert_equal ["BATCH 1", update_todo_sql("broken")], @database.log
+    @database.log.clear
+    todo.update!(title: "plain")
+    assert_equal [update_todo_sql("plain")], @database.log
+  end
+
+  def test_a_block_left_with_return_sends_the_writes_and_resets_the_queue
+    todo = persisted_todo
+    assert_equal :left, update_and_return(todo)
+    assert_equal false, Edgeway::Model.batching?
+    assert_equal ["BATCH 1", update_todo_sql("returned")], @database.log
+    @database.log.clear
     todo.update!(title: "plain")
     assert_equal [update_todo_sql("plain")], @database.log
   end
