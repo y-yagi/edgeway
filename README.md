@@ -420,6 +420,7 @@ end
 - A `create` is refused with `ArgumentError`, because it needs the new row's id.
 - The counts of a queued write are not known (`delete_all` answers 0).
 - A block that raises sends nothing, and a nested `batch` joins the outer one.
+- A block left with `break` or `return` sends the writes like one that finishes.
 
 ### Associations
 

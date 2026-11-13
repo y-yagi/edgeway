@@ -34,7 +34,8 @@ module Edgeway
 
     # Runs the block with writes queued instead of executed, then sends them
     # all as one atomic batch (one SQL transaction, all or none).
-    # A batch belongs to the database of its first write.
+    # A batch belongs to the database of its first write. Leaving the block
+    # with break or return sends the writes like finishing it; a raise of any kind sends nothing.
     def self.batch
       if @batch_queue
         yield
@@ -43,15 +44,19 @@ module Edgeway
       queue = []
       @batch_queue = queue
       @batch_database = nil
+      results = []
+      failed = false
       begin
         yield
-      rescue => e
+      rescue Exception
+        failed = true
+        raise
+      ensure
+        database = @batch_database
         @batch_queue = nil
-        raise e
+        results = connection_for(database).batch(queue) unless failed || queue.empty?
       end
-      database = @batch_database
-      @batch_queue = nil
-      queue.empty? ? [] : connection_for(database).batch(queue)
+      results
     end
 
     def self.batching? = !@batch_queue.nil?
