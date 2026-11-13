@@ -617,6 +617,24 @@ class ControllerTest < DatabaseTestCase
     assert_response response, 200, LOGGED_JSON_HEADERS, "{\"title\":null,\"id\":\"1\"}\n"
   end
 
+  def test_a_raw_replacement_character_in_the_query_is_accepted
+    response = get("/echo/1", "q=\uFFFD")
+    assert_response response, 200, LOGGED_JSON_HEADERS, "{\"title\":null,\"id\":\"1\"}\n"
+  end
+
+  def test_invalid_utf8_after_an_encoded_replacement_character_in_the_query_is_400
+    assert_bad_request get("/echo/1", "a=%EF%BF%BD&b=%ff"), "query string is not valid UTF-8"
+  end
+
+  def test_invalid_utf8_in_the_same_component_as_a_replacement_character_is_400
+    assert_bad_request get("/echo/1", "a=%EF%BF%BD%ff"), "query string is not valid UTF-8"
+  end
+
+  def test_invalid_utf8_after_an_encoded_replacement_character_in_a_form_body_is_400
+    response = send_request("POST", "/echo/1", "", "a=%EF%BF%BD&b=%ff", FORM_TYPE)
+    assert_bad_request response, "form body is not valid UTF-8"
+  end
+
   def test_a_form_body_that_decodes_to_invalid_utf8_is_400
     response = send_request("POST", "/echo/1", "", "todo%5Btitle%5D=%ff", FORM_TYPE)
     assert_bad_request response, "form body is not valid UTF-8"
