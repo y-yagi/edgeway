@@ -94,4 +94,24 @@ class FormBodyTest < SpinelTest::Unit::TestCase
   def test_escaped_nul_is_decoded
     assert_equal [["a", "\u0000"]], decode("a=%00")
   end
+
+  def test_valid_text_is_valid_utf8
+    assert_equal true, Edgeway::HTTP::FormBody.new("a=%e3%81%82&b=%EF%BF%BD").valid_utf8?
+  end
+
+  def test_an_invalid_component_is_not_valid_utf8
+    assert_equal false, Edgeway::HTTP::FormBody.new("a=%EF%BF%BD&b=%ff").valid_utf8?
+  end
+
+  def test_an_invalid_key_is_not_valid_utf8
+    assert_equal false, Edgeway::HTTP::FormBody.new("%ff=1").valid_utf8?
+  end
+
+  def test_a_truncated_sequence_is_not_valid_utf8
+    assert_equal false, Edgeway::HTTP::FormBody.new("a=%e3%81").valid_utf8?
+  end
+
+  def test_a_surrogate_is_not_valid_utf8
+    assert_equal false, Edgeway::HTTP::FormBody.new("a=%ed%a0%80").valid_utf8?
+  end
 end
