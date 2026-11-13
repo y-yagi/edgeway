@@ -7,8 +7,8 @@ module Edgeway
         @list = []
       end
 
-      def draw
-        yield Mapper.new(self, "", "")
+      def draw(&block)
+        block.call(Mapper.new(self, "", ""))
       end
 
       def add(route)
