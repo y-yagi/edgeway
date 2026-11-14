@@ -33,6 +33,8 @@ class ModelAttributeTest < DatabaseTestCase
   SELECT_ATTACHMENT_BY_DATA = "SELECT id, name, data FROM attachments WHERE data = ? ORDER BY id ASC LIMIT 1 | [{\"$blob\":\"AAH/AIA=\"}]"
   UPDATE_ATTACHMENT = "UPDATE attachments SET name = ?, data = ? WHERE id = ? | [\"a\",{\"$blob\":\"eA==\"},1]"
   SELECT_LEDGER = "SELECT id, total FROM ledgers WHERE id = ? LIMIT 1 | [\"3000000000\"]"
+  SELECT_LEDGERS = "SELECT id, total FROM ledgers"
+  SELECT_LEDGERS_BY_ID = "#{SELECT_LEDGERS} WHERE id = ? | [\"3000000000\"]"
   UPDATE_LEDGER = "UPDATE ledgers SET total = ? WHERE id = ? | [\"12\",\"3000000000\"]"
   DELETE_LEDGER = "DELETE FROM ledgers WHERE id = ? | [\"3000000000\"]"
   SELECT_REFERENCE = "SELECT id, ticket_id, note FROM references ORDER BY id ASC LIMIT 1 | []"
@@ -200,6 +202,63 @@ class ModelAttributeTest < DatabaseTestCase
     @database.queue([{ "id" => 3000000000, "total" => 9007199254740991 }])
     Ledger.find("3000000000")
     assert_equal [SELECT_LEDGER], @database.log
+  end
+
+  def test_finding_a_ledger_by_a_bigint_integer_binds_the_same_string
+    @database.queue([{ "id" => 3000000000, "total" => 9007199254740991 }])
+    Ledger.find(3000000000)
+    assert_equal [SELECT_LEDGER], @database.log
+  end
+
+  def test_where_with_a_bigint_integer_binds_the_same_string_as_the_string_form
+    Ledger.where(id: 3000000000).to_a
+    Ledger.where("id" => 3000000000).to_a
+    Ledger.where(id: "3000000000").to_a
+    assert_equal [SELECT_LEDGERS_BY_ID] * 3, @database.log
+  end
+
+  def test_where_with_bigint_integers_in_a_list_and_at_the_int64_limit
+    Ledger.where(id: [3000000000, -3000000000]).to_a
+    Ledger.where(id: 9223372036854775807).to_a
+    expected = [
+      "#{SELECT_LEDGERS} WHERE id IN (?, ?) | [\"3000000000\",\"-3000000000\"]",
+      "#{SELECT_LEDGERS} WHERE id = ? | [\"9223372036854775807\"]",
+    ]
+    assert_equal expected, @database.log
+  end
+
+  def test_where_with_a_bigint_integer_beyond_int64_binds_its_text
+    Ledger.where(id: 9223372036854775808).to_a
+    assert_equal ["#{SELECT_LEDGERS} WHERE id = ? | [\"9223372036854775808\"]"], @database.log
+  end
+
+  def test_a_ledger_found_by_a_bigint_integer_holds_the_id_as_a_string
+    @database.queue([{ "id" => 3000000000, "total" => 1 }])
+    assert_equal '"3000000000"', Ledger.find(3000000000).id.inspect
+  end
+
+  def test_creating_a_ledger_with_bigint_integers_holds_strings_and_binds_them
+    @database.queue([{ "id" => 3000000000, "total" => -5000000000 }])
+    ledger = Ledger.create!(total: -5000000000)
+    assert_equal '"-5000000000"', ledger.total.inspect
+    assert_equal ["INSERT INTO ledgers (total) VALUES (?) RETURNING id, total | [\"-5000000000\"]"], @database.log
+  end
+
+  def test_a_bigint_integer_beyond_int64_is_nil_and_invalid
+    ledger = Ledger.new(total: 9223372036854775808)
+    assert_equal "nil", ledger.total.inspect
+    assert_equal "false", ledger.valid?.inspect
+    assert_equal '["total is invalid"]', ledger.errors.inspect
+  end
+
+  def test_execute_and_select_all_bind_integers_beyond_32_bits_as_numbers
+    Edgeway::Model.execute("UPDATE ledgers SET total = ? WHERE id = ?", [5000000000, 3000000000])
+    Edgeway::Model.select_all("SELECT * FROM ledgers WHERE id = ?", [-3000000000])
+    expected = [
+      "UPDATE ledgers SET total = ? WHERE id = ? | [5000000000,3000000000]",
+      "SELECT * FROM ledgers WHERE id = ? | [-3000000000]",
+    ]
+    assert_equal expected, @database.log
   end
 
   def test_updating_a_ledger_binds_the_bigints_as_strings
