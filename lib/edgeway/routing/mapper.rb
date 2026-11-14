@@ -17,11 +17,11 @@ module Edgeway
 
       def root(to:) = add("GET", "/", to)
 
-      def namespace(name)
-        yield Mapper.new(@routes, "#{@path_prefix}/#{name}", "#{@module_prefix}#{name}/")
+      def namespace(name, &block)
+        block.call(Mapper.new(@routes, "#{@path_prefix}/#{name}", "#{@module_prefix}#{name}/"))
       end
 
-      def resources(name, only: [], except: [])
+      def resources(name, only: [], except: [], &block)
         base = "/#{name}"
         member = "#{base}/:id"
         (only + except).each do |a|
@@ -39,8 +39,8 @@ module Edgeway
           add("PUT", member, "#{name}#update")
         end
         add("DELETE", member, "#{name}#destroy") if want.include?("destroy")
-        if block_given?
-          yield Mapper.new(@routes, "#{@path_prefix}#{base}/:#{Mapper.singular(name)}_id", @module_prefix)
+        if block
+          block.call(Mapper.new(@routes, "#{@path_prefix}#{base}/:#{Mapper.singular(name)}_id", @module_prefix))
         end
       end
 

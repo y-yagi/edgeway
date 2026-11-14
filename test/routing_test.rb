@@ -120,6 +120,77 @@ class RoutingTest < SpinelTest::Unit::TestCase
     assert_equal "2", params["category_id"]
   end
 
+  def test_nested_blocks_capture_outer_locals
+    prefix = "v1"
+    visited = 0
+    route_set = Edgeway::Routing::RouteSet.new
+    route_set.draw do |routes|
+      routes.resources :todos, only: [:index] do |todos|
+        visited += 1
+        todos.get "/#{prefix}", to: "versions#show"
+      end
+    end
+    assert_equal 1, visited
+    assert_equal ["GET /todos TodosController#index", "GET /todos/:todo_id/v1 VersionsController#show"], listing(route_set)
+  end
+
+  def test_next_leaves_a_block_early
+    route_set = Edgeway::Routing::RouteSet.new
+    skip = true
+    route_set.draw do |routes|
+      routes.namespace :admin do |admin|
+        next if skip
+        admin.get "/skipped", to: "skipped#show"
+      end
+      routes.get "/after", to: "after#show"
+    end
+    assert_equal ["GET /after AfterController#show"], listing(route_set)
+  end
+
+  def test_error_in_block_propagates
+    route_set = Edgeway::Routing::RouteSet.new
+    error = assert_raise(ArgumentError) do
+      route_set.draw do |routes|
+        routes.resources :todos, only: [:index] do
+          raise ArgumentError, "boom"
+        end
+      end
+    end
+    assert_equal "boom", error.message
+    assert_equal ["GET /todos TodosController#index"], listing(route_set)
+  end
+
+  def test_break_leaves_only_the_resources_call
+    route_set = Edgeway::Routing::RouteSet.new
+    stop = true
+    route_set.draw do |routes|
+      routes.get "/before", to: "before#show"
+      routes.resources :todos, only: [:index] do |todos|
+        break if stop
+        todos.get "/skipped", to: "skipped#show"
+      end
+      routes.get "/after", to: "after#show"
+    end
+    expected = [
+      "GET /before BeforeController#show",
+      "GET /todos TodosController#index",
+      "GET /after AfterController#show"
+    ]
+    assert_equal expected, listing(route_set)
+  end
+
+  def test_break_leaves_draw_early
+    route_set = Edgeway::Routing::RouteSet.new
+    stop = true
+    route_set.draw do |routes|
+      routes.get "/before", to: "before#show"
+      break if stop
+      routes.get "/skipped", to: "skipped#show"
+    end
+    route_set.draw { |routes| routes.get "/later", to: "later#show" }
+    assert_equal ["GET /before BeforeController#show", "GET /later LaterController#show"], listing(route_set)
+  end
+
   def test_only_rejects_unknown_action
     error = assert_raise(ArgumentError) do
       Edgeway::Routing::RouteSet.new.draw { |routes| routes.resources :pages, only: [:new] }
