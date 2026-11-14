@@ -254,8 +254,11 @@ Anything else, such as a key the Worker holds for another purpose, is never visi
   and it renders in JSON as a String.
 - D1 hands rows over as JavaScript numbers, so a value beyond 2^53 (9007199254740991) loses precision before Ruby sees it.
   Keep values below 2^53, or store them as `:string`.
-- Pass bigint values as Strings: `Todo.find("3000000000")`, `where(id: "3000000000")`, `create!(owner_id: "5000000000")`,
-  `Model.execute("... WHERE id = ?", ["3000000000"])`. An Integer literal beyond 32 bits in a Hash raises `RangeError` in a wasm build (a Spinel limitation).
+- Pass bigint values as Integers or Strings: `Todo.find(3000000000)` and `Todo.find("3000000000")` are the same, and so are
+  `where(id: 3000000000)`, `create!(owner_id: 5000000000)` and `where(id: [3000000000, 4000000000])`. The attribute holds the String either way.
+  Only a Range with a bound beyond 32 bits needs Strings: `where(total: "3000000000".."9007199254740993")` (Spinel can't build the Integer one).
+- A bind in raw SQL (`Model.execute`, `Model.select_all`, `find_by_sql`, `where("...", value)`) goes to D1 as a JavaScript number,
+  so an Integer beyond 2^53 is rounded there: pass a String (`Model.execute("... WHERE id = ?", ["9007199254740993"])`).
 - `attribute :id, :bigint` makes the primary key a bigint, and `id` is a String. A foreign key to it is `attribute :owner_id, :bigint`,
   declared before `belongs_to` so it keeps its type.
 - Raw SQL rows (`Model.select_all`) hold what the database gave: an INTEGER beyond 32 bits is a Bignum in a wasm build, and `render json:` of it raises.
@@ -364,6 +367,7 @@ Edgeway::Model.exec("DELETE FROM tags\nDELETE FROM todos")        # nil
   A `nil` in an Array also matches `NULL`: `(position IN (?) OR position IS NULL)`.
 - A Range is `>=` and `<=` (`<` for `1...5`); an endless or beginless Range has one side.
   Spinel can't build a Range of Times: use ISO 8601 Strings (`"2026-10-28"..."2026-10-29"`) or a fragment.
+  Nor a Range with an Integer bound beyond 32 bits: use Strings for a `:bigint` column ([Attribute types](#attribute-types)).
 - A String is a raw SQL fragment, in parentheses and ANDed with the rest; its binds follow it.
   It is raw SQL: put user input in the binds, never interpolate it.
   Its binds are not cast by column type: only booleans (1/0) and Times (ISO 8601) are converted.
@@ -1094,7 +1098,7 @@ With SQLite the tests are native builds, while production is wasm32-wasi on Work
   With `adapter: memory` in `test:` they are a native build, and D1 and JSPI are not covered either (see [Testing an app](#testing-an-app)).
 - Not verified on a production Cloudflare deploy yet: CPU and wall time on a cold start and on a JWKS cache miss,
   and read replication with real replicas (local D1 has none, and D1 itself accepts any bookmark there). Everything was checked under `wrangler dev`.
-- Integers are 32 bits in a wasm build: use `:bigint` for larger ones and pass them as Strings,
+- Integers are 32 bits in a wasm build: use `:bigint` for larger ones (as Integers or Strings),
   and keep them below 2^53, as D1 hands rows over as JavaScript numbers (see [Attribute types](#attribute-types)).
 - A `Model.batch` runs on one database: there is no transaction across databases ([Multiple databases](#multiple-databases)).
 - `Model.exec` does not work on a database with `sessions: true`: a D1 session has no `exec()` ([Queries](#queries)).

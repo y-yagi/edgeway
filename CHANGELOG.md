@@ -12,6 +12,7 @@
 - A route to a controller that is not defined, or to an action that is not a public method of it (private methods and `Edgeway::Controller::Base`'s own public methods are not actions), is a build error, not a 404 at run time.
 - `edgeway build` and `edgeway test` now load the app's files in CRuby to read the routes (`edgeway routes` loads only `config/routes.rb`).
   The library files that use Spinel's `ffi_*` declarations can't load there and are skipped, so an app file that uses their classes when it is loaded fails the build.
+- `:bigint` values can be passed as Integers as well as Strings; an Integer beyond 32 bits no longer raises `RangeError` in a wasm build.
 
 ### Fixed
 
