@@ -254,7 +254,7 @@ p Event.where(created_at: t0).pluck(:name)
 p Event.where("created_at > ?", t0 + 1800).order(:id).pluck(:name)
 p Event.find_by_sql("SELECT * FROM events WHERE created_at < ?", [t0 + 1800]).map { |e| e.name }
 p Event.where(created_at: "2026-10-28T05:00:00.000Z".."2026-10-28T06:00:00.000Z").order(:id).pluck(:name)
-p Event.where(created_at: t0.utc.iso8601(3)...(t0 + 3600).utc.iso8601(3)).order(:id).pluck(:name)
+p Event.where(created_at: t0...(t0 + 3600)).order(:id).pluck(:name)
 p Edgeway::Model.select_all("SELECT name FROM events WHERE created_at = ?", [t0 + 7200])
 begin
   Group.where("rank IN (?)", [1, 2])

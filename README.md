@@ -256,13 +256,13 @@ Anything else, such as a key the Worker holds for another purpose, is never visi
   Keep values below 2^53, or store them as `:string`.
 - Pass bigint values as Integers or Strings: `Todo.find(3000000000)` and `Todo.find("3000000000")` are the same, and so are
   `where(id: 3000000000)`, `create!(owner_id: 5000000000)` and `where(id: [3000000000, 4000000000])`. The attribute holds the String either way.
-  Only a Range with a bound beyond 32 bits needs Strings: `where(total: "3000000000".."9007199254740993")` (Spinel can't build the Integer one).
+  Only a Range with a bound beyond 32 bits needs Strings: `where(total: "3000000000".."9007199254740993")` (Spinel can't build the Integer one in a wasm build).
 - A bind in raw SQL (`Model.execute`, `Model.select_all`, `find_by_sql`, `where("...", value)`) goes to D1 as a JavaScript number,
   so an Integer beyond 2^53 is rounded there: pass a String (`Model.execute("... WHERE id = ?", ["9007199254740993"])`).
 - `attribute :id, :bigint` makes the primary key a bigint, and `id` is a String. A foreign key to it is `attribute :owner_id, :bigint`,
   declared before `belongs_to` so it keeps its type.
-- Raw SQL rows (`Model.select_all`) hold what the database gave: an INTEGER beyond 32 bits is a Bignum in a wasm build, and `render json:` of it raises.
-  Select it as text (`SELECT CAST(id AS TEXT) AS id ...`) or convert it with `Edgeway::Model.cast(:bigint, value)`.
+- Raw SQL rows (`Model.select_all`) hold what the database gave: an INTEGER beyond 32 bits is a Bignum in a wasm build.
+  To get a String like a `:bigint` attribute, select it as text (`SELECT CAST(id AS TEXT) AS id ...`) or use `Edgeway::Model.cast(:bigint, value)`.
 - `Model.execute` answers `"last_insert_id"` as an Integer, or as a decimal String when the rowid is beyond 32 bits.
 
 #### `:binary`
@@ -366,8 +366,8 @@ Edgeway::Model.exec("DELETE FROM tags\nDELETE FROM todos")        # nil
 - An Array is `IN`; each value is cast by the column type. An empty Array matches nothing (`1 = 0`).
   A `nil` in an Array also matches `NULL`: `(position IN (?) OR position IS NULL)`.
 - A Range is `>=` and `<=` (`<` for `1...5`); an endless or beginless Range has one side.
-  Spinel can't build a Range of Times: use ISO 8601 Strings (`"2026-10-28"..."2026-10-29"`) or a fragment.
-  Nor a Range with an Integer bound beyond 32 bits: use Strings for a `:bigint` column ([Attribute types](#attribute-types)).
+  A Range of Times is bound as UTC Strings (`"2026-10-28T05:00:00.000Z"`).
+  Spinel can't build a Range with an Integer bound beyond 32 bits in a wasm build: use Strings for a `:bigint` column ([Attribute types](#attribute-types)).
 - A String is a raw SQL fragment, in parentheses and ANDed with the rest; its binds follow it.
   It is raw SQL: put user input in the binds, never interpolate it.
   Its binds are not cast by column type: only booleans (1/0) and Times (ISO 8601) are converted.
@@ -1102,7 +1102,6 @@ With SQLite the tests are native builds, while production is wasm32-wasi on Work
   and keep them below 2^53, as D1 hands rows over as JavaScript numbers (see [Attribute types](#attribute-types)).
 - A `Model.batch` runs on one database: there is no transaction across databases ([Multiple databases](#multiple-databases)).
 - `Model.exec` does not work on a database with `sessions: true`: a D1 session has no `exec()` ([Queries](#queries)).
-- Spinel can't build a Range of Times: use ISO 8601 Strings or a SQL fragment in `where` ([Queries](#queries)).
 - `first()` and `raw()` are not used and `dump()` is not supported; Time Travel and export/import are `wrangler d1` commands ([D1 API coverage](#d1-api-coverage)).
 
 ## Development
