@@ -372,6 +372,18 @@ class ModelQueryTest < DatabaseTestCase
     assert_equal expected, @database.log
   end
 
+  def test_where_with_a_range_of_times_binds_utc_strings
+    start = Time.utc(2026, 10, 28, 5, 0, 0)
+    finish = Time.new(2026, 10, 28, 15, 0, 0, "+09:00")
+    Todo.where(created_at: start..finish).to_a
+    Todo.where(created_at: start...finish).to_a
+    expected = [
+      "#{SELECT_TODOS} WHERE created_at >= ? AND created_at <= ? | [\"2026-10-28T05:00:00.000Z\",\"2026-10-28T06:00:00.000Z\"]",
+      "#{SELECT_TODOS} WHERE created_at >= ? AND created_at < ? | [\"2026-10-28T05:00:00.000Z\",\"2026-10-28T06:00:00.000Z\"]",
+    ]
+    assert_equal expected, @database.log
+  end
+
   def test_where_with_an_endless_or_beginless_range_is_one_comparison
     Todo.where(position: (2..)).to_a
     Todo.where(position: (..5)).to_a

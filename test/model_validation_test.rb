@@ -103,10 +103,7 @@ class ModelValidationTest < DatabaseTestCase
   end
 
   def test_a_float_that_prints_with_an_exponent_is_a_number
-    # Set through the writers: a big integral Float in a Hash literal fails in Spinel.
-    measure = Measure.new(qty: 5, code: "abc")
-    measure.amount = 1.0e20
-    measure.ratio = 0.00001
+    measure = Measure.new(qty: 5, code: "abc", amount: 1.0e20, ratio: 0.00001)
     measure.valid?
     assert_equal [], measure.errors
     assert_equal "1.0e+20", measure.amount.inspect
