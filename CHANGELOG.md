@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.4.0
+
 ### Added
 
 - `edgeway generate` takes a `binary` field type.
