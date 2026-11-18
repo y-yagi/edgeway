@@ -1117,6 +1117,15 @@ bundle exec rake test
 
 # the unit tests under CRuby only
 bundle exec rake test:cruby
+
+# CPU cost per request (benchmark/request.rb) as a Spinel native build, best of 5 rounds;
+# ITERATIONS=N sets the requests per round. bench:ruby runs the same script under CRuby
+bundle exec rake bench
+bundle exec rake bench:ruby
+
+# how many slots Spinel widened to untyped (boxed poly slow path), by file
+# (counted for the native build of benchmark/request.rb, as are the timings above)
+bundle exec rake bench:widen
 ```
 
 CI runs `rake test` (both legs, the CLI and the JS tests) on Ubuntu and macOS, with Spinel from `mise.toml`.
