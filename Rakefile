@@ -2,6 +2,7 @@
 
 require "bundler/gem_tasks"
 require "fileutils"
+require "json"
 require "open3"
 require "spinel_test/unit/cli"
 require "spinel_test/unit/toolchain"
@@ -25,6 +26,12 @@ require_relative "lib/edgeway/cli/toolchain"
 #                              test_command.rb also runs edgeway test with Spinel)
 #   rake test:js               test/js/*_test.mjs with plain node (skipped without node)
 #   rake test:update           rewrite test/cli/*.expected from CRuby's output
+#   rake bench                 build benchmark/request.rb with Spinel (native, no
+#                              --incremental) into tmp/bench/request and run it;
+#                              ITERATIONS=N sets the requests per round, best of 5
+#   rake bench:ruby            the same script under CRuby
+#   rake bench:widen           count the slots Spinel widened to untyped (boxed
+#                              poly slow path) in benchmark/request.rb, by file
 #   SPINEL=/path/to/spinel     the compiler (default: spinel on PATH, then
 #                              `mise which spinel`; see Edgeway::CLI::Toolchain)
 #   JOBS=N                     how many test/spinel/*.rb tests build at once
@@ -137,6 +144,85 @@ namespace :test do
       File.write(t.sub(/\.rb\z/, ".expected"), out)
     end
   end
+end
+
+BENCHMARK = "benchmark/request.rb"
+BENCHMARK_BIN = "tmp/bench/request"
+BENCHMARK_TYPES = "tmp/bench/request.types.json"
+BUILTINS_BUCKET = "(spinel builtins)"
+
+def benchmark_arguments
+  ENV["ITERATIONS"] ? [ENV["ITERATIONS"]] : []
+end
+
+def benchmark_spinel
+  Edgeway::CLI::Toolchain.spinel || abort("rake bench needs a Spinel compiler (set SPINEL=...)")
+end
+
+def build_benchmark(*arguments)
+  FileUtils.mkdir_p("tmp/bench")
+  sh benchmark_spinel, "-I", "lib", BENCHMARK, *arguments
+end
+
+def widened_warnings(types_path)
+  diagnostics = JSON.parse(File.read(types_path)).fetch("diagnostics", [])
+  diagnostics.select do |item|
+    item["severity"] == "warning" && %w[param return].include?(item["slot"])
+  end
+end
+
+def unreachable_warning?(warning)
+  warning.fetch("why", []).any? { |step| step["note"] == "never bound: no call site gives it a type" }
+end
+
+def repo_relative_file(file)
+  path = File.expand_path(file.to_s)
+  root = "#{Dir.pwd}/"
+  path.start_with?(root) ? path.delete_prefix(root) : BUILTINS_BUCKET
+end
+
+def lib_warning?(warning)
+  repo_relative_file(warning["file"]).start_with?("lib/")
+end
+
+def print_slot_counts(warnings)
+  warnings.group_by { |item| item["slot"] }.sort.each { |slot, items| puts "  #{slot}: #{items.size}" }
+end
+
+def print_file_counts(warnings)
+  counts = warnings.group_by { |item| repo_relative_file(item["file"]) }
+  counts.sort_by { |file, items| [-items.size, file] }.each do |file, items|
+    puts format("  %5d  %s", items.size, file)
+  end
+end
+
+def print_widened_report(warnings)
+  unreachable, reached = warnings.partition { |item| unreachable_warning?(item) }
+  puts "widened slots (reached by the benchmark): #{reached.size}, in lib/: #{reached.count { |item| lib_warning?(item) }}"
+  print_slot_counts(reached)
+  puts "by file:"
+  print_file_counts(reached)
+  puts "never bound (no call site from the benchmark): #{unreachable.size}"
+  print_file_counts(unreachable)
+end
+
+namespace :bench do
+  desc "Run benchmark/request.rb under CRuby (ITERATIONS=N)"
+  task :ruby do
+    sh "ruby", "-I", "lib", BENCHMARK, *benchmark_arguments
+  end
+
+  desc "Count the slots Spinel widened to untyped in benchmark/request.rb"
+  task :widen do
+    build_benchmark("--emit-types", "-o", BENCHMARK_TYPES)
+    print_widened_report(widened_warnings(BENCHMARK_TYPES))
+  end
+end
+
+desc "Build benchmark/request.rb with Spinel and run it (ITERATIONS=N)"
+task :bench do
+  build_benchmark("-o", BENCHMARK_BIN)
+  sh BENCHMARK_BIN, *benchmark_arguments
 end
 
 desc "Test the edgeway command: build's main.rb, new, routes, test (under CRuby)"
