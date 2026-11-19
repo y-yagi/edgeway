@@ -32,20 +32,23 @@ module Edgeway
         klass.is_a?(Class) && klass < Base ? klass : nil
       end
 
+      def self.schema = (@schema ||= Schema.new)
+
       def self.table_name=(name)
-        @table_name = name
+        schema.table_name = name.to_s
       end
 
       def self.table_name
-        @table_name || Inflector.pluralize(Model.underscore(name.split("::").last))
+        custom = schema.table_name
+        custom.empty? ? Inflector.pluralize(Model.underscore(name.split("::").last)) : custom
       end
 
       def self.database=(name)
         raise ArgumentError, "database name can't be blank" if name.nil? || name.to_s.empty?
-        @database = name.to_s
+        schema.database = name.to_s
       end
 
-      def self.own_database = @database
+      def self.own_database = schema.database
 
       def self.database
         klass = self
@@ -60,21 +63,15 @@ module Edgeway
 
       def self.connection = Model.connection_for(database)
 
-      def self.attribute_types = (@attribute_types ||= {})
-      def self.attribute_defaults = (@attribute_defaults ||= {})
-      def self.belongs_to_list = (@belongs_to ||= [])
-      def self.keep_type(col)
-        @kept_types ||= {}
-        @kept_types[col] = attribute_types[col] if attribute_types.key?(col)
-      end
-
-      def self.restore_type(col)
-        @kept_types ||= {}
-        attribute_types[col] = @kept_types[col] if @kept_types.key?(col)
-      end
-
-      def self.rules = (@rules ||= [])
-      def self.has_manys = (@has_manys ||= [])
+      def self.declare_attribute(column, type) = schema.declare(column, type)
+      def self.attribute?(column) = schema.declared?(column)
+      def self.attribute_names = schema.attribute_names
+      def self.declare_default(column, value) = schema.declare_default(column, value)
+      def self.belongs_to_list = schema.belongs_tos
+      def self.keep_type(column) = schema.keep_type(column)
+      def self.restore_type(column) = schema.restore_type(column)
+      def self.rules = schema.rules
+      def self.has_manys = schema.has_manys
 
       # The has_manys with a dependent: option.
       def self.dependents = has_manys.reject { |h| h.mode.nil? }
@@ -93,22 +90,23 @@ module Edgeway
       end
 
       def self.column(name)
-        col = name.to_s
-        raise UnknownColumn, "unknown column: #{col}" unless col == "id" || attribute_types.key?(col)
-        col
+        column = name.to_s
+        raise UnknownColumn, "unknown column: #{column}" unless column == "id" || attribute?(column)
+        column
       end
 
       def self.columns
-        ["id"] + attribute_types.keys
+        ["id"] + attribute_names
       end
 
-      def self.id_type = (@id_type ||= :integer)
+      def self.id_type = schema.id_type
+
       def self.id_type=(type)
-        @id_type = type
+        schema.id_type = type
       end
 
-      def self.type_of(col)
-        col == "id" ? id_type : attribute_types[col]
+      def self.type_of(column)
+        column == "id" ? id_type : schema.type_of(column)
       end
 
       def self.all = Relation.new(self)
@@ -156,7 +154,7 @@ module Edgeway
         @persisted = false
         @loaded_children = {}
         @loaded_parents = {}
-        self.class.attribute_defaults.each { |k, v| write_attribute(k, v) }
+        self.class.schema.each_default { |column, value| write_attribute(column, value) }
         assign(attrs)
       end
 
@@ -171,10 +169,9 @@ module Edgeway
         else
           values = attrs
         end
-        types = self.class.attribute_types
         values.each do |k, v|
           key = k.to_s
-          write_attribute(key, param_value(types[key], v, attrs)) if types.key?(key)
+          write_attribute(key, param_value(self.class.type_of(key), v, attrs)) if self.class.attribute?(key)
         end
       end
 

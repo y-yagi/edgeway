@@ -122,10 +122,10 @@ module Edgeway
 
       def update_row
         conn = self.class.connection
-        cols = self.class.attribute_types.keys
-        values = cols.map { |c| Model.database_value(@attributes[c], self.class.type_of(c)) }
-        sets = cols.each_with_index.map { |c, i| "#{c} = #{conn.placeholder(i + 1)}" }.join(", ")
-        Model.write("UPDATE #{self.class.table_name} SET #{sets} WHERE id = #{conn.placeholder(cols.size + 1)}",
+        columns = self.class.attribute_names
+        values = columns.map { |column| Model.database_value(@attributes[column], self.class.type_of(column)) }
+        sets = columns.each_with_index.map { |column, i| "#{column} = #{conn.placeholder(i + 1)}" }.join(", ")
+        Model.write("UPDATE #{self.class.table_name} SET #{sets} WHERE id = #{conn.placeholder(columns.size + 1)}",
                      values + [id], database: self.class.database)
       end
 
@@ -133,14 +133,14 @@ module Edgeway
         raise ArgumentError, "create isn't supported inside Model.batch" if Model.batching?
         conn = self.class.connection
         table = self.class.table_name
-        cols = self.class.attribute_types.keys.reject { |c| @attributes[c].nil? }
-        values = cols.map { |c| Model.database_value(@attributes[c], self.class.type_of(c)) }
+        columns = self.class.attribute_names.reject { |column| @attributes[column].nil? }
+        values = columns.map { |column| Model.database_value(@attributes[column], self.class.type_of(column)) }
         sql = "INSERT INTO #{table}"
-        if cols.empty?
+        if columns.empty?
           sql += " DEFAULT VALUES"
         else
-          marks = cols.each_with_index.map { |_c, i| conn.placeholder(i + 1) }
-          sql += " (#{cols.join(", ")}) VALUES (#{marks.join(", ")})"
+          marks = columns.each_with_index.map { |_column, i| conn.placeholder(i + 1) }
+          sql += " (#{columns.join(", ")}) VALUES (#{marks.join(", ")})"
         end
         if conn.supports_returning?
           load_row(conn.insert_returning(sql + " RETURNING #{self.class.columns.join(", ")}", values))
@@ -151,10 +151,10 @@ module Edgeway
       end
 
       def touch(creating)
-        types = self.class.attribute_types
+        klass = self.class
         now = Model.now
-        write_attribute("created_at", now) if creating && types.key?("created_at")
-        write_attribute("updated_at", now) if types.key?("updated_at")
+        write_attribute("created_at", now) if creating && klass.attribute?("created_at")
+        write_attribute("updated_at", now) if klass.attribute?("updated_at")
       end
     end
   end
