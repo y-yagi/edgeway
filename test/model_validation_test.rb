@@ -21,6 +21,11 @@ class ModelValidationTest < DatabaseTestCase
     validates :code, length: { is: 3 }
   end
 
+  class Signup < ApplicationModel
+    attribute :email, :string
+    validates :password_confirmation, presence: true
+  end
+
   class Project < ApplicationModel
     attribute :owner_id, :string
     attribute :name, :string
@@ -112,6 +117,18 @@ class ModelValidationTest < DatabaseTestCase
   def test_bounds_and_length_are_checked_alongside_numericality
     errors = errors_of(amount: "0.00001", qty: "101", ratio: "", code: "a")
     assert_equal ["qty must be less than or equal to 100", "ratio is not a number", "code is too short (minimum is 2 characters)"], errors
+  end
+
+  def test_a_rule_on_an_undeclared_column_checks_it_as_text
+    signup = Signup.new(email: "a@example.com")
+    refute signup.valid?
+    assert_equal ["password_confirmation can't be blank"], signup.errors
+  end
+
+  def test_write_attribute_on_an_undeclared_column_is_read_by_its_rule
+    signup = Signup.new
+    signup.write_attribute("password_confirmation", 12)
+    assert signup.valid?
   end
 
   def test_blank_and_nil_numbers_are_not_numbers

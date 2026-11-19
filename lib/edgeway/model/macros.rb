@@ -6,8 +6,8 @@ module Edgeway
           self.id_type = type
           return
         end
-        attribute_types[name.to_s] = type
-        attribute_defaults[name.to_s] = default unless default.nil?
+        declare_attribute(name.to_s, type)
+        declare_default(name.to_s, default) unless default.nil?
         define_method(name) { @attributes[name.to_s] }
         define_method("#{name}=") { |v| write_attribute(name.to_s, v) }
       end
@@ -42,7 +42,7 @@ module Edgeway
       # parent's ("id"). A foreign key that is already declared keeps its type,
       # which is how a String one is made: attribute :owner_uid, :string first.
       # attribute is called either way (Spinel needs a macro call to be
-      # unconditional, and a macro body can't read attribute_types into a
+      # unconditional, and a macro body can't read the declared types into a
       # local), so keep_type/restore_type put the declared type back.
       def belongs_to(name, foreign_key: nil, primary_key: nil)
         fk = foreign_key.nil? ? "#{name}_id" : foreign_key.to_s
