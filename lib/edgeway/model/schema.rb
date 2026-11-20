@@ -14,6 +14,7 @@ module Edgeway
         @database = nil
         @column_types = {}
         @column_names = []
+        @columns = ["id"]
         @attribute_defaults = {}
         @default_columns = []
         @belongs_tos = []
@@ -23,7 +24,10 @@ module Edgeway
       end
 
       def declare(column, type)
-        @column_names << column unless @column_types.key?(column)
+        unless @column_types.key?(column)
+          @column_names << column
+          @columns << column
+        end
         @column_types[column] = type
       end
 
@@ -39,6 +43,8 @@ module Edgeway
       def declared?(column) = @column_types.key?(column)
 
       def attribute_names = @column_names
+
+      def columns = @columns
 
       def type_of(column) = @column_types[column]
 
