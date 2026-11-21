@@ -95,9 +95,7 @@ module Edgeway
         column
       end
 
-      def self.columns
-        ["id"] + attribute_names
-      end
+      def self.columns = schema.columns
 
       def self.id_type = schema.id_type
 
